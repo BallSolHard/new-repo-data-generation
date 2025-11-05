@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { createClient } from '@supabase/supabase-js';
 
 // Interface for generated question
 interface GeneratedQuestion {
@@ -17,13 +18,105 @@ const model = genAI.getGenerativeModel({
   model: "gemini-2.0-flash" // Using Gemini 2.0 Flash
 });
 
+// Initialize Supabase client
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL || '',
+  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
+);
+
+// Function to get the highest question index across all modules for a topic
+async function getNextQuestionIndexForTopic(topicId: string, modules: any[] = []): Promise<number> {
+  try {
+    let globalHighestIndex = 0;
+    
+    // Check each module individually to find the highest index
+    for (const module of modules) {
+      const pattern = `q_${topicId}_${module.module_id}_%`;
+      console.log("Checking pattern:", pattern);
+      
+      // Query Supabase to get all matching questions (we'll sort numerically in JS)
+      const { data, error } = await supabase
+        .from('question')
+        .select('id')
+        .like('id', pattern);
+      console.log("DATA", data);
+      if (error) {
+        console.error(`Error querying Supabase for module ${module.module_id}:`, error);
+        continue;
+      }
+
+      if (data && data.length > 0) {
+        // Parse IDs and extract numeric indices
+        const indices = [];
+        for (const record of data) {
+          console.log("RECORD ID", record.id);
+          const matches = record.id.match(/q_\d+_m_[^_]+_\d+_(\d+)$/);
+          console.log("MATCHES for", record.id, ":", matches);
+          if (matches && matches[1]) {
+            indices.push(parseInt(matches[1]));
+          }
+        }
+        
+        // Sort indices numerically and get the highest
+        if (indices.length > 0) {
+          indices.sort((a, b) => b - a); // Sort descending
+          const highestForModule = indices[0];
+          console.log(`Module ${module.module_id}: found indices [${indices.join(', ')}], highest: ${highestForModule}`);
+          
+          if (highestForModule > globalHighestIndex) {
+            globalHighestIndex = highestForModule;
+          }
+        }
+      } else {
+        console.log(`Module ${module.module_id}: no existing questions found`);
+      }
+    }
+    
+    // Also check for any questions in this topic that might not match the current modules
+    const fallbackPattern = `q_${topicId}_%`;
+    const { data: fallbackData, error: fallbackError } = await supabase
+      .from('question')
+      .select('id')
+      .like('id', fallbackPattern);
+    
+    if (!fallbackError && fallbackData && fallbackData.length > 0) {
+      console.log(`Fallback check: found ${fallbackData.length} questions for topic ${topicId}`);
+      
+      const fallbackIndices = [];
+      for (const record of fallbackData) {
+        const matches = record.id.match(/q_\d+_m_[^_]+_\d+_(\d+)$/);
+        if (matches && matches[1]) {
+          fallbackIndices.push(parseInt(matches[1]));
+        }
+      }
+      
+      if (fallbackIndices.length > 0) {
+        fallbackIndices.sort((a, b) => b - a); // Sort descending
+        const fallbackHighest = fallbackIndices[0];
+        console.log(`Fallback: highest index found: ${fallbackHighest}`);
+        
+        if (fallbackHighest > globalHighestIndex) {
+          globalHighestIndex = fallbackHighest;
+        }
+      }
+    }
+    
+    const nextIndex = globalHighestIndex + 1;
+    console.log(`Topic ${topicId}: highest index found: ${globalHighestIndex}, next index: ${nextIndex}`);
+    return nextIndex;
+    
+  } catch (error) {
+    console.error('Error getting next question index for topic:', error);
+    return 1;
+  }
+}
+
 // Function to validate questions with another LLM instance
 async function validateQuestions(
   questions: GeneratedQuestion[],
   certificationName: string,
   topicName: string
 ): Promise<GeneratedQuestion[]> {
-  console.log(`Validating ${questions.length} questions with secondary LLM...`);
   
   const validatedQuestions: GeneratedQuestion[] = [];
   
@@ -82,12 +175,10 @@ RESPOND WITH JSON ONLY:
             explanation: `${question.explanation} [Validated and corrected: ${validation.validation_notes}]`
           };
           validatedQuestions.push(correctedQuestion);
-          console.log(`Corrected answer for question ${i + 1}: {${validation.correct_answer_index}}`);
         } else {
           validatedQuestions.push(question);
         }
       } else {
-        console.log(`Question ${i + 1} validated successfully`);
         validatedQuestions.push(question);
       }
       
@@ -102,8 +193,6 @@ RESPOND WITH JSON ONLY:
       await new Promise(resolve => setTimeout(resolve, 100));
     }
   }
-  
-  console.log(`Validation complete: ${validatedQuestions.length} questions processed`);
   return validatedQuestions;
 }
 
@@ -168,17 +257,11 @@ REQUIREMENTS:
 - Return only the JSON array
 
 Generate ${questionsPerModule * modules.length} questions:`;
-
-  console.log('Gemini Batch Prompt for', modules.length, 'modules');
   
   try {
     const result = await model.generateContent(prompt);
     const response = await result.response;
     const text = response.text();
-    
-    console.log('Raw Gemini response length:', text.length);
-    console.log('Raw Gemini response preview:', text.substring(0, 500));
-    
     // Clean and parse JSON response with better error handling
     let cleanedText = text.replace(/```json\n?|\n?```/g, '').trim();
     
@@ -196,8 +279,6 @@ Generate ${questionsPerModule * modules.length} questions:`;
         cleanedText = cleanedText.substring(0, lastBracketIndex + 1);
       }
     }
-    
-    console.log('Cleaned text for parsing:', cleanedText.substring(0, 200));
     
     let questionsData;
     try {
@@ -332,7 +413,8 @@ export async function POST(request: NextRequest) {
       topic_description,
       quiz_id, 
       modules = [],
-      enableValidation = true // Enable validation by default
+      enableValidation = true, // Enable validation by default
+      startingIndex = null // Will be determined from Supabase if null
     } = body;
 
     // Validate required parameters
@@ -358,6 +440,21 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Validate Supabase configuration
+    if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
+      return NextResponse.json(
+        { error: 'Supabase URL not configured. Please set NEXT_PUBLIC_SUPABASE_URL environment variable.' },
+        { status: 500 }
+      );
+    }
+
+    // Determine starting index from Supabase if not provided
+    let actualStartingIndex = startingIndex;
+    console.log("AAAAA ", actualStartingIndex);
+    if (actualStartingIndex === null) {
+      actualStartingIndex = await getNextQuestionIndexForTopic(topic_id, modules);
+    }
+
     // Generate SQL script with 2 questions per module
     let sqlScript = `-- Generated SQL Script for Hub Questions\n`;
     sqlScript += `-- Certification ID: ${certification_id}\n`;
@@ -372,7 +469,7 @@ export async function POST(request: NextRequest) {
       body.topic_name,
       body.topic_description,
       body.certification_name,
-      2 // 2 questions per module
+      1 // 2 questions per module
     );
 
     // Validate questions with secondary LLM instance (if enabled)
@@ -390,16 +487,16 @@ export async function POST(request: NextRequest) {
       console.log('Question validation skipped (disabled)');
     }
 
-    let questionIndex = 1;
+    let questionIndex = actualStartingIndex;
     const quizQuestionLinks = [];
 
     // Process each validated question
     for (const question of validatedQuestions) {
-      const moduleForQuestion = modules.find((m: any) => m.module_id === question.module_id) || modules[Math.floor((questionIndex - 1) / 2)];
-      const questionId = `q_${topic_id}_${moduleForQuestion.module_id}_${question.question_number || ((questionIndex - 1) % 2) + 1}`;
+      const moduleForQuestion = modules.find((m: any) => m.module_id === question.module_id) || modules[Math.floor((questionIndex - actualStartingIndex) / 2)];
+      const questionId = `q_${topic_id}_${moduleForQuestion.module_id}_${questionIndex}`;
       
       // Add section header for each module (only for first question of each module)
-      if (questionIndex === 1 || (questionIndex - 1) % 2 === 0) {
+      if (questionIndex === actualStartingIndex || (questionIndex - actualStartingIndex) % 2 === 0) {
         sqlScript += `-- =====================\n`;
         sqlScript += `-- QUESTIONS - ${moduleForQuestion.module_name}\n`;
         sqlScript += `-- =====================\n\n`;
@@ -447,10 +544,13 @@ export async function POST(request: NextRequest) {
       validationStatus,
       originalQuestionCount: generatedQuestions.length,
       validatedQuestionCount: validatedQuestions.length,
+      startingIndex: actualStartingIndex,
+      autoDetectedIndex: startingIndex === null,
       questions: validatedQuestions.map((question, index) => {
         const moduleForQuestion = modules.find((m: any) => m.module_id === question.module_id) || modules[Math.floor(index / 2)];
+        const currentQuestionIndex = actualStartingIndex + index;
         return {
-          id: `q_${topic_id}_${moduleForQuestion.module_id}_${question.question_number || ((index % 2) + 1)}`,
+          id: `q_${topic_id}_${moduleForQuestion.module_id}_${currentQuestionIndex}`,
           text: question.text,
           options: question.options,
           correct_answer: question.correct_answer,
@@ -458,7 +558,7 @@ export async function POST(request: NextRequest) {
           module_id: question.module_id || moduleForQuestion.module_id,
           module_name: moduleForQuestion.module_name,
           question_number: question.question_number || ((index % 2) + 1),
-          index: index + 1,
+          index: currentQuestionIndex,
           type: 'mcq'
         };
       })

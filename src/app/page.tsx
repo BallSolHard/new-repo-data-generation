@@ -338,6 +338,7 @@ export default function Home() {
     setSelectedCertification("");
     setSelectedDomain("");
     setSelectedModule("");
+    setGeneratedSQL("");
     setModules([]); // Clear modules when switching tabs
     setQuizzes([]); // Clear quizzes when switching tabs
   };
@@ -389,6 +390,7 @@ export default function Home() {
   };
 
   const generateHubQuestions = async () => {
+    setGeneratedSQL("");
     if (!selectedCertification || !selectedDomain) {
       setError("Please select certification and domain first");
       return;
