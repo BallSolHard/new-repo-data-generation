@@ -446,7 +446,22 @@ export async function POST(request: NextRequest) {
       generationMethod: 'batch_gemini_api',
       validationStatus,
       originalQuestionCount: generatedQuestions.length,
-      validatedQuestionCount: validatedQuestions.length
+      validatedQuestionCount: validatedQuestions.length,
+      questions: validatedQuestions.map((question, index) => {
+        const moduleForQuestion = modules.find((m: any) => m.module_id === question.module_id) || modules[Math.floor(index / 2)];
+        return {
+          id: `q_${topic_id}_${moduleForQuestion.module_id}_${question.question_number || ((index % 2) + 1)}`,
+          text: question.text,
+          options: question.options,
+          correct_answer: question.correct_answer,
+          explanation: question.explanation,
+          module_id: question.module_id || moduleForQuestion.module_id,
+          module_name: moduleForQuestion.module_name,
+          question_number: question.question_number || ((index % 2) + 1),
+          index: index + 1,
+          type: 'mcq'
+        };
+      })
     });
 
   } catch (error) {
