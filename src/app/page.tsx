@@ -416,7 +416,6 @@ export default function Home() {
           module_content: `Core concepts and practical applications of ${name} in ${selectedDomain}`
         }))
       };
-
       const response = await fetch('/api/generate-hub', {
         method: 'POST',
         headers: {
@@ -424,13 +423,14 @@ export default function Home() {
         },
         body: JSON.stringify(payload)
       });
-
+      
       if (!response.ok) {
         throw new Error('Failed to generate hub questions');
       }
 
       const data = await response.json();
       setGeneratedSQL(data.sqlScript);
+   
       
     } catch (err) {
       console.error('Error generating hub questions:', err);

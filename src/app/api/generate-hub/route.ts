@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 
 // Interface for generated question
 interface GeneratedQuestion {
@@ -6,33 +7,293 @@ interface GeneratedQuestion {
   options: string[];
   correct_answer: string;
   explanation: string;
+  module_id?: string;
+  question_number?: number;
 }
 
-// Function to generate contextual questions based on module and topic information
-async function generateContextualQuestion(
-  module: any,
+// Initialize Gemini client
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
+const model = genAI.getGenerativeModel({ 
+  model: "gemini-2.0-flash" // Using Gemini 2.0 Flash
+});
+
+// Function to validate questions with another LLM instance
+async function validateQuestions(
+  questions: GeneratedQuestion[],
+  certificationName: string,
+  topicName: string
+): Promise<GeneratedQuestion[]> {
+  console.log(`Validating ${questions.length} questions with secondary LLM...`);
+  
+  const validatedQuestions: GeneratedQuestion[] = [];
+  
+  for (let i = 0; i < questions.length; i++) {
+    const question = questions[i];
+    
+    const validationPrompt = `You are an expert ${certificationName} certification validator. Analyze this multiple-choice question and determine if the indicated correct answer is actually correct.
+
+QUESTION TO VALIDATE:
+${question.text}
+
+OPTIONS:
+A) ${question.options[0]}
+B) ${question.options[1]}
+C) ${question.options[2]}
+D) ${question.options[3]}
+
+CLAIMED CORRECT ANSWER: ${question.correct_answer}
+EXPLANATION PROVIDED: ${question.explanation}
+
+TASK: Verify if the claimed correct answer is indeed correct for ${certificationName} certification standards.
+
+RESPOND WITH JSON ONLY:
+{
+  "is_correct": true/false,
+  "correct_answer_index": "0-3 (actual correct answer index)",
+  "confidence": "high/medium/low",
+  "validation_notes": "Brief explanation of your assessment"
+}`;
+
+    try {
+      const validationResult = await model.generateContent(validationPrompt);
+      const validationText = validationResult.response.text();
+      
+      // Clean and parse validation response
+      const cleanedValidation = validationText.replace(/```json\n?|\n?```/g, '').trim();
+      let validation;
+      
+      try {
+        validation = JSON.parse(cleanedValidation);
+      } catch (parseError) {
+        console.warn(`Validation parse error for question ${i + 1}, accepting original`);
+        validatedQuestions.push(question);
+        continue;
+      }
+      
+      // If validation failed or confidence is low, log it but keep the question
+      if (!validation.is_correct || validation.confidence === 'low') {
+        console.warn(`Question ${i + 1} validation concerns:`, validation.validation_notes);
+        
+        // If validator suggests a different correct answer with high confidence, update it
+        if (validation.confidence === 'high' && validation.correct_answer_index !== undefined) {
+          const correctedQuestion = {
+            ...question,
+            correct_answer: `{${validation.correct_answer_index}}`,
+            explanation: `${question.explanation} [Validated and corrected: ${validation.validation_notes}]`
+          };
+          validatedQuestions.push(correctedQuestion);
+          console.log(`Corrected answer for question ${i + 1}: {${validation.correct_answer_index}}`);
+        } else {
+          validatedQuestions.push(question);
+        }
+      } else {
+        console.log(`Question ${i + 1} validated successfully`);
+        validatedQuestions.push(question);
+      }
+      
+    } catch (validationError) {
+      console.error(`Error validating question ${i + 1}:`, validationError);
+      // Keep original question if validation fails
+      validatedQuestions.push(question);
+    }
+    
+    // Add small delay to avoid rate limiting
+    if (i < questions.length - 1) {
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+  }
+  
+  console.log(`Validation complete: ${validatedQuestions.length} questions processed`);
+  return validatedQuestions;
+}
+
+// Function to generate all questions for all modules in a single API call
+async function generateAllQuestions(
+  modules: any[],
   topicName: string,
   topicDescription: string,
   certificationName: string,
-  questionNumber: number
-): Promise<GeneratedQuestion> {
-  const { module_name, module_description, module_content } = module;
+  questionsPerModule: number = 2
+): Promise<GeneratedQuestion[]> {
   
-  // Question generation strategies based on certification type
+  // Get certification context for better prompt engineering
   const certificationContext = getCertificationContext(certificationName);
   
-  // Generate different question types
+  // Define question types for variety
   const questionTypes = [
-    () => generateScenarioQuestion(module_name, module_description, topicName, certificationContext),
-    () => generateBestPracticeQuestion(module_name, module_description, topicName, certificationContext),
-    () => generateTroubleshootingQuestion(module_name, module_description, topicName, certificationContext),
-    () => generateArchitecturalQuestion(module_name, module_description, topicName, certificationContext),
-    () => generateSecurityQuestion(module_name, module_description, topicName, certificationContext)
+    'scenario-based',
+    'best-practice',
+    'troubleshooting', 
+    'architectural',
+    'security-focused'
   ];
   
-  // Select question type based on question number and module content
-  const questionTypeIndex = (questionNumber - 1) % questionTypes.length;
-  return questionTypes[questionTypeIndex]();
+  // Build modules information for the prompt
+  const modulesInfo = modules.map((module, index) => {
+    return `
+Module ${index + 1}:
+- ID: ${module.module_id}
+- Name: ${module.module_name}
+- Description: ${module.module_description || 'Not provided'}
+- Content: ${module.module_content || 'Not provided'}`;
+  }).join('\n');
+  
+  // Create concise prompt for Gemini to generate all questions at once
+  const prompt = `Generate ${questionsPerModule * modules.length} ${certificationName} exam questions as valid JSON array.
+
+MODULES:
+${modulesInfo}
+
+CONTEXT: ${topicName} - ${certificationContext.focus}
+SERVICES: ${certificationContext.services.slice(0, 8).join(', ')}
+
+FORMAT (JSON only, no markdown):
+[
+  {
+    "module_id": "exact_module_id_from_above",
+    "question_number": 1,
+    "text": "Professional certification question",
+    "options": ["Wrong option", "Wrong option", "Correct option", "Wrong option"],
+    "correct_answer": "{2}",
+    "explanation": "Why option 3 is correct"
+  }
+]
+
+REQUIREMENTS:
+- Exactly ${questionsPerModule} questions per module
+- Professional difficulty level
+- Real-world scenarios
+- Mix question types: ${questionTypes.slice(0, 3).join(', ')}
+- Proper JSON format with escaped quotes
+- Return only the JSON array
+
+Generate ${questionsPerModule * modules.length} questions:`;
+
+  console.log('Gemini Batch Prompt for', modules.length, 'modules');
+  
+  try {
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    const text = response.text();
+    
+    console.log('Raw Gemini response length:', text.length);
+    console.log('Raw Gemini response preview:', text.substring(0, 500));
+    
+    // Clean and parse JSON response with better error handling
+    let cleanedText = text.replace(/```json\n?|\n?```/g, '').trim();
+    
+    // Try to fix common JSON issues
+    if (!cleanedText.startsWith('[')) {
+      const startIndex = cleanedText.indexOf('[');
+      if (startIndex !== -1) {
+        cleanedText = cleanedText.substring(startIndex);
+      }
+    }
+    
+    if (!cleanedText.endsWith(']')) {
+      const lastBracketIndex = cleanedText.lastIndexOf(']');
+      if (lastBracketIndex !== -1) {
+        cleanedText = cleanedText.substring(0, lastBracketIndex + 1);
+      }
+    }
+    
+    console.log('Cleaned text for parsing:', cleanedText.substring(0, 200));
+    
+    let questionsData;
+    try {
+      questionsData = JSON.parse(cleanedText);
+    } catch (parseError) {
+      console.error('JSON parse error:', parseError);
+      console.error('Failed to parse text:', cleanedText);
+      
+      // Try to extract individual JSON objects if array parsing failed
+      try {
+        const jsonObjects = [];
+        const regex = /\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}/g;
+        const matches = cleanedText.match(regex);
+        
+        if (matches) {
+          for (const match of matches) {
+            try {
+              const obj = JSON.parse(match);
+              if (obj.text && obj.options && obj.correct_answer && obj.explanation) {
+                jsonObjects.push(obj);
+              }
+            } catch (objError) {
+              console.log('Skipping malformed object:', match.substring(0, 100));
+            }
+          }
+        }
+        
+        if (jsonObjects.length > 0) {
+          console.log(`Recovered ${jsonObjects.length} valid questions from malformed response`);
+          questionsData = jsonObjects;
+        } else {
+          throw new Error(`Could not extract valid JSON objects: ${parseError}`);
+        }
+      } catch (recoveryError) {
+        throw new Error(`Invalid JSON response from Gemini and recovery failed: ${parseError}`);
+      }
+    }
+    
+    // Validate and return structured response
+    if (Array.isArray(questionsData)) {
+      return questionsData.map((questionData, index) => ({
+        text: questionData.text || `Generated question ${index + 1}`,
+        options: Array.isArray(questionData.options) && questionData.options.length === 4 
+          ? questionData.options 
+          : [
+              `Basic approach without optimization`,
+              `Professional implementation using ${certificationContext.services[0]} and ${certificationContext.services[1]}`,
+              `Manual configuration only`,
+              `Legacy approach without cloud services`
+            ],
+        correct_answer: questionData.correct_answer || "{1}",
+        explanation: questionData.explanation || `Professional implementation addresses the requirements effectively.`,
+        module_id: questionData.module_id || modules[Math.floor(index / questionsPerModule)]?.module_id,
+        question_number: questionData.question_number || ((index % questionsPerModule) + 1)
+      }));
+    } else {
+      throw new Error('Invalid response format from Gemini');
+    }
+    
+  } catch (error) {
+    console.error('Error generating questions with Gemini:', error);
+    
+    // Fallback: generate questions for each module
+    return generateFallbackQuestions(modules, topicName, certificationContext, questionsPerModule);
+  }
+}
+
+// Fallback questions generator in case Gemini fails
+function generateFallbackQuestions(
+  modules: any[],
+  topicName: string, 
+  certificationContext: any,
+  questionsPerModule: number = 2
+): GeneratedQuestion[] {
+  const services = certificationContext.services.slice(0, 4);
+  const questions: GeneratedQuestion[] = [];
+  
+  modules.forEach((module) => {
+    for (let i = 1; i <= questionsPerModule; i++) {
+      questions.push({
+        text: `When implementing ${module.module_name} as part of ${topicName}, what is the most appropriate approach for a production environment?`,
+        options: [
+          `Use basic ${services[0]} without additional configuration`,
+          `Implement comprehensive solution using ${services[1]}, ${services[2]}, and proper monitoring`,
+          `Rely on manual processes and default settings`,
+          `Use on-premises solutions exclusively`
+        ],
+        correct_answer: "{1}",
+        explanation: `Implementing a comprehensive solution using ${services[1]}, ${services[2]}, and proper monitoring ensures scalability, reliability, and best practices for ${module.module_name} in production environments.`,
+        module_id: module.module_id,
+        question_number: i
+      });
+    }
+  });
+  
+  return questions;
 }
 
 // Get certification-specific context and services
@@ -58,200 +319,7 @@ function getCertificationContext(certificationName: string) {
   return contexts[certificationName as keyof typeof contexts] || contexts['AWS Solutions Architect'];
 }
 
-// Extract meaningful keywords from descriptions
-function extractKeywords(text: string): string[] {
-  if (!text) return [];
-  
-  // Remove common words and extract meaningful terms
-  const commonWords = ['and', 'or', 'the', 'a', 'an', 'to', 'for', 'of', 'in', 'on', 'with', 'by', 'from', 'as', 'is', 'are', 'was', 'were', 'be', 'been', 'being', 'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'should', 'could', 'can', 'may', 'might', 'must', 'shall'];
-  
-  const words = text.toLowerCase()
-    .replace(/[^a-zA-Z\s]/g, ' ') // Remove special characters
-    .split(/\s+/)
-    .filter(word => word.length > 2 && !commonWords.includes(word))
-    .slice(0, 5); // Take first 5 meaningful words
-  
-  return words.length > 0 ? words : ['management', 'optimization'];
-}
 
-// Get relevant services based on keywords and available services
-function getRelevantServices(keywords: string[], availableServices: string[]): string[] {
-  const serviceMapping: { [key: string]: string[] } = {
-    'security': ['IAM', 'VPC', 'Security Groups', 'KMS'],
-    'data': ['RDS', 'DynamoDB', 'S3', 'Redshift'],
-    'compute': ['EC2', 'Lambda', 'ECS', 'Fargate'],
-    'network': ['VPC', 'CloudFront', 'Route53', 'ELB'],
-    'monitoring': ['CloudWatch', 'CloudTrail', 'X-Ray', 'Config'],
-    'storage': ['S3', 'EBS', 'EFS', 'Glacier'],
-    'database': ['RDS', 'DynamoDB', 'Aurora', 'DocumentDB'],
-    'scaling': ['Auto Scaling', 'ELB', 'CloudFront', 'Lambda'],
-    'performance': ['CloudFront', 'ElastiCache', 'Auto Scaling', 'Lambda'],
-    'access': ['IAM', 'Cognito', 'Directory Service', 'SSO'],
-    'management': ['CloudFormation', 'Systems Manager', 'Config', 'CloudTrail']
-  };
-  
-  const matchedServices: string[] = [];
-  
-  // Find services based on keywords
-  for (const keyword of keywords) {
-    for (const [category, services] of Object.entries(serviceMapping)) {
-      if (keyword.includes(category) || category.includes(keyword)) {
-        matchedServices.push(...services);
-      }
-    }
-  }
-  
-  // If no matches, use available services
-  if (matchedServices.length === 0) {
-    return availableServices.slice(0, 4);
-  }
-  
-  // Return unique services that exist in available services
-  const uniqueServices = [...new Set(matchedServices)];
-  const validServices = uniqueServices.filter(service => 
-    availableServices.some(available => 
-      available.toLowerCase().includes(service.toLowerCase()) || 
-      service.toLowerCase().includes(available.toLowerCase())
-    )
-  );
-  
-  return validServices.length > 0 ? validServices.slice(0, 4) : availableServices.slice(0, 4);
-}
-
-// Generate scenario-based questions
-function generateScenarioQuestion(moduleName: string, moduleDescription: string, topicName: string, context: any): GeneratedQuestion {
-  // Extract key concepts from module description
-  const moduleKeywords = extractKeywords(moduleDescription || moduleName);
-  const topicKeywords = extractKeywords(topicName);
-  
-  // Build scenario from actual module description
-  const scenarioContext = moduleDescription 
-    ? `implementing ${moduleName} with focus on ${moduleDescription.toLowerCase()}`
-    : `implementing ${moduleName} effectively`;
-  
-  const scenario = `An organization needs to ${scenarioContext} as part of their ${topicName.toLowerCase()} strategy.`;
-  
-  // Generate options based on certification services and module context
-  const relevantServices = getRelevantServices(moduleKeywords, context.services);
-  
-  return {
-    text: `${scenario} What is the most appropriate approach?`,
-    options: [
-      `Use basic ${relevantServices[0] || 'infrastructure'} without considering ${moduleKeywords[0] || 'requirements'}`,
-      `Implement ${relevantServices[1] || 'cloud services'} with proper ${moduleKeywords[1] || 'configuration'} and ${moduleKeywords[0] || 'best practices'}`,
-      `Rely on manual processes for ${moduleKeywords[0] || 'management'}`,
-      `Avoid ${moduleName.toLowerCase()} implementation entirely`
-    ],
-    correct_answer: "{1}",
-    explanation: `Implementing ${relevantServices[1] || 'cloud services'} with proper ${moduleKeywords[1] || 'configuration'} addresses the core requirements of ${moduleName}. This approach leverages ${topicName.toLowerCase()} principles while ensuring ${moduleKeywords[0] || 'optimal performance'}.`
-  };
-}
-
-// Generate best practice questions
-function generateBestPracticeQuestion(moduleName: string, moduleDescription: string, topicName: string, context: any): GeneratedQuestion {
-  const moduleKeywords = extractKeywords(moduleDescription || moduleName);
-  const focusAreas = context.focus.split(',').map((f: string) => f.trim());
-  
-  // Use actual module description to form the question
-  const practiceContext = moduleDescription 
-    ? `when working with ${moduleDescription.toLowerCase()}`
-    : `when implementing ${moduleName.toLowerCase()}`;
-  
-  const relevantServices = getRelevantServices(moduleKeywords, context.services);
-  const primaryFocus = focusAreas[0] || 'optimization';
-  
-  return {
-    text: `What is the recommended best practice for ${primaryFocus} ${practiceContext} in ${topicName.toLowerCase()}?`,
-    options: [
-      `Ignore ${primaryFocus} considerations for ${moduleName.toLowerCase()}`,
-      `Apply ${primaryFocus} principles using ${relevantServices[0] || 'appropriate services'} and ${relevantServices[1] || 'monitoring tools'}`,
-      `Use only default configurations without customization`,
-      `Implement ${moduleName.toLowerCase()} without ${primaryFocus} planning`
-    ],
-    correct_answer: "{1}",
-    explanation: `Applying ${primaryFocus} principles using ${relevantServices[0] || 'appropriate services'} and ${relevantServices[1] || 'monitoring tools'} ensures that ${moduleName} aligns with ${topicName.toLowerCase()} objectives and delivers ${moduleKeywords[0] || 'optimal results'}.`
-  };
-}
-
-// Generate troubleshooting questions
-function generateTroubleshootingQuestion(moduleName: string, moduleDescription: string, topicName: string, context: any): GeneratedQuestion {
-  const moduleKeywords = extractKeywords(moduleDescription || moduleName);
-  const topicKeywords = extractKeywords(topicName);
-  
-  // Build troubleshooting scenario from module description
-  const problemContext = moduleDescription 
-    ? `with ${moduleDescription.toLowerCase()}`
-    : `related to ${moduleName.toLowerCase()}`;
-  
-  const relevantServices = getRelevantServices(moduleKeywords.concat(topicKeywords), context.services);
-  const primaryKeyword = moduleKeywords[0] || 'performance';
-  
-  return {
-    text: `Your ${moduleName} implementation is experiencing issues ${problemContext} in the context of ${topicName.toLowerCase()}. What is the most effective troubleshooting approach?`,
-    options: [
-      `Ignore the ${primaryKeyword} issues and continue with current setup`,
-      `Use ${relevantServices[0] || 'monitoring tools'} and ${relevantServices[1] || 'logging services'} to analyze ${primaryKeyword} patterns`,
-      `Restart all services without investigating the root cause`,
-      `Replace the entire ${moduleName.toLowerCase()} implementation`
-    ],
-    correct_answer: "{1}",
-    explanation: `Using ${relevantServices[0] || 'monitoring tools'} and ${relevantServices[1] || 'logging services'} provides systematic visibility into ${primaryKeyword} issues. This data-driven approach enables precise identification and resolution of problems in ${moduleName} within ${topicName.toLowerCase()}.`
-  };
-}
-
-// Generate architectural questions
-function generateArchitecturalQuestion(moduleName: string, moduleDescription: string, topicName: string, context: any): GeneratedQuestion {
-  const moduleKeywords = extractKeywords(moduleDescription || moduleName);
-  const focusAreas = context.focus.split(',').map((f: string) => f.trim());
-  
-  // Build architectural context from module description
-  const architecturalContext = moduleDescription 
-    ? `incorporating ${moduleDescription.toLowerCase()}`
-    : `implementing ${moduleName.toLowerCase()}`;
-  
-  const relevantServices = getRelevantServices(moduleKeywords, context.services);
-  const primaryFocus = focusAreas[1] || focusAreas[0] || 'scalability';
-  
-  return {
-    text: `How should ${moduleName} be architected for ${primaryFocus} while ${architecturalContext} in ${topicName.toLowerCase()}?`,
-    options: [
-      `Use single-point architecture without considering ${primaryFocus}`,
-      `Design distributed architecture using ${relevantServices[0] || 'cloud services'}, ${relevantServices[1] || 'load balancing'}, and ${relevantServices[2] || 'auto-scaling'}`,
-      `Avoid ${moduleName.toLowerCase()} in ${primaryFocus}-focused designs`,
-      `Use legacy monolithic approach regardless of ${primaryFocus} requirements`
-    ],
-    correct_answer: "{1}",
-    explanation: `Designing distributed architecture using ${relevantServices[0] || 'cloud services'}, ${relevantServices[1] || 'load balancing'}, and ${relevantServices[2] || 'auto-scaling'} ensures ${primaryFocus} while effectively ${architecturalContext}. This approach aligns with ${topicName.toLowerCase()} principles and modern cloud architecture patterns.`
-  };
-}
-
-// Generate security-focused questions
-function generateSecurityQuestion(moduleName: string, moduleDescription: string, topicName: string, context: any): GeneratedQuestion {
-  const moduleKeywords = extractKeywords(moduleDescription || moduleName);
-  const topicKeywords = extractKeywords(topicName);
-  
-  // Build security context from module description
-  const securityContext = moduleDescription 
-    ? `when ${moduleDescription.toLowerCase()}`
-    : `in ${moduleName.toLowerCase()} implementations`;
-  
-  const relevantServices = getRelevantServices(['security', 'access', 'encryption'].concat(moduleKeywords), context.services);
-  const securityAspect = moduleKeywords.find(keyword => 
-    ['security', 'access', 'encryption', 'authentication', 'authorization', 'compliance'].includes(keyword)
-  ) || 'security';
-  
-  return {
-    text: `What is the recommended approach for ensuring ${securityAspect} ${securityContext} within ${topicName.toLowerCase()}?`,
-    options: [
-      `${securityAspect} is not required for ${moduleName.toLowerCase()}`,
-      `Implement comprehensive ${securityAspect} using ${relevantServices[0] || 'IAM'} and ${relevantServices[1] || 'encryption services'} following industry standards`,
-      `Use basic password protection without additional ${securityAspect} measures`,
-      `Rely only on network-level ${securityAspect} controls`
-    ],
-    correct_answer: "{1}",
-    explanation: `Implementing comprehensive ${securityAspect} using ${relevantServices[0] || 'IAM'} and ${relevantServices[1] || 'encryption services'} ensures robust protection for ${moduleName}. This approach addresses regulatory requirements and security best practices essential for ${topicName.toLowerCase()} implementations.`
-  };
-}
 
 export async function POST(request: NextRequest) {
   try {
@@ -263,7 +331,8 @@ export async function POST(request: NextRequest) {
       topic_name,
       topic_description,
       quiz_id, 
-      modules = [] 
+      modules = [],
+      enableValidation = true // Enable validation by default
     } = body;
 
     // Validate required parameters
@@ -281,6 +350,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Validate Gemini API key
+    if (!process.env.GEMINI_API_KEY) {
+      return NextResponse.json(
+        { error: 'Gemini API key not configured. Please set GEMINI_API_KEY environment variable.' },
+        { status: 500 }
+      );
+    }
+
     // Generate SQL script with 2 questions per module
     let sqlScript = `-- Generated SQL Script for Hub Questions\n`;
     sqlScript += `-- Certification ID: ${certification_id}\n`;
@@ -289,35 +366,54 @@ export async function POST(request: NextRequest) {
     sqlScript += `-- Generated on: ${new Date().toISOString()}\n\n`;
     sqlScript += `BEGIN;\n\n`;
 
+    // Generate all questions in a single API call
+    const generatedQuestions = await generateAllQuestions(
+      modules,
+      body.topic_name,
+      body.topic_description,
+      body.certification_name,
+      2 // 2 questions per module
+    );
+
+    // Validate questions with secondary LLM instance (if enabled)
+    let validatedQuestions = generatedQuestions;
+    let validationStatus = 'skipped';
+    
+    if (enableValidation) {
+      validatedQuestions = await validateQuestions(
+        generatedQuestions,
+        body.certification_name,
+        body.topic_name
+      );
+      validationStatus = 'completed';
+    } else {
+      console.log('Question validation skipped (disabled)');
+    }
+
     let questionIndex = 1;
     const quizQuestionLinks = [];
 
-    for (const module of modules) {
-      const { module_id, module_name } = module;
+    // Process each validated question
+    for (const question of validatedQuestions) {
+      const moduleForQuestion = modules.find((m: any) => m.module_id === question.module_id) || modules[Math.floor((questionIndex - 1) / 2)];
+      const questionId = `q_${topic_id}_${moduleForQuestion.module_id}_${question.question_number || ((questionIndex - 1) % 2) + 1}`;
       
-      sqlScript += `-- =====================\n`;
-      sqlScript += `-- QUESTIONS - ${module_name}\n`;
-      sqlScript += `-- =====================\n\n`;
-
-      // Generate 2 questions per module
-      for (let i = 1; i <= 2; i++) {
-        const questionId = `q_${topic_id}_m_${module_id}_${i}`;
-        
-        // Generate contextual questions based on module and topic information
-        const template = await generateContextualQuestion(
-          module,
-          body.topic_name,
-          body.topic_description,
-          body.certification_name,
-          i
-        );
-        
-        sqlScript += `INSERT INTO public.question (id, text, type, options, correct_answer, explanation, created_at, quiz_id, modified_at, index, pairs, matches, module_id)\n`;
-        sqlScript += `VALUES ('${questionId}','${template.text}','mcq','${JSON.stringify(template.options)}'::json,'${template.correct_answer}','${template.explanation}',NOW(),'${quiz_id}',NOW(),${questionIndex},NULL,NULL,'${module_id}') ON CONFLICT (id) DO NOTHING;\n\n`;
-        
-        quizQuestionLinks.push(`(NOW(),'${quiz_id}','${questionId}')`);
-        questionIndex++;
+      // Add section header for each module (only for first question of each module)
+      if (questionIndex === 1 || (questionIndex - 1) % 2 === 0) {
+        sqlScript += `-- =====================\n`;
+        sqlScript += `-- QUESTIONS - ${moduleForQuestion.module_name}\n`;
+        sqlScript += `-- =====================\n\n`;
       }
+      
+      // Escape single quotes in text and explanation for SQL
+      const escapedText = question.text.replace(/'/g, "''");
+      const escapedExplanation = question.explanation.replace(/'/g, "''");
+      
+      sqlScript += `INSERT INTO public.question (id, text, type, options, correct_answer, explanation, created_at, quiz_id, modified_at, index, pairs, matches, module_id)\n`;
+      sqlScript += `VALUES ('${questionId}','${escapedText}','mcq','${JSON.stringify(question.options)}'::json,'${question.correct_answer}','${escapedExplanation}',NOW(),'${quiz_id}',NOW(),${questionIndex},NULL,NULL,'${moduleForQuestion.module_id}') ON CONFLICT (id) DO NOTHING;\n\n`;
+      
+      quizQuestionLinks.push(`(NOW(),'${quiz_id}','${questionId}')`);
+      questionIndex++;
     }
 
     // Add quiz-question links
@@ -345,8 +441,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       sqlScript,
-      questionCount: modules.length * 2,
-      moduleCount: modules.length
+      questionCount: validatedQuestions.length,
+      moduleCount: modules.length,
+      generationMethod: 'batch_gemini_api',
+      validationStatus,
+      originalQuestionCount: generatedQuestions.length,
+      validatedQuestionCount: validatedQuestions.length
     });
 
   } catch (error) {
