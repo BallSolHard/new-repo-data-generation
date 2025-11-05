@@ -24,12 +24,12 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
 );
 
-// Function to get the highest question index across all modules for a topic
-async function getNextQuestionIndexForTopic(topicId: string, modules: any[] = []): Promise<number> {
+// Function to get the highest question index for each module
+async function getNextQuestionIndexForModules(topicId: string, modules: any[] = []): Promise<{[moduleId: string]: number}> {
   try {
-    let globalHighestIndex = 0;
+    const moduleIndices: {[moduleId: string]: number} = {};
     
-    // Check each module individually to find the highest index
+    // Check each module individually to find the highest index for each
     for (const module of modules) {
       const pattern = `q_${topicId}_${module.module_id}_%`;
       console.log("Checking pattern:", pattern);
@@ -39,9 +39,11 @@ async function getNextQuestionIndexForTopic(topicId: string, modules: any[] = []
         .from('question')
         .select('id')
         .like('id', pattern);
-      console.log("DATA", data);
+      console.log("DATA for module", module.module_id, ":", data);
+      
       if (error) {
         console.error(`Error querying Supabase for module ${module.module_id}:`, error);
+        moduleIndices[module.module_id] = 1; // Default to 1 if error
         continue;
       }
 
@@ -57,20 +59,49 @@ async function getNextQuestionIndexForTopic(topicId: string, modules: any[] = []
           }
         }
         
-        // Sort indices numerically and get the highest
+        // Sort indices numerically and get the highest for this module
         if (indices.length > 0) {
           indices.sort((a, b) => b - a); // Sort descending
           const highestForModule = indices[0];
-          console.log(`Module ${module.module_id}: found indices [${indices.join(', ')}], highest: ${highestForModule}`);
-          
-          if (highestForModule > globalHighestIndex) {
-            globalHighestIndex = highestForModule;
-          }
+          const nextIndexForModule = highestForModule + 1;
+          moduleIndices[module.module_id] = nextIndexForModule;
+          console.log(`Module ${module.module_id}: found indices [${indices.join(', ')}], highest: ${highestForModule}, next: ${nextIndexForModule}`);
+        } else {
+          moduleIndices[module.module_id] = 1;
+          console.log(`Module ${module.module_id}: no valid indices found, starting from 1`);
         }
       } else {
-        console.log(`Module ${module.module_id}: no existing questions found`);
+        moduleIndices[module.module_id] = 1;
+        console.log(`Module ${module.module_id}: no existing questions found, starting from 1`);
       }
     }
+    
+    console.log(`Module indices:`, moduleIndices);
+    return moduleIndices;
+    
+  } catch (error) {
+    console.error('Error getting next question indices for modules:', error);
+    // Return default indices for all modules
+    const defaultIndices: {[moduleId: string]: number} = {};
+    modules.forEach(module => {
+      defaultIndices[module.module_id] = 1;
+    });
+    return defaultIndices;
+  }
+}
+
+// Function to get the highest question index across all modules for a topic (for backward compatibility)
+async function getNextQuestionIndexForTopic(topicId: string, modules: any[] = []): Promise<number> {
+  try {
+    const moduleIndices = await getNextQuestionIndexForModules(topicId, modules);
+    
+    // Find the global highest across all modules
+    let globalHighest = 0;
+    Object.values(moduleIndices).forEach(index => {
+      if (index > globalHighest) {
+        globalHighest = index;
+      }
+    });
     
     // Also check for any questions in this topic that might not match the current modules
     const fallbackPattern = `q_${topicId}_%`;
@@ -95,14 +126,14 @@ async function getNextQuestionIndexForTopic(topicId: string, modules: any[] = []
         const fallbackHighest = fallbackIndices[0];
         console.log(`Fallback: highest index found: ${fallbackHighest}`);
         
-        if (fallbackHighest > globalHighestIndex) {
-          globalHighestIndex = fallbackHighest;
+        if (fallbackHighest > globalHighest) {
+          globalHighest = fallbackHighest;
         }
       }
     }
     
-    const nextIndex = globalHighestIndex + 1;
-    console.log(`Topic ${topicId}: highest index found: ${globalHighestIndex}, next index: ${nextIndex}`);
+    const nextIndex = globalHighest + 1;
+    console.log(`Topic ${topicId}: highest index found: ${globalHighest}, next index: ${nextIndex}`);
     return nextIndex;
     
   } catch (error) {
@@ -448,12 +479,26 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Determine starting index from Supabase if not provided
+    // Determine starting indices from Supabase if not provided
+    let moduleStartingIndices: {[moduleId: string]: number} = {};
     let actualStartingIndex = startingIndex;
-    console.log("AAAAA ", actualStartingIndex);
+    
     if (actualStartingIndex === null) {
-      actualStartingIndex = await getNextQuestionIndexForTopic(topic_id, modules);
+      // Get module-specific starting indices
+      moduleStartingIndices = await getNextQuestionIndexForModules(topic_id, modules);
+      console.log("Module starting indices:", moduleStartingIndices);
+      
+      // For backward compatibility, also get global starting index
+      actualStartingIndex = Math.max(...Object.values(moduleStartingIndices));
+    } else {
+      // If starting index is manually provided, use it for all modules
+      modules.forEach((module: any) => {
+        moduleStartingIndices[module.module_id] = actualStartingIndex;
+      });
     }
+    
+    console.log("Global starting index:", actualStartingIndex);
+    console.log("Per-module starting indices:", moduleStartingIndices);
 
     // Generate SQL script with 2 questions per module
     let sqlScript = `-- Generated SQL Script for Hub Questions\n`;
@@ -487,16 +532,21 @@ export async function POST(request: NextRequest) {
       console.log('Question validation skipped (disabled)');
     }
 
-    let questionIndex = actualStartingIndex;
+    // Track current index for each module
+    const currentModuleIndices: {[moduleId: string]: number} = { ...moduleStartingIndices };
     const quizQuestionLinks = [];
 
     // Process each validated question
     for (const question of validatedQuestions) {
-      const moduleForQuestion = modules.find((m: any) => m.module_id === question.module_id) || modules[Math.floor((questionIndex - actualStartingIndex) / 2)];
-      const questionId = `q_${topic_id}_${moduleForQuestion.module_id}_${questionIndex}`;
+      const moduleForQuestion = modules.find((m: any) => m.module_id === question.module_id) || modules[0];
+      const moduleId = moduleForQuestion.module_id;
+      
+      // Get the current index for this specific module
+      const questionIndex = currentModuleIndices[moduleId];
+      const questionId = `q_${topic_id}_${moduleId}_${questionIndex}`;
       
       // Add section header for each module (only for first question of each module)
-      if (questionIndex === actualStartingIndex || (questionIndex - actualStartingIndex) % 2 === 0) {
+      if (questionIndex === moduleStartingIndices[moduleId]) {
         sqlScript += `-- =====================\n`;
         sqlScript += `-- QUESTIONS - ${moduleForQuestion.module_name}\n`;
         sqlScript += `-- =====================\n\n`;
@@ -510,7 +560,9 @@ export async function POST(request: NextRequest) {
       sqlScript += `VALUES ('${questionId}','${escapedText}','mcq','${JSON.stringify(question.options)}'::json,'${question.correct_answer}','${escapedExplanation}',NOW(),'${quiz_id}',NOW(),${questionIndex},NULL,NULL,'${moduleForQuestion.module_id}') ON CONFLICT (id) DO NOTHING;\n\n`;
       
       quizQuestionLinks.push(`(NOW(),'${quiz_id}','${questionId}')`);
-      questionIndex++;
+      
+      // Increment the index for this specific module
+      currentModuleIndices[moduleId]++;
     }
 
     // Add quiz-question links
@@ -547,10 +599,22 @@ export async function POST(request: NextRequest) {
       startingIndex: actualStartingIndex,
       autoDetectedIndex: startingIndex === null,
       questions: validatedQuestions.map((question, index) => {
-        const moduleForQuestion = modules.find((m: any) => m.module_id === question.module_id) || modules[Math.floor(index / 2)];
-        const currentQuestionIndex = actualStartingIndex + index;
+        const moduleForQuestion = modules.find((m: any) => m.module_id === question.module_id) || modules[0];
+        const moduleId = moduleForQuestion.module_id;
+        
+        // Calculate the correct index for this question based on its position within its module
+        const questionsPerModule = validatedQuestions.filter(q => 
+          (modules.find((m: any) => m.module_id === q.module_id) || modules[0]).module_id === moduleId
+        ).length;
+        const questionIndexInModule = validatedQuestions
+          .slice(0, index + 1)
+          .filter(q => (modules.find((m: any) => m.module_id === q.module_id) || modules[0]).module_id === moduleId)
+          .length - 1;
+        
+        const currentQuestionIndex = moduleStartingIndices[moduleId] + questionIndexInModule;
+        
         return {
-          id: `q_${topic_id}_${moduleForQuestion.module_id}_${currentQuestionIndex}`,
+          id: `q_${topic_id}_${moduleId}_${currentQuestionIndex}`,
           text: question.text,
           options: question.options,
           correct_answer: question.correct_answer,
