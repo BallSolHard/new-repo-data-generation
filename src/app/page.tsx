@@ -181,6 +181,7 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [generatedSQL, setGeneratedSQL] = useState<string>("");
   const [isGenerating, setIsGenerating] = useState(false);
+  const [questionsPerModule, setQuestionsPerModule] = useState<number>(1);
 
   // Fetch certifications from API on component mount
   useEffect(() => {
@@ -339,6 +340,7 @@ export default function Home() {
     setSelectedDomain("");
     setSelectedModule("");
     setGeneratedSQL("");
+    setQuestionsPerModule(1); // Reset questions per module
     setModules([]); // Clear modules when switching tabs
     setQuizzes([]); // Clear quizzes when switching tabs
   };
@@ -411,6 +413,7 @@ export default function Home() {
         topic_name: selectedDomain,
         topic_description: selectedDomainData?.topic_description || `${selectedDomain} domain knowledge and best practices`,
         quiz_id: quizId,
+        questionsPerModule: questionsPerModule,
         modules: modules.length > 0 ? modules : getCurrentModules().map((name, index) => ({
           module_id: `fallback_${index + 1}`,
           module_name: name,
@@ -656,6 +659,29 @@ export default function Home() {
                   <p><span className="font-semibold">Quiz ID:</span> <span className="text-gray-300">No quiz available</span></p>
                 )}
               </div>
+              
+              {/* Questions per Module Selection */}
+              <div className="mt-4 flex items-center space-x-4">
+                <label htmlFor="questionsPerModule" className="font-semibold">
+                  Questions per Module:
+                </label>
+                <select
+                  id="questionsPerModule"
+                  value={questionsPerModule}
+                  onChange={(e) => setQuestionsPerModule(Number(e.target.value))}
+                  className="bg-white/20 border border-white/30 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-white/50 focus:border-white/50"
+                >
+                  <option value={1} className="text-gray-900">1 Question</option>
+                  <option value={2} className="text-gray-900">2 Questions</option>
+                  <option value={3} className="text-gray-900">3 Questions</option>
+                  <option value={4} className="text-gray-900">4 Questions</option>
+                  <option value={5} className="text-gray-900">5 Questions</option>
+                </select>
+                <span className="text-sm text-white/80">
+                  Total: {questionsPerModule * (modules.length || getCurrentModules().length)} questions
+                </span>
+              </div>
+              
               <button 
                 className="mt-4 bg-white text-purple-600 px-6 py-2 rounded-lg font-semibold hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 onClick={activeTab === "hub" ? generateHubQuestions : undefined}
@@ -663,6 +689,7 @@ export default function Home() {
               >
                 {isGenerating ? "Generating..." : (activeTab === "hub" ? "Generate Hub Questions" : "Generate Mock Questions")}
               </button>
+
             </div>
           )}
 

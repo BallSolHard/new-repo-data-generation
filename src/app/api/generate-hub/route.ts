@@ -1,17 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { createClient } from '@supabase/supabase-js';
-
-// Interface for generated question
-interface GeneratedQuestion {
-  text: string;
-  options: string[];
-  correct_answer: string;
-  explanation: string;
-  module_id?: string;
-  question_number?: number;
-  confidence?: 'high' | 'medium' | 'low' | 'validation_failed'; 
-}
+import { createValidationPrompt, createQuestionGenerationPrompt } from './prompts';
+import type { GeneratedQuestion, QuestionGenerationParams } from './types';
 
 // Initialize Gemini client
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
@@ -30,160 +21,57 @@ async function getNextQuestionIndexForModules(topicId: string, modules: any[] = 
   try {
     const moduleIndices: {[moduleId: string]: number} = {};
     
-    // Check each module individually to find the highest index for each
     for (const module of modules) {
       const pattern = `q_${topicId}_${module.module_id}_%`;
-      console.log("Checking pattern:", pattern);
       
-      // Query Supabase to get all matching questions (we'll sort numerically in JS)
       const { data, error } = await supabase
         .from('question')
         .select('id')
         .like('id', pattern);
-      console.log("DATA for module", module.module_id, ":", data);
       
       if (error) {
-        console.error(`Error querying Supabase for module ${module.module_id}:`, error);
-        moduleIndices[module.module_id] = 1; // Default to 1 if error
-        continue;
+        return Promise.reject(error);
       }
 
       if (data && data.length > 0) {
-        // Parse IDs and extract numeric indices
-        const indices = [];
+        // Find the highest index by comparing as we iterate
+        let highestForModule = 0;
         for (const record of data) {
-          console.log("RECORD ID", record.id);
-          const matches = record.id.match(/q_\d+_m_[^_]+_\d+_(\d+)$/);
-          console.log("MATCHES for", record.id, ":", matches);
-          if (matches && matches[1]) {
-            indices.push(parseInt(matches[1]));
+          const parts = record.id.split('_');
+          const lastElement = parts[parts.length - 1];
+          const indexNumber = parseInt(lastElement);
+          if (!isNaN(indexNumber) && indexNumber > highestForModule) {
+            highestForModule = indexNumber;
           }
         }
         
-        // Sort indices numerically and get the highest for this module
-        if (indices.length > 0) {
-          indices.sort((a, b) => b - a); // Sort descending
-          const highestForModule = indices[0];
-          const nextIndexForModule = highestForModule + 1;
-          moduleIndices[module.module_id] = nextIndexForModule;
-          console.log(`Module ${module.module_id}: found indices [${indices.join(', ')}], highest: ${highestForModule}, next: ${nextIndexForModule}`);
-        } else {
-          moduleIndices[module.module_id] = 1;
-          console.log(`Module ${module.module_id}: no valid indices found, starting from 1`);
-        }
+        moduleIndices[module.module_id] = highestForModule + 1;
       } else {
         moduleIndices[module.module_id] = 1;
-        console.log(`Module ${module.module_id}: no existing questions found, starting from 1`);
       }
-    }
-    
-    console.log(`Module indices:`, moduleIndices);
-    return moduleIndices;
-    
+    }   
+    return moduleIndices;    
   } catch (error) {
-    console.error('Error getting next question indices for modules:', error);
-    // Return default indices for all modules
-    const defaultIndices: {[moduleId: string]: number} = {};
-    modules.forEach(module => {
-      defaultIndices[module.module_id] = 1;
-    });
-    return defaultIndices;
+    console.error('Error getting next question indices for module', error);
+   return Promise.reject(error);
   }
 }
 
-// Function to get the highest question index across all modules for a topic (for backward compatibility)
-async function getNextQuestionIndexForTopic(topicId: string, modules: any[] = []): Promise<number> {
-  try {
-    const moduleIndices = await getNextQuestionIndexForModules(topicId, modules);
-    
-    // Find the global highest across all modules
-    let globalHighest = 0;
-    Object.values(moduleIndices).forEach(index => {
-      if (index > globalHighest) {
-        globalHighest = index;
-      }
-    });
-    
-    // Also check for any questions in this topic that might not match the current modules
-    const fallbackPattern = `q_${topicId}_%`;
-    const { data: fallbackData, error: fallbackError } = await supabase
-      .from('question')
-      .select('id')
-      .like('id', fallbackPattern);
-    
-    if (!fallbackError && fallbackData && fallbackData.length > 0) {
-      console.log(`Fallback check: found ${fallbackData.length} questions for topic ${topicId}`);
-      
-      const fallbackIndices = [];
-      for (const record of fallbackData) {
-        const matches = record.id.match(/q_\d+_m_[^_]+_\d+_(\d+)$/);
-        if (matches && matches[1]) {
-          fallbackIndices.push(parseInt(matches[1]));
-        }
-      }
-      
-      if (fallbackIndices.length > 0) {
-        fallbackIndices.sort((a, b) => b - a); // Sort descending
-        const fallbackHighest = fallbackIndices[0];
-        console.log(`Fallback: highest index found: ${fallbackHighest}`);
-        
-        if (fallbackHighest > globalHighest) {
-          globalHighest = fallbackHighest;
-        }
-      }
-    }
-    
-    const nextIndex = globalHighest + 1;
-    console.log(`Topic ${topicId}: highest index found: ${globalHighest}, next index: ${nextIndex}`);
-    return nextIndex;
-    
-  } catch (error) {
-    console.error('Error getting next question index for topic:', error);
-    return 1;
-  }
-}
-
-// Function to validate questions with another LLM instance
-async function validateQuestions(
+// Function to validate questions with another LLM instance and add confidence scores
+async function addValidationScores(
   questions: GeneratedQuestion[],
   certificationName: string,
-  topicName: string
-): Promise<GeneratedQuestion[]> {
-  
-  const validatedQuestions: GeneratedQuestion[] = [];
-  const confidenceStats = { high: 0, medium: 0, low: 0, validation_failed: 0 };
+): Promise<void> {
   
   for (let i = 0; i < questions.length; i++) {
     const question = questions[i];
     
-    const validationPrompt = `You are an expert ${certificationName} certification validator. Analyze this multiple-choice question and determine if the indicated correct answer is actually correct.
-
-QUESTION TO VALIDATE:
-${question.text}
-
-OPTIONS:
-A) ${question.options[0]}
-B) ${question.options[1]}
-C) ${question.options[2]}
-D) ${question.options[3]}
-
-CLAIMED CORRECT ANSWER: ${question.correct_answer}
-EXPLANATION PROVIDED: ${question.explanation}
-
-TASK: Verify if the claimed correct answer is indeed correct for ${certificationName} certification standards.
-
-RESPOND WITH JSON ONLY:
-{
-  "is_correct": true/false,
-  "correct_answer_index": "0-3 (actual correct answer index)",
-  "confidence": "high/medium/low",
-  "validation_notes": "Brief explanation of your assessment"
-}`;
+    const validationPrompt = createValidationPrompt(question, certificationName);
 
     try {
       const validationResult = await model.generateContent(validationPrompt);
       const validationText = validationResult.response.text();
-      
+    
       // Clean and parse validation response
       const cleanedValidation = validationText.replace(/```json\n?|\n?```/g, '').trim();
       let validation;
@@ -191,65 +79,32 @@ RESPOND WITH JSON ONLY:
       try {
         validation = JSON.parse(cleanedValidation);
       } catch (parseError) {
-        console.warn(`Validation parse error for question ${i + 1}, accepting original with validation_failed confidence`);
-        const questionWithConfidence = {
-          ...question,
-          confidence: 'validation_failed' as const
-        };
-        validatedQuestions.push(questionWithConfidence);
-        confidenceStats.validation_failed++;
+        question.confidence_score = 0;
+        question.validation_status = 'validation_failed';
+        question.validation_notes = 'Failed to parse validation response';
         continue;
       }
       
-      // Process validation results and assign confidence
-      let finalQuestion = { ...question };
-      let assignedConfidence: 'high' | 'medium' | 'low' = validation.confidence || 'medium';
-      
-      // If validation failed or confidence is low, log it but keep the question
-      if (!validation.is_correct || validation.confidence === 'low') {
-        console.warn(`Question ${i + 1} validation concerns:`, validation.validation_notes);
-        
-        // If validator suggests a different correct answer with high confidence, update it
-        if (validation.confidence === 'high' && validation.correct_answer_index !== undefined) {
-          finalQuestion = {
-            ...question,
-            correct_answer: `{${validation.correct_answer_index}}`,
-            explanation: `${question.explanation} [Validated and corrected: ${validation.validation_notes}]`,
-            confidence: 'high' as const
-          };
-          assignedConfidence = 'high';
-        } else {
-          finalQuestion.confidence = assignedConfidence;
-        }
+      if (validation.is_correct === true) {
+        question.confidence_score = 1;
+        question.validation_status = 'correct';
+        question.validation_notes = validation.validation_notes || 'Answer verified as correct';
       } else {
-        // Validation passed, assign the confidence from validator
-        finalQuestion.confidence = assignedConfidence;
+        question.confidence_score = 0;
+        question.validation_status = 'incorrect';
+        question.validation_notes = validation.validation_notes || 'Answer identified as incorrect';
+        question.new_correct_answer = validation.correct_answer_index !== undefined ? `{${validation.correct_answer_index}}` : undefined;
+        question.new_explanation = validation.validation_notes || 'Validator suggests this answer needs review';
       }
-      
-      validatedQuestions.push(finalQuestion);
-      confidenceStats[assignedConfidence]++;
       
     } catch (validationError) {
       console.error(`Error validating question ${i + 1}:`, validationError);
-      // Keep original question but mark validation as failed
-      const questionWithConfidence = {
-        ...question,
-        confidence: 'validation_failed' as const
-      };
-      validatedQuestions.push(questionWithConfidence);
-      confidenceStats.validation_failed++;
-    }
-    
-    // Add small delay to avoid rate limiting
-    if (i < questions.length - 1) {
-      await new Promise(resolve => setTimeout(resolve, 100));
+      // Mark as validation failed
+      question.confidence_score = 0;
+      question.validation_status = 'validation_failed';
+      question.validation_notes = `Validation error: ${validationError instanceof Error ? validationError.message : 'Unknown error'}`;
     }
   }
-  
-  // Log confidence statistics
-  console.log('Validation completed. Confidence distribution:', confidenceStats);
-  
-  return validatedQuestions;
 }
 
 // Function to generate all questions for all modules in a single API call
@@ -273,46 +128,20 @@ async function generateAllQuestions(
     'security-focused'
   ];
   
-  // Build modules information for the prompt
-  const modulesInfo = modules.map((module, index) => {
-    return `
-Module ${index + 1}:
-- ID: ${module.module_id}
-- Name: ${module.module_name}
-- Description: ${module.module_description || 'Not provided'}
-- Content: ${module.module_content || 'Not provided'}`;
-  }).join('\n');
+  // Create prompt using the template function
+  const prompt = createQuestionGenerationPrompt({
+    modules,
+    topicName,
+    certificationName,
+    questionsPerModule,
+    certificationContext,
+    questionTypes
+  });
   
-  // Create concise prompt for Gemini to generate all questions at once
-  const prompt = `Generate ${questionsPerModule * modules.length} ${certificationName} exam questions as valid JSON array.
-
-MODULES:
-${modulesInfo}
-
-CONTEXT: ${topicName} - ${certificationContext.focus}
-SERVICES: ${certificationContext.services.slice(0, 8).join(', ')}
-
-FORMAT (JSON only, no markdown):
-[
-  {
-    "module_id": "exact_module_id_from_above",
-    "question_number": 1,
-    "text": "Professional certification question",
-    "options": ["Wrong option", "Wrong option", "Correct option", "Wrong option"],
-    "correct_answer": "{2}",
-    "explanation": "Why option 3 is correct"
-  }
-]
-
-REQUIREMENTS:
-- Exactly ${questionsPerModule} questions per module
-- Professional difficulty level
-- Real-world scenarios
-- Mix question types: ${questionTypes.slice(0, 3).join(', ')}
-- Proper JSON format with escaped quotes
-- Return only the JSON array
-
-Generate ${questionsPerModule * modules.length} questions:`;
+  // Alternative specialized prompts available:
+  // const prompt = QuestionPromptTemplates.createBeginnerPrompt(params);
+  // const prompt = QuestionPromptTemplates.createScenarioPrompt(params);  
+  // const prompt = QuestionPromptTemplates.createTroubleshootingPrompt(params);
   
   try {
     const result = await model.generateContent(prompt);
@@ -363,7 +192,6 @@ Generate ${questionsPerModule * modules.length} questions:`;
         }
         
         if (jsonObjects.length > 0) {
-          console.log(`Recovered ${jsonObjects.length} valid questions from malformed response`);
           questionsData = jsonObjects;
         } else {
           throw new Error(`Could not extract valid JSON objects: ${parseError}`);
@@ -396,42 +224,10 @@ Generate ${questionsPerModule * modules.length} questions:`;
     
   } catch (error) {
     console.error('Error generating questions with Gemini:', error);
-    
-    // Fallback: generate questions for each module
-    return generateFallbackQuestions(modules, topicName, certificationContext, questionsPerModule);
+    return [];
   }
 }
 
-// Fallback questions generator in case Gemini fails
-function generateFallbackQuestions(
-  modules: any[],
-  topicName: string, 
-  certificationContext: any,
-  questionsPerModule: number = 2
-): GeneratedQuestion[] {
-  const services = certificationContext.services.slice(0, 4);
-  const questions: GeneratedQuestion[] = [];
-  
-  modules.forEach((module) => {
-    for (let i = 1; i <= questionsPerModule; i++) {
-      questions.push({
-        text: `When implementing ${module.module_name} as part of ${topicName}, what is the most appropriate approach for a production environment?`,
-        options: [
-          `Use basic ${services[0]} without additional configuration`,
-          `Implement comprehensive solution using ${services[1]}, ${services[2]}, and proper monitoring`,
-          `Rely on manual processes and default settings`,
-          `Use on-premises solutions exclusively`
-        ],
-        correct_answer: "{1}",
-        explanation: `Implementing a comprehensive solution using ${services[1]}, ${services[2]}, and proper monitoring ensures scalability, reliability, and best practices for ${module.module_name} in production environments.`,
-        module_id: module.module_id,
-        question_number: i
-      });
-    }
-  });
-  
-  return questions;
-}
 
 // Get certification-specific context and services
 function getCertificationContext(certificationName: string) {
@@ -441,16 +237,6 @@ function getCertificationContext(certificationName: string) {
       focus: 'scalability, reliability, performance optimization, cost optimization, security',
       scenarios: 'enterprise applications, microservices, data lakes, content delivery, high availability'
     },
-    'Azure Fundamentals': {
-      services: ['Azure AD', 'Virtual Network', 'Virtual Machines', 'App Service', 'Azure Functions', 'SQL Database', 'Cosmos DB', 'Blob Storage', 'CDN', 'Load Balancer', 'Monitor', 'Key Vault'],
-      focus: 'cloud concepts, core services, security compliance, governance, hybrid connectivity',
-      scenarios: 'web applications, data storage, hybrid cloud, business continuity, digital transformation'
-    },
-    'Google Cloud Associate': {
-      services: ['Cloud IAM', 'VPC', 'Compute Engine', 'Cloud Functions', 'Cloud SQL', 'Firestore', 'Cloud Storage', 'Cloud CDN', 'Cloud Load Balancing', 'Stackdriver', 'GKE', 'Cloud Security'],
-      focus: 'cloud infrastructure, data services, networking security, container orchestration, machine learning',
-      scenarios: 'containerized applications, big data analytics, machine learning pipelines, global deployment, DevOps automation'
-    }
   };
   
   return contexts[certificationName as keyof typeof contexts] || contexts['AWS Solutions Architect'];
@@ -469,6 +255,7 @@ export async function POST(request: NextRequest) {
       topic_description,
       quiz_id, 
       modules = [],
+      questionsPerModule = 1, // Default to 1 question per module
       enableValidation = true, // Enable validation by default
       startingIndex = null // Will be determined from Supabase if null
     } = body;
@@ -511,7 +298,6 @@ export async function POST(request: NextRequest) {
     if (actualStartingIndex === null) {
       // Get module-specific starting indices
       moduleStartingIndices = await getNextQuestionIndexForModules(topic_id, modules);
-      console.log("Module starting indices:", moduleStartingIndices);
       
       // For backward compatibility, also get global starting index
       actualStartingIndex = Math.max(...Object.values(moduleStartingIndices));
@@ -521,11 +307,8 @@ export async function POST(request: NextRequest) {
         moduleStartingIndices[module.module_id] = actualStartingIndex;
       });
     }
-    
-    console.log("Global starting index:", actualStartingIndex);
-    console.log("Per-module starting indices:", moduleStartingIndices);
-
-    // Generate SQL script with 2 questions per module
+  
+    // Generate SQL script with user-specified questions per module
     let sqlScript = `-- Generated SQL Script for Hub Questions\n`;
     sqlScript += `-- Certification ID: ${certification_id}\n`;
     sqlScript += `-- Topic ID: ${topic_id}\n`;
@@ -539,18 +322,25 @@ export async function POST(request: NextRequest) {
       body.topic_name,
       body.topic_description,
       body.certification_name,
-      1 // 2 questions per module
+      questionsPerModule // Use the user-selected number of questions per module
     );
 
+    // // Add one intentionally incorrect test question to validate the validation system
+    // if (generatedQuestions.length > 0) {
+    //   generatedQuestions[0] = {
+    //     ...generatedQuestions[0],
+    //     correct_answer: "{0}", // Force first question to have wrong answer
+    //     explanation: `Using basic configuration without optimization is the correct approach. [TEST: This is intentionally incorrect to test validation - original was ${generatedQuestions[0].correct_answer}]`
+    //   };
+    // }
+
     // Validate questions with secondary LLM instance (if enabled)
-    let validatedQuestions = generatedQuestions;
     let validationStatus = 'skipped';
     
     if (enableValidation) {
-      validatedQuestions = await validateQuestions(
+      await addValidationScores(
         generatedQuestions,
         body.certification_name,
-        body.topic_name
       );
       validationStatus = 'completed';
     } else {
@@ -562,7 +352,7 @@ export async function POST(request: NextRequest) {
     const quizQuestionLinks = [];
 
     // Process each validated question
-    for (const question of validatedQuestions) {
+    for (const question of generatedQuestions) {
       const moduleForQuestion = modules.find((m: any) => m.module_id === question.module_id) || modules[0];
       const moduleId = moduleForQuestion.module_id;
       
@@ -612,25 +402,28 @@ export async function POST(request: NextRequest) {
     sqlScript += `WHERE q.id = sub.quiz_id;\n\n`;
     sqlScript += `COMMIT;\n`;
 
-    // Calculate confidence statistics for response
-    const confidenceStats = validatedQuestions.reduce((stats, question) => {
-      const confidence = question.confidence || 'medium';
-      stats[confidence] = (stats[confidence] || 0) + 1;
-      return stats;
-    }, {} as Record<string, number>);
 
+    // Calculate validation statistics for response
+    const validationStats = generatedQuestions.reduce((stats: Record<string, number>, question) => {
+      const status = question.validation_status || 'unknown';
+      stats[status] = (stats[status] || 0) + 1;
+      return stats;
+    }, {});
+
+    // Calculate total score
+   
     return NextResponse.json({
       script: sqlScript,
       validationStatus,
-      questions: validatedQuestions.map((question, index) => {
+      questions: generatedQuestions.map((question, index) => {
         const moduleForQuestion = modules.find((m: any) => m.module_id === question.module_id) || modules[0];
         const moduleId = moduleForQuestion.module_id;
         
         // Calculate the correct index for this question based on its position within its module
-        const questionsPerModule = validatedQuestions.filter(q => 
+        const questionsPerModule = generatedQuestions.filter(q => 
           (modules.find((m: any) => m.module_id === q.module_id) || modules[0]).module_id === moduleId
         ).length;
-        const questionIndexInModule = validatedQuestions
+        const questionIndexInModule = generatedQuestions
           .slice(0, index + 1)
           .filter(q => (modules.find((m: any) => m.module_id === q.module_id) || modules[0]).module_id === moduleId)
           .length - 1;
@@ -641,14 +434,13 @@ export async function POST(request: NextRequest) {
           id: `q_${topic_id}_${moduleId}_${currentQuestionIndex}`,
           text: question.text,
           options: question.options,
-          correct_answer: question.correct_answer,
-          explanation: question.explanation,
-          module_id: question.module_id || moduleForQuestion.module_id,
-          module_name: moduleForQuestion.module_name,
-          question_number: question.question_number || ((index % 2) + 1),
-          index: currentQuestionIndex,
-          confidence: question.confidence, // Include confidence in each question
-          type: 'mcq'
+          correct_answer: question.correct_answer, 
+          explanation: question.explanation, 
+          confidence_score: question.confidence_score,
+          validation_status: question.validation_status, 
+          validation_notes: question.validation_notes,
+          new_correct_answer: question.new_correct_answer, 
+          new_explanation: question.new_explanation, 
         };
       })
     });
