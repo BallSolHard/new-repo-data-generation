@@ -431,7 +431,7 @@ export default function Home() {
       }
 
       const data = await response.json();
-      setGeneratedSQL(data.sqlScript);
+      setGeneratedSQL(data.script);
    
       
     } catch (err) {
@@ -441,7 +441,7 @@ export default function Home() {
       setIsGenerating(false);
     }
   };
-
+ 
   return (
     <>
       <TopBar />
@@ -680,11 +680,6 @@ export default function Home() {
               </div>
               <div className="bg-black rounded-lg p-4 overflow-x-auto">
                 <pre className="text-sm font-mono whitespace-pre-wrap">{generatedSQL}</pre>
-              </div>
-              <div className="mt-4 text-sm text-gray-300">
-                <p>📝 Script includes 2 questions per module for the selected domain</p>
-                <p>🔗 Questions are automatically linked to the quiz</p>
-                <p>📊 Quiz question count is updated automatically</p>
               </div>
             </div>
           )}

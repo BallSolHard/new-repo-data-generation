@@ -10,6 +10,7 @@ interface GeneratedQuestion {
   explanation: string;
   module_id?: string;
   question_number?: number;
+  confidence?: 'high' | 'medium' | 'low' | 'validation_failed'; 
 }
 
 // Initialize Gemini client
@@ -150,6 +151,7 @@ async function validateQuestions(
 ): Promise<GeneratedQuestion[]> {
   
   const validatedQuestions: GeneratedQuestion[] = [];
+  const confidenceStats = { high: 0, medium: 0, low: 0, validation_failed: 0 };
   
   for (let i = 0; i < questions.length; i++) {
     const question = questions[i];
@@ -189,10 +191,19 @@ RESPOND WITH JSON ONLY:
       try {
         validation = JSON.parse(cleanedValidation);
       } catch (parseError) {
-        console.warn(`Validation parse error for question ${i + 1}, accepting original`);
-        validatedQuestions.push(question);
+        console.warn(`Validation parse error for question ${i + 1}, accepting original with validation_failed confidence`);
+        const questionWithConfidence = {
+          ...question,
+          confidence: 'validation_failed' as const
+        };
+        validatedQuestions.push(questionWithConfidence);
+        confidenceStats.validation_failed++;
         continue;
       }
+      
+      // Process validation results and assign confidence
+      let finalQuestion = { ...question };
+      let assignedConfidence: 'high' | 'medium' | 'low' = validation.confidence || 'medium';
       
       // If validation failed or confidence is low, log it but keep the question
       if (!validation.is_correct || validation.confidence === 'low') {
@@ -200,23 +211,33 @@ RESPOND WITH JSON ONLY:
         
         // If validator suggests a different correct answer with high confidence, update it
         if (validation.confidence === 'high' && validation.correct_answer_index !== undefined) {
-          const correctedQuestion = {
+          finalQuestion = {
             ...question,
             correct_answer: `{${validation.correct_answer_index}}`,
-            explanation: `${question.explanation} [Validated and corrected: ${validation.validation_notes}]`
+            explanation: `${question.explanation} [Validated and corrected: ${validation.validation_notes}]`,
+            confidence: 'high' as const
           };
-          validatedQuestions.push(correctedQuestion);
+          assignedConfidence = 'high';
         } else {
-          validatedQuestions.push(question);
+          finalQuestion.confidence = assignedConfidence;
         }
       } else {
-        validatedQuestions.push(question);
+        // Validation passed, assign the confidence from validator
+        finalQuestion.confidence = assignedConfidence;
       }
+      
+      validatedQuestions.push(finalQuestion);
+      confidenceStats[assignedConfidence]++;
       
     } catch (validationError) {
       console.error(`Error validating question ${i + 1}:`, validationError);
-      // Keep original question if validation fails
-      validatedQuestions.push(question);
+      // Keep original question but mark validation as failed
+      const questionWithConfidence = {
+        ...question,
+        confidence: 'validation_failed' as const
+      };
+      validatedQuestions.push(questionWithConfidence);
+      confidenceStats.validation_failed++;
     }
     
     // Add small delay to avoid rate limiting
@@ -224,6 +245,10 @@ RESPOND WITH JSON ONLY:
       await new Promise(resolve => setTimeout(resolve, 100));
     }
   }
+  
+  // Log confidence statistics
+  console.log('Validation completed. Confidence distribution:', confidenceStats);
+  
   return validatedQuestions;
 }
 
@@ -587,17 +612,16 @@ export async function POST(request: NextRequest) {
     sqlScript += `WHERE q.id = sub.quiz_id;\n\n`;
     sqlScript += `COMMIT;\n`;
 
+    // Calculate confidence statistics for response
+    const confidenceStats = validatedQuestions.reduce((stats, question) => {
+      const confidence = question.confidence || 'medium';
+      stats[confidence] = (stats[confidence] || 0) + 1;
+      return stats;
+    }, {} as Record<string, number>);
+
     return NextResponse.json({
-      success: true,
-      sqlScript,
-      questionCount: validatedQuestions.length,
-      moduleCount: modules.length,
-      generationMethod: 'batch_gemini_api',
+      script: sqlScript,
       validationStatus,
-      originalQuestionCount: generatedQuestions.length,
-      validatedQuestionCount: validatedQuestions.length,
-      startingIndex: actualStartingIndex,
-      autoDetectedIndex: startingIndex === null,
       questions: validatedQuestions.map((question, index) => {
         const moduleForQuestion = modules.find((m: any) => m.module_id === question.module_id) || modules[0];
         const moduleId = moduleForQuestion.module_id;
@@ -623,6 +647,7 @@ export async function POST(request: NextRequest) {
           module_name: moduleForQuestion.module_name,
           question_number: question.question_number || ((index % 2) + 1),
           index: currentQuestionIndex,
+          confidence: question.confidence, // Include confidence in each question
           type: 'mcq'
         };
       })
