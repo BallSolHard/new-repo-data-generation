@@ -182,6 +182,8 @@ export default function Home() {
   const [generatedSQL, setGeneratedSQL] = useState<string>("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [questionsPerModule, setQuestionsPerModule] = useState<number>(1);
+  const [isExecuting, setIsExecuting] = useState(false);
+  const [executionResult, setExecutionResult] = useState<string | null>(null);
 
   // Fetch certifications from API on component mount
   useEffect(() => {
@@ -393,6 +395,7 @@ export default function Home() {
 
   const generateHubQuestions = async () => {
     setGeneratedSQL("");
+    setExecutionResult(null);
     if (!selectedCertification || !selectedDomain) {
       setError("Please select certification and domain first");
       return;
@@ -442,6 +445,44 @@ export default function Home() {
       setError('Failed to generate hub questions. Please try again.');
     } finally {
       setIsGenerating(false);
+    }
+  };
+
+  const executeSQL = async () => {
+    if (!generatedSQL) {
+      setError("No SQL script to execute");
+      return;
+    }
+
+    setIsExecuting(true);
+    setExecutionResult(null);
+    setError(null);
+
+    try {
+      const response = await fetch('/api/execute-sql', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          sql: generatedSQL,
+          operation: 'insert_questions'
+        })
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to execute SQL script');
+      }
+
+      const data = await response.json();
+      setExecutionResult(`Successfully executed! ${data.message || 'Questions inserted into database.'}`);
+      
+    } catch (err) {
+      console.error('Error executing SQL:', err);
+      setError(`Failed to execute SQL script: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    } finally {
+      setIsExecuting(false);
     }
   };
  
@@ -698,16 +739,40 @@ export default function Home() {
             <div className="bg-gray-900 rounded-lg shadow-lg p-6 text-green-400">
               <div className="flex justify-between items-center mb-4">
                 <h2 className="text-2xl font-semibold text-white">Generated SQL Script</h2>
-                <button
-                  onClick={() => navigator.clipboard.writeText(generatedSQL)}
-                  className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg font-semibold transition-colors"
-                >
-                  Copy to Clipboard
-                </button>
+                <div className="flex space-x-3">
+                  <button
+                    onClick={() => navigator.clipboard.writeText(generatedSQL)}
+                    className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg font-semibold transition-colors"
+                  >
+                    Copy to Clipboard
+                  </button>
+                  <button
+                    onClick={executeSQL}
+                    disabled={isExecuting}
+                    className="bg-green-600 hover:bg-green-700 disabled:bg-green-400 disabled:cursor-not-allowed text-white px-4 py-2 rounded-lg font-semibold transition-colors"
+                  >
+                    {isExecuting ? "Executing..." : "Execute SQL"}
+                  </button>
+                </div>
               </div>
               <div className="bg-black rounded-lg p-4 overflow-x-auto">
                 <pre className="text-sm font-mono whitespace-pre-wrap">{generatedSQL}</pre>
               </div>
+            </div>
+          )}
+
+          {/* Execution Result Display */}
+          {executionResult && (
+            <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
+              <div className="flex items-center space-x-2">
+                <div className="w-6 h-6 bg-green-500 rounded-full flex items-center justify-center">
+                  <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
+                  </svg>
+                </div>
+                <h3 className="text-lg font-semibold text-green-800 dark:text-green-200">Execution Successful</h3>
+              </div>
+              <p className="text-green-700 dark:text-green-300 mt-2">{executionResult}</p>
             </div>
           )}
         </div>
