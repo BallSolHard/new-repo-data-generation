@@ -72,16 +72,35 @@ async function addValidationScores(
       const validationResult = await model.generateContent(validationPrompt);
       const validationText = validationResult.response.text();
     
-      // Clean and parse validation response
-      const cleanedValidation = validationText.replace(/```json\n?|\n?```/g, '').trim();
+      // Clean and parse validation response with better error handling
+      let cleanedValidation = validationText.replace(/```json\n?|\n?```/g, '').trim();
+      
+      // Remove any text before the first { and after the last }
+      const jsonStart = cleanedValidation.indexOf('{');
+      const jsonEnd = cleanedValidation.lastIndexOf('}');
+      
+      if (jsonStart !== -1 && jsonEnd !== -1 && jsonEnd > jsonStart) {
+        cleanedValidation = cleanedValidation.substring(jsonStart, jsonEnd + 1);
+      }
+      
       let validation;
       
       try {
         validation = JSON.parse(cleanedValidation);
       } catch (parseError) {
+        console.error(`Failed to parse validation JSON for question ${i + 1}:`, cleanedValidation);
         question.confidence_score = 0;
         question.validation_status = 'validation_failed';
-        question.validation_notes = 'Failed to parse validation response';
+        question.validation_notes = `Failed to parse validation response: ${cleanedValidation.substring(0, 100)}...`;
+        continue;
+      }
+      
+      // Validate that we have the required fields
+      if (typeof validation.is_correct !== 'boolean' || validation.correct_answer_index === undefined) {
+        console.error(`Invalid validation response structure for question ${i + 1}:`, validation);
+        question.confidence_score = 0;
+        question.validation_status = 'validation_failed';
+        question.validation_notes = 'Validation response missing required fields';
         continue;
       }
       
@@ -93,8 +112,47 @@ async function addValidationScores(
         question.confidence_score = 0;
         question.validation_status = 'incorrect';
         question.validation_notes = validation.validation_notes || 'Answer identified as incorrect';
-        question.new_correct_answer = validation.correct_answer_index !== undefined ? `{${validation.correct_answer_index}}` : undefined;
-        question.new_explanation = validation.validation_notes || 'Validator suggests this answer needs review';
+        
+        // Handle correct answer suggestion based on type
+        if (validation.correct_answer_index !== undefined && validation.correct_answer_index !== null) {
+          try {
+            if (Array.isArray(validation.correct_answer_index)) {
+              // Multiple select format - validator provided array of correct indices
+              const validIndices = validation.correct_answer_index.filter((idx: any) => 
+                typeof idx === 'number' && idx >= 0 && idx < question.options.length
+              );
+              
+              if (validIndices.length > 0) {
+                question.new_correct_answer = JSON.stringify(validIndices);
+                
+                // Create human-readable explanation of correct answers
+                const correctOptions = validIndices
+                  .map((index: number) => `${String.fromCharCode(65 + index)}) ${question.options[index]}`)
+                  .join(', ');
+                question.new_explanation = `${validation.validation_notes || ''} Correct answers should be: ${correctOptions}`;
+              } else {
+                question.new_explanation = `${validation.validation_notes || ''} (Invalid suggested indices provided)`;
+              }
+            } else if (typeof validation.correct_answer_index === 'number') {
+              // Single answer format
+              const idx = validation.correct_answer_index;
+              if (idx >= 0 && idx < question.options.length) {
+                question.new_correct_answer = `{${idx}}`;
+                const correctOption = `${String.fromCharCode(65 + idx)}) ${question.options[idx]}`;
+                question.new_explanation = `${validation.validation_notes || ''} Correct answer should be: ${correctOption}`;
+              } else {
+                question.new_explanation = `${validation.validation_notes || ''} (Invalid suggested index: ${idx})`;
+              }
+            } else {
+              question.new_explanation = validation.validation_notes || 'Validator suggests this answer needs review';
+            }
+          } catch (processingError) {
+            console.error(`Error processing suggested answer for question ${i + 1}:`, processingError);
+            question.new_explanation = validation.validation_notes || 'Error processing validator suggestion';
+          }
+        } else {
+          question.new_explanation = validation.validation_notes || 'Validator suggests this answer needs review';
+        }
       }
       
     } catch (validationError) {
@@ -113,7 +171,8 @@ async function generateAllQuestions(
   topicName: string,
   topicDescription: string,
   certificationName: string,
-  questionsPerModule: number = 2
+  questionsPerModule: number = 2,
+  questionType: string = "mcq"
 ): Promise<GeneratedQuestion[]> {
   
   // Get certification context for better prompt engineering
@@ -135,7 +194,8 @@ async function generateAllQuestions(
     certificationName,
     questionsPerModule,
     certificationContext,
-    questionTypes
+    questionTypes,
+    questionType
   });
   
   // Alternative specialized prompts available:
@@ -203,21 +263,38 @@ async function generateAllQuestions(
     
     // Validate and return structured response
     if (Array.isArray(questionsData)) {
-      return questionsData.map((questionData, index) => ({
-        text: questionData.text || `Generated question ${index + 1}`,
-        options: Array.isArray(questionData.options) && questionData.options.length === 4 
-          ? questionData.options 
-          : [
-              `Basic approach without optimization`,
-              `Professional implementation using ${certificationContext.services[0]} and ${certificationContext.services[1]}`,
-              `Manual configuration only`,
-              `Legacy approach without cloud services`
-            ],
-        correct_answer: questionData.correct_answer || "{1}",
-        explanation: questionData.explanation || `Professional implementation addresses the requirements effectively.`,
-        module_id: questionData.module_id || modules[Math.floor(index / questionsPerModule)]?.module_id,
-        question_number: questionData.question_number || ((index % questionsPerModule) + 1)
-      }));
+      return questionsData.map((questionData, index) => {
+        // Handle correct_answer based on question type
+        let correct_answer;
+        if (questionType === "multiple") {
+          // For multiple select, expect array format
+          if (Array.isArray(questionData.correct_answer)) {
+            correct_answer = JSON.stringify(questionData.correct_answer);
+          } else {
+            // Fallback: assume first two options are correct
+            correct_answer = JSON.stringify([0, 1]);
+          }
+        } else {
+          // For MCQ, use string format
+          correct_answer = questionData.correct_answer || "{1}";
+        }
+
+        return {
+          text: questionData.text || `Generated question ${index + 1}`,
+          options: Array.isArray(questionData.options) && questionData.options.length === 4 
+            ? questionData.options 
+            : [
+                `Basic approach without optimization`,
+                `Professional implementation using ${certificationContext.services[0]} and ${certificationContext.services[1]}`,
+                `Manual configuration only`,
+                `Legacy approach without cloud services`
+              ],
+          correct_answer: correct_answer,
+          explanation: questionData.explanation || `Professional implementation addresses the requirements effectively.`,
+          module_id: questionData.module_id || modules[Math.floor(index / questionsPerModule)]?.module_id,
+          question_number: questionData.question_number || ((index % questionsPerModule) + 1)
+        };
+      });
     } else {
       throw new Error('Invalid response format from Gemini');
     }
@@ -256,6 +333,7 @@ export async function POST(request: NextRequest) {
       quiz_id, 
       modules = [],
       questionsPerModule = 1, // Default to 1 question per module
+      questionType = "mcq", // Default to multiple choice
       enableValidation = true, // Enable validation by default
       startingIndex = null // Will be determined from Supabase if null
     } = body;
@@ -322,7 +400,8 @@ export async function POST(request: NextRequest) {
       body.topic_name,
       body.topic_description,
       body.certification_name,
-      questionsPerModule // Use the user-selected number of questions per module
+      questionsPerModule, // Use the user-selected number of questions per module
+      questionType // Pass the question type to the generation function
     );
 
     // // Add one intentionally incorrect test question to validate the validation system
@@ -372,7 +451,7 @@ export async function POST(request: NextRequest) {
       const escapedExplanation = question.explanation.replace(/'/g, "''");
       
       sqlScript += `INSERT INTO public.question (id, text, type, options, correct_answer, explanation, created_at, quiz_id, modified_at, index, pairs, matches, module_id)\n`;
-      sqlScript += `VALUES ('${questionId}','${escapedText}','mcq','${JSON.stringify(question.options)}'::json,'${question.correct_answer}','${escapedExplanation}',NOW(),'${quiz_id}',NOW(),${questionIndex},NULL,NULL,'${moduleForQuestion.module_id}') ON CONFLICT (id) DO NOTHING;\n\n`;
+      sqlScript += `VALUES ('${questionId}','${escapedText}','${questionType}','${JSON.stringify(question.options)}'::json,'${question.correct_answer}','${escapedExplanation}',NOW(),'${quiz_id}',NOW(),${questionIndex},NULL,NULL,'${moduleForQuestion.module_id}') ON CONFLICT (id) DO NOTHING;\n\n`;
       
       quizQuestionLinks.push(`(NOW(),'${quiz_id}','${questionId}')`);
       

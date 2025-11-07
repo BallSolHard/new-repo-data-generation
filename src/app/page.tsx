@@ -187,6 +187,7 @@ export default function Home() {
   const [isEditingSQL, setIsEditingSQL] = useState(false);
   const [editableSQL, setEditableSQL] = useState<string>("");
   const [validationResults, setValidationResults] = useState<any>(null);
+  const [questionType, setQuestionType] = useState<string>("mcq");
 
   // Fetch certifications from API on component mount
   useEffect(() => {
@@ -348,6 +349,7 @@ export default function Home() {
     setEditableSQL("");
     setIsEditingSQL(false);
     setValidationResults(null);
+    setQuestionType("mcq");
     setQuestionsPerModule(1); // Reset questions per module
     setModules([]); // Clear modules when switching tabs
     setQuizzes([]); // Clear quizzes when switching tabs
@@ -402,6 +404,7 @@ export default function Home() {
   const generateHubQuestions = async () => {
     setGeneratedSQL("");
     setExecutionResult(null);
+    setValidationResults(null);
     if (!selectedCertification || !selectedDomain) {
       setError("Please select certification and domain first");
       return;
@@ -423,6 +426,7 @@ export default function Home() {
         topic_description: selectedDomainData?.topic_description || `${selectedDomain} domain knowledge and best practices`,
         quiz_id: quizId,
         questionsPerModule: questionsPerModule,
+        questionType: questionType,
         modules: modules.length > 0 ? modules : getCurrentModules().map((name, index) => ({
           module_id: `fallback_${index + 1}`,
           module_name: name,
@@ -477,6 +481,15 @@ export default function Home() {
     if (!sqlToExecute) {
       setError("No SQL script to execute");
       return;
+    }
+
+    // Show confirmation dialog
+    const confirmed = window.confirm(
+      "Are you sure you want to execute this SQL script? This will insert questions into the database."
+    );
+    
+    if (!confirmed) {
+      return; // User cancelled
     }
 
     setIsExecuting(true);
@@ -717,6 +730,10 @@ export default function Home() {
                     </div>
                   </div>
                 )}
+                <p>
+                  <span className="font-semibold">Question Type:</span> {questionType === "mcq" ? "Multiple Choice" : "Multiple Select"}
+                  <code className="bg-white/20 px-2 py-1 rounded text-sm ml-2">{questionType}</code>
+                </p>
                 {quizzesLoading ? (
                   <p><span className="font-semibold">Quiz ID:</span> <span className="animate-pulse">Loading...</span></p>
                 ) : quizzes.length > 0 ? (
@@ -726,26 +743,48 @@ export default function Home() {
                 )}
               </div>
               
-              {/* Questions per Module Selection */}
-              <div className="mt-4 flex items-center space-x-4">
-                <label htmlFor="questionsPerModule" className="font-semibold">
-                  Questions per Module:
-                </label>
-                <select
-                  id="questionsPerModule"
-                  value={questionsPerModule}
-                  onChange={(e) => setQuestionsPerModule(Number(e.target.value))}
-                  className="bg-white/20 border border-white/30 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-white/50 focus:border-white/50"
-                >
-                  <option value={1} className="text-gray-900">1 Question</option>
-                  <option value={2} className="text-gray-900">2 Questions</option>
-                  <option value={3} className="text-gray-900">3 Questions</option>
-                  <option value={4} className="text-gray-900">4 Questions</option>
-                  <option value={5} className="text-gray-900">5 Questions</option>
-                </select>
-                <span className="text-sm text-white/80">
-                  Total: {questionsPerModule * (modules.length || getCurrentModules().length)} questions
-                </span>
+              {/* Configuration Options */}
+              <div className="mt-4 space-y-3">
+                {/* Questions per Module Selection */}
+                <div className="flex items-center space-x-4">
+                  <label htmlFor="questionsPerModule" className="font-semibold min-w-fit">
+                    Questions per Module:
+                  </label>
+                  <select
+                    id="questionsPerModule"
+                    value={questionsPerModule}
+                    onChange={(e) => setQuestionsPerModule(Number(e.target.value))}
+                    className="bg-white/20 border border-white/30 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-white/50 focus:border-white/50"
+                  >
+                    <option value={1} className="text-gray-900">1 Question</option>
+                    <option value={2} className="text-gray-900">2 Questions</option>
+                    <option value={3} className="text-gray-900">3 Questions</option>
+                    <option value={4} className="text-gray-900">4 Questions</option>
+                    <option value={5} className="text-gray-900">5 Questions</option>
+                  </select>
+                  <span className="text-sm text-white/80">
+                    Total: {questionsPerModule * (modules.length || getCurrentModules().length)} questions
+                  </span>
+                </div>
+
+                {/* Question Type Selection */}
+                <div className="flex items-center space-x-4">
+                  <label htmlFor="questionType" className="font-semibold min-w-fit">
+                    Question Type:
+                  </label>
+                  <select
+                    id="questionType"
+                    value={questionType}
+                    onChange={(e) => setQuestionType(e.target.value)}
+                    className="bg-white/20 border border-white/30 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-white/50 focus:border-white/50"
+                  >
+                    <option value="mcq" className="text-gray-900">Multiple Choice (MCQ)</option>
+                    <option value="multiple" className="text-gray-900">Multiple Select</option>
+                  </select>
+                  <span className="text-sm text-white/80">
+                    {questionType === "mcq" ? "Single correct answer" : "Multiple correct answers"}
+                  </span>
+                </div>
               </div>
               
               <button 
@@ -755,7 +794,6 @@ export default function Home() {
               >
                 {isGenerating ? "Generating..." : (activeTab === "hub" ? "Generate Hub Questions" : "Generate Mock Questions")}
               </button>
-
             </div>
           )}
 

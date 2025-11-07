@@ -32,4 +32,5 @@ export interface QuestionGenerationParams {
     focus: string;
   };
   questionTypes: string[];
+  questionType?: string; // Optional: "mcq" or "multiple"
 }
