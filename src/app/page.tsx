@@ -184,6 +184,9 @@ export default function Home() {
   const [questionsPerModule, setQuestionsPerModule] = useState<number>(1);
   const [isExecuting, setIsExecuting] = useState(false);
   const [executionResult, setExecutionResult] = useState<string | null>(null);
+  const [isEditingSQL, setIsEditingSQL] = useState(false);
+  const [editableSQL, setEditableSQL] = useState<string>("");
+  const [validationResults, setValidationResults] = useState<any>(null);
 
   // Fetch certifications from API on component mount
   useEffect(() => {
@@ -342,6 +345,9 @@ export default function Home() {
     setSelectedDomain("");
     setSelectedModule("");
     setGeneratedSQL("");
+    setEditableSQL("");
+    setIsEditingSQL(false);
+    setValidationResults(null);
     setQuestionsPerModule(1); // Reset questions per module
     setModules([]); // Clear modules when switching tabs
     setQuizzes([]); // Clear quizzes when switching tabs
@@ -437,7 +443,10 @@ export default function Home() {
       }
 
       const data = await response.json();
+      console.log("GENERATED DATA FOR SQL:", data);
       setGeneratedSQL(data.script);
+      setEditableSQL(data.script);
+      setValidationResults(data);
    
       
     } catch (err) {
@@ -448,8 +457,24 @@ export default function Home() {
     }
   };
 
+  const handleEditSQL = () => {
+    setIsEditingSQL(true);
+    setEditableSQL(generatedSQL);
+  };
+
+  const handleSaveSQL = () => {
+    setGeneratedSQL(editableSQL);
+    setIsEditingSQL(false);
+  };
+
+  const handleCancelEdit = () => {
+    setEditableSQL(generatedSQL);
+    setIsEditingSQL(false);
+  };
+
   const executeSQL = async () => {
-    if (!generatedSQL) {
+    const sqlToExecute = isEditingSQL ? editableSQL : generatedSQL;
+    if (!sqlToExecute) {
       setError("No SQL script to execute");
       return;
     }
@@ -465,7 +490,7 @@ export default function Home() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ 
-          sql: generatedSQL,
+          sql: sqlToExecute,
           operation: 'insert_questions'
         })
       });
@@ -734,33 +759,71 @@ export default function Home() {
             </div>
           )}
 
-          {/* Generated SQL Script Display */}
-          {generatedSQL && (
-            <div className="bg-gray-900 rounded-lg shadow-lg p-6 text-green-400">
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-2xl font-semibold text-white">Generated SQL Script</h2>
-                <div className="flex space-x-3">
-                  <button
-                    onClick={() => navigator.clipboard.writeText(generatedSQL)}
-                    className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg font-semibold transition-colors"
-                  >
-                    Copy to Clipboard
-                  </button>
-                  <button
-                    onClick={executeSQL}
-                    disabled={isExecuting}
-                    className="bg-green-600 hover:bg-green-700 disabled:bg-green-400 disabled:cursor-not-allowed text-white px-4 py-2 rounded-lg font-semibold transition-colors"
-                  >
-                    {isExecuting ? "Executing..." : "Execute SQL"}
-                  </button>
-                </div>
-              </div>
-              <div className="bg-black rounded-lg p-4 overflow-x-auto">
-                <pre className="text-sm font-mono whitespace-pre-wrap">{generatedSQL}</pre>
+          {/* Validation Status Indicator */}
+          {validationResults && validationResults.questions && (
+            <div className={`rounded-lg shadow-lg p-4 ${
+              validationResults.questions.every((q: any) => q.confidence_score === 1)
+                ? "bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800"
+                : "bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800"
+            }`}>
+              <div className="flex items-center space-x-3">
+                {validationResults.questions.every((q: any) => q.confidence_score === 1) ? (
+                  <>
+                    <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center">
+                      <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
+                      </svg>
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-semibold text-green-800 dark:text-green-200">All Questions Validated ✓</h3>
+                      <p className="text-green-700 dark:text-green-300">
+                        All {validationResults.questions.length} questions passed validation with confidence score of 1.
+                      </p>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="w-8 h-8 bg-amber-500 rounded-full flex items-center justify-center">
+                      <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L5.232 15.5c-.77.833.192 2.5 1.732 2.5z"></path>
+                      </svg>
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="text-lg font-semibold text-amber-800 dark:text-amber-200">Validation Issues Detected ⚠️</h3>
+                      <p className="text-amber-700 dark:text-amber-300 mb-2">
+                        {validationResults.questions.filter((q: any) => q.confidence_score === 0).length} out of {validationResults.questions.length} questions need review.
+                      </p>
+                      <div className="space-y-2">
+                        {validationResults.questions
+                          .filter((q: any) => q.confidence_score === 0)
+                          .map((question: any, index: number) => (
+                            <div key={index} className="bg-amber-100 dark:bg-amber-900/30 rounded-lg p-3">
+                              <p className="font-semibold text-amber-800 dark:text-amber-200 text-sm">
+                                Question ID: {question.id}
+                              </p>
+                              <p className="text-amber-700 dark:text-amber-300 text-sm">
+                                Status: {question.validation_status}
+                              </p>
+                              {question.validation_notes && (
+                                <p className="text-amber-600 dark:text-amber-400 text-xs mt-1">
+                                  {question.validation_notes}
+                                </p>
+                              )}
+                              {question.new_correct_answer && (
+                                <p className="text-amber-600 dark:text-amber-400 text-xs mt-1">
+                                  Suggested answer: {question.new_correct_answer}
+                                </p>
+                              )}
+                            </div>
+                          ))
+                        }
+                      </div>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
           )}
-
           {/* Execution Result Display */}
           {executionResult && (
             <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
@@ -773,6 +836,72 @@ export default function Home() {
                 <h3 className="text-lg font-semibold text-green-800 dark:text-green-200">Execution Successful</h3>
               </div>
               <p className="text-green-700 dark:text-green-300 mt-2">{executionResult}</p>
+            </div>
+          )}
+          {/* Generated SQL Script Display */}
+          {generatedSQL && (
+            <div className="bg-gray-900 rounded-lg shadow-lg p-6 text-green-400">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-2xl font-semibold text-white">
+                  Generated SQL Script
+                  {isEditingSQL && <span className="text-yellow-400 text-lg ml-2">(Editing)</span>}
+                </h2>
+                <div className="flex space-x-3">
+                  {!isEditingSQL ? (
+                    <>
+                      <button
+                        onClick={handleEditSQL}
+                        className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-semibold transition-colors flex items-center space-x-2"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                        </svg>
+                        <span>Edit</span>
+                      </button>
+                      <button
+                        onClick={() => navigator.clipboard.writeText(generatedSQL)}
+                        className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg font-semibold transition-colors"
+                      >
+                        Copy to Clipboard
+                      </button>
+                      <button
+                        onClick={executeSQL}
+                        disabled={isExecuting}
+                        className="bg-green-600 hover:bg-green-700 disabled:bg-green-400 disabled:cursor-not-allowed text-white px-4 py-2 rounded-lg font-semibold transition-colors"
+                      >
+                        {isExecuting ? "Executing..." : "Execute SQL"}
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <button
+                        onClick={handleCancelEdit}
+                        className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg font-semibold transition-colors"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={handleSaveSQL}
+                        className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-semibold transition-colors"
+                      >
+                        Save Changes
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
+              <div className="bg-black rounded-lg p-4 overflow-x-auto">
+                {!isEditingSQL ? (
+                  <pre className="text-sm font-mono whitespace-pre-wrap">{generatedSQL}</pre>
+                ) : (
+                  <textarea
+                    value={editableSQL}
+                    onChange={(e) => setEditableSQL(e.target.value)}
+                    className="w-full h-96 bg-black text-green-400 font-mono text-sm p-4 rounded-lg border border-gray-600 focus:border-blue-500 focus:outline-none resize-none"
+                    placeholder="Edit your SQL script here..."
+                  />
+                )}
+              </div>
             </div>
           )}
         </div>
