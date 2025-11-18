@@ -501,6 +501,16 @@ export async function POST(request: NextRequest) {
       sqlScript += `VALUES ('${mockTestId}', '${escapedText}', '${questionType}', '${JSON.stringify(question.options)}'::jsonb, '{${correctAnswerArray.join(',')}}', '${escapedExplanation}', ${index + 1}, '${question.module_id}', ${questionTopicId || 'NULL'});\n\n`;
     });
 
+    // Update the total_questions count in mock_tests based on actual inserted questions
+    sqlScript += `-- Update total_questions count in mock_tests based on actual questions inserted\n`;
+    sqlScript += `UPDATE public.mock_tests \n`;
+    sqlScript += `SET total_questions = (\n`;
+    sqlScript += `    SELECT COUNT(*) \n`;
+    sqlScript += `    FROM public.mock_test_questions \n`;
+    sqlScript += `    WHERE mock_test_id = '${mockTestId}'\n`;
+    sqlScript += `)\n`;
+    sqlScript += `WHERE id = '${mockTestId}';\n\n`;
+
     sqlScript += `COMMIT;\n`;
 
     // Calculate validation statistics
