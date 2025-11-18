@@ -1048,22 +1048,6 @@ export default function Home() {
                     return selectedDomainData ? <code className="bg-white/20 px-2 py-1 rounded text-sm ml-2">{selectedDomainData.topic_id}</code> : null;
                   })()}
                 </p>
-                {selectedModules.length > 0 && (
-                  <div>
-                    <p><span className="font-semibold">Selected Modules ({selectedModules.length}):</span></p>
-                    <div className="ml-4 space-y-1">
-                      {selectedModules.map((moduleName, index) => {
-                        const moduleData = modules.find(m => m.module_name === moduleName);
-                        return (
-                          <p key={moduleName} className="text-sm">
-                            {index + 1}. {moduleName}
-                            {moduleData ? <code className="bg-white/20 px-2 py-1 rounded text-xs ml-2">{moduleData.module_id}</code> : <code className="bg-white/20 px-2 py-1 rounded text-xs ml-2">selected_module</code>}
-                          </p>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
                 {/* Show modules for question generation */}
                 {selectedModules.length > 0 ? (
                   <div>
