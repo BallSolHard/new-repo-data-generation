@@ -27,7 +27,7 @@ type ModuleData = {
   module_description?: string;
   topic_id: number;
   ideal_completion_time?: string;
-  module_content?: string;
+
 };
 
 type QuizData = {
@@ -43,6 +43,20 @@ type QuizData = {
   certification_id: number;
   question_type: string;
   is_completed: boolean;
+};
+
+type MockTestData = {
+  id: string;
+  title: string;
+  created_at: string;
+  certification_id: number;
+  duration: number;
+  total_questions: number;
+  description: string;
+  validity_months: number;
+  passing_score: number;
+  recommended_experience_text: string;
+  exam_format: string[];
 };
 
 // Sample data structure for certifications (fallback)
@@ -169,15 +183,18 @@ export default function Home() {
   const [selectedCertification, setSelectedCertification] = useState<string>("");
   const [selectedDomain, setSelectedDomain] = useState<string>("");
   const [selectedModule, setSelectedModule] = useState<string>("");
+  const [selectedMockTest, setSelectedMockTest] = useState<string>("");
   const [certifications, setCertifications] = useState<CertificationFromAPI[]>([]);
   const [domains, setDomains] = useState<DomainData[]>([]);
   const [modules, setModules] = useState<ModuleData[]>([]);
   const [quizzes, setQuizzes] = useState<QuizData[]>([]);
+  const [mockTests, setMockTests] = useState<MockTestData[]>([]);
   const [fallbackCertifications] = useState<CertificationData>(fallbackCertificationData);
   const [loading, setLoading] = useState(true);
   const [domainsLoading, setDomainsLoading] = useState(false);
   const [modulesLoading, setModulesLoading] = useState(false);
   const [quizzesLoading, setQuizzesLoading] = useState(false);
+  const [mockTestsLoading, setMockTestsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [generatedSQL, setGeneratedSQL] = useState<string>("");
   const [isGenerating, setIsGenerating] = useState(false);
@@ -282,14 +299,12 @@ export default function Home() {
     }
   }, [selectedDomain, domains]);
 
-  // Fetch quizzes when module is selected (for Mock Questions) or domain is selected (for Hub Questions)
+  // Fetch quizzes when module is selected (for both Hub and Mock Questions)
   useEffect(() => {
     const fetchQuizzes = async () => {
-      // For Hub Questions: fetch after domain selection
-      // For Mock Questions: fetch after module selection
+      // For both Hub and Mock Questions: fetch after module selection
       const shouldFetchQuizzes = 
-        (activeTab === "hub" && selectedDomain && selectedCertification) ||
-        (activeTab === "mock" && selectedModule && selectedDomain && selectedCertification);
+        selectedModule && selectedDomain && selectedCertification;
 
       if (!shouldFetchQuizzes) {
         setQuizzes([]);
@@ -322,15 +337,50 @@ export default function Home() {
     }
   }, [selectedModule, selectedDomain, selectedCertification, domains, certifications, activeTab]);
 
+  // Fetch mock tests when certification is selected and in mock mode
+  useEffect(() => {
+    const fetchMockTests = async () => {
+      if (activeTab !== "mock" || !selectedCertification) {
+        setMockTests([]);
+        return;
+      }
+
+      try {
+        setMockTestsLoading(true);
+        const selectedCertData = certifications.find(c => c.title === selectedCertification);
+        
+        if (selectedCertData?.id) {
+          const response = await fetch(`/api/mock-tests?certification_id=${selectedCertData.id}`);
+          if (!response.ok) {
+            throw new Error('Failed to fetch mock tests');
+          }
+          const data = await response.json();
+          setMockTests(data.mockTests || []);
+        }
+      } catch (err) {
+        console.error('Error fetching mock tests:', err);
+        setMockTests([]);
+      } finally {
+        setMockTestsLoading(false);
+      }
+    };
+
+    if (selectedCertification && certifications.length > 0 && activeTab === "mock") {
+      fetchMockTests();
+    }
+  }, [selectedCertification, certifications, activeTab]);
+
   const handleCertificationChange = (cert: string) => {
     setSelectedCertification(cert);
     setSelectedDomain("");
     setSelectedModule("");
+    setSelectedMockTest("");
   };
 
   const handleDomainChange = (domain: string) => {
     setSelectedDomain(domain);
     setSelectedModule("");
+    setSelectedMockTest("");
     setModules([]); // Clear modules when domain changes
   };
 
@@ -339,12 +389,47 @@ export default function Home() {
     setQuizzes([]); // Clear quizzes when module changes
   };
 
+  const handleMockTestChange = (mockTestId: string) => {
+    setSelectedMockTest(mockTestId);
+  };
+
+  const handleCreateNewMockTest = () => {
+    // Generate a mock test ID with the format: aws_$certificationcode_$randomid
+    const certificationCode = selectedCertification
+      .toLowerCase()
+      .replace(/\s+/g, '_')
+      .replace(/[^a-z0-9_]/g, '');
+    
+    const randomId = Math.random().toString(36).substring(2, 8);
+    const newMockTestId = `${certificationCode}_${randomId}`;
+    
+    // Create a temporary mock test object
+    const newMockTest: MockTestData = {
+      id: newMockTestId,
+      title: `${selectedCertification} - Practice Test ${mockTests.length + 1}`,
+      created_at: new Date().toISOString(),
+      certification_id: certifications.find(c => c.title === selectedCertification)?.id || 0,
+      duration: 120, // Default 2 hours
+      total_questions: 65, // Default question count
+      description: `Practice test for ${selectedCertification} certification`,
+      validity_months: 12,
+      passing_score: 70,
+      recommended_experience_text: "6+ months of hands-on experience",
+      exam_format: ["Multiple Choice", "Multiple Select"]
+    };
+    
+    // Add the new mock test to the existing list and select it
+    setMockTests(prevMockTests => [...prevMockTests, newMockTest]);
+    setSelectedMockTest(newMockTestId);
+  };
+
   const handleTabChange = (tab: "hub" | "mock") => {
     setActiveTab(tab);
     // Reset selections when switching tabs
     setSelectedCertification("");
     setSelectedDomain("");
     setSelectedModule("");
+    setSelectedMockTest("");
     setGeneratedSQL("");
     setEditableSQL("");
     setIsEditingSQL(false);
@@ -353,6 +438,7 @@ export default function Home() {
     setQuestionsPerModule(1); // Reset questions per module
     setModules([]); // Clear modules when switching tabs
     setQuizzes([]); // Clear quizzes when switching tabs
+    setMockTests([]); // Clear mock tests when switching tabs
   };
 
   const getCurrentDomains = () => {
@@ -401,12 +487,16 @@ export default function Home() {
     return Object.keys(fallbackCertifications);
   };
 
+  const getSelectedMockTest = () => {
+    return mockTests.find(test => test.id === selectedMockTest);
+  };
+
   const generateHubQuestions = async () => {
     setGeneratedSQL("");
     setExecutionResult(null);
     setValidationResults(null);
-    if (!selectedCertification || !selectedDomain) {
-      setError("Please select certification and domain first");
+    if (!selectedCertification || !selectedDomain || !selectedModule) {
+      setError("Please select certification, domain, and module first");
       return;
     }
 
@@ -431,7 +521,6 @@ export default function Home() {
           module_id: `fallback_${index + 1}`,
           module_name: name,
           module_description: `Knowledge and skills related to ${name}`,
-          module_content: `Core concepts and practical applications of ${name} in ${selectedDomain}`
         }))
       };
       const response = await fetch('/api/generate-hub', {
@@ -456,6 +545,73 @@ export default function Home() {
     } catch (err) {
       console.error('Error generating hub questions:', err);
       setError('Failed to generate hub questions. Please try again.');
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const generateMockQuestions = async () => {
+    setGeneratedSQL("");
+    setExecutionResult(null);
+    setValidationResults(null);
+    
+    if (!selectedCertification || !selectedDomain || !selectedModule || !selectedMockTest) {
+      setError("Please select certification, domain, module, and mock test first");
+      return;
+    }
+
+    setIsGenerating(true);
+    setError(null);
+
+    try {
+      const selectedCertData = certifications.find(c => c.title === selectedCertification);
+      const selectedDomainData = domains.find(d => d.topic_name === selectedDomain);
+      const selectedMockTestData = getSelectedMockTest();
+
+      const payload = {
+        certification_id: selectedCertData?.id,
+        certification_name: selectedCertification,
+        mock_test_id: selectedMockTest,
+        title: selectedMockTestData?.title || `${selectedCertification} - Practice Test`,
+        description: selectedMockTestData?.description || `Practice test for ${selectedCertification} certification`,
+        duration: selectedMockTestData?.duration || 120,
+        total_questions: selectedMockTestData?.total_questions || (questionsPerModule * (modules.length || getCurrentModules().length)),
+        passing_score: selectedMockTestData?.passing_score || 70,
+        validity_months: selectedMockTestData?.validity_months || 12,
+        recommended_experience_text: selectedMockTestData?.recommended_experience_text || "6+ months of hands-on experience",
+        exam_format: selectedMockTestData?.exam_format || ["Multiple Choice", "Multiple Select"],
+        topic_id: selectedDomainData?.topic_id,
+        topic_name: selectedDomain,
+        topic_description: selectedDomainData?.topic_description || `${selectedDomain} domain knowledge and best practices`,
+        questionsPerModule: questionsPerModule,
+        questionType: questionType,
+        modules: modules.length > 0 ? modules : getCurrentModules().map((name, index) => ({
+          module_id: `fallback_${index + 1}`,
+          module_name: name,
+          module_description: `Knowledge and skills related to ${name}`,
+        }))
+      };
+      const response = await fetch('/api/generate-mock', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload)
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to generate mock questions');
+      }
+
+      const data = await response.json();
+      console.log("GENERATED MOCK DATA FOR SQL:", data);
+      setGeneratedSQL(data.script);
+      setEditableSQL(data.script);
+      setValidationResults(data);
+      
+    } catch (err) {
+      console.error('Error generating mock questions:', err);
+      setError('Failed to generate mock questions. Please try again.');
     } finally {
       setIsGenerating(false);
     }
@@ -646,8 +802,8 @@ export default function Home() {
             </div>
           )}
 
-          {/* Module/Task Selection - Only show for Mock Questions */}
-          {selectedDomain && activeTab === "mock" && (
+          {/* Module/Task Selection - Show for both Hub and Mock Questions */}
+          {selectedDomain && (
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
               <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-4">
                 Choose Module/Task
@@ -682,8 +838,142 @@ export default function Home() {
             </div>
           )}
 
+          {/* Mock Tests Display - Only show for Mock Questions after module selection */}
+          {activeTab === "mock" && selectedModule && (
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+              <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-4">
+                Available Mock Tests for {selectedCertification}
+              </h2>
+              {mockTestsLoading ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {[1, 2, 3].map((i) => (
+                    <div key={i} className="p-4 rounded-lg border-2 border-gray-200 dark:border-gray-600 animate-pulse">
+                      <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded mb-2"></div>
+                      <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded mb-2"></div>
+                      <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-3/4"></div>
+                    </div>
+                  ))}
+                </div>
+              ) : mockTests.length > 0 ? (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {mockTests.map((mockTest) => (
+                      <button
+                        key={mockTest.id}
+                        onClick={() => handleMockTestChange(mockTest.id)}
+                        className={`p-4 rounded-lg border-2 transition-all duration-200 text-left relative ${
+                          selectedMockTest === mockTest.id
+                            ? "border-purple-500 bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300"
+                            : "border-gray-200 dark:border-gray-600 hover:border-purple-300 dark:hover:border-purple-500"
+                        }`}
+                      >
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <h3 className="font-semibold text-gray-900 dark:text-white">
+                              {mockTest.title}
+                            </h3>
+                            {/* Show "NEW" badge for newly created mock tests */}
+                            {new Date(mockTest.created_at).toDateString() === new Date().toDateString() && (
+                              <span className="bg-green-500 text-white text-xs px-2 py-1 rounded-full font-bold">
+                                NEW
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-sm text-gray-600 dark:text-gray-400 space-y-1">
+                            <p><span className="font-medium">Questions:</span> {mockTest.total_questions}</p>
+                            <p><span className="font-medium">Duration:</span> {mockTest.duration} minutes</p>
+                            <p><span className="font-medium">Passing Score:</span> {mockTest.passing_score}%</p>
+                            <p><span className="font-medium">Validity:</span> {mockTest.validity_months} months</p>
+                          </div>
+                          {mockTest.description && (
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                              {mockTest.description.length > 100 ? `${mockTest.description.substring(0, 100)}...` : mockTest.description}
+                            </p>
+                          )}
+                          <div className="flex flex-wrap gap-1 mt-2">
+                            {mockTest.exam_format?.map((format, index) => (
+                              <span
+                                key={index}
+                                className="px-2 py-1 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded-full text-xs"
+                              >
+                                {format}
+                              </span>
+                            ))}
+                          </div>
+                          <div className="text-xs text-gray-400 dark:text-gray-500 mt-2">
+                            Created: {new Date(mockTest.created_at).toLocaleDateString()}
+                          </div>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                  
+                  {/* Always show Create New Mock Test option */}
+                  <div className="border-t border-gray-200 dark:border-gray-600 pt-4">
+                    <div className="text-center">
+                      <button
+                        onClick={handleCreateNewMockTest}
+                        className="bg-purple-500 hover:bg-purple-600 text-white px-6 py-3 rounded-lg font-semibold transition-colors inline-flex items-center space-x-2"
+                      >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                        </svg>
+                        <span>Create New Mock Test</span>
+                      </button>
+                      <p className="text-sm text-gray-500 dark:text-gray-500 mt-2">
+                        Create an additional mock test for more practice options.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <div className="w-16 h-16 mx-auto mb-4 text-gray-400">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                    </svg>
+                  </div>
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+                    No Mock Tests Available
+                  </h3>
+                  <p className="text-gray-600 dark:text-gray-400 mb-4">
+                    There are no mock tests created for {selectedCertification} yet.
+                  </p>
+                  <button
+                    onClick={handleCreateNewMockTest}
+                    className="bg-purple-500 hover:bg-purple-600 text-white px-6 py-3 rounded-lg font-semibold transition-colors inline-flex items-center space-x-2"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                    </svg>
+                    <span>Create New Mock Test</span>
+                  </button>
+                  <p className="text-sm text-gray-500 dark:text-gray-500 mt-3">
+                    This will create a new mock test entry and allow you to generate questions for it.
+                  </p>
+                </div>
+              )}
+              
+              {/* Selection hint for mock tests */}
+              {mockTests.length > 0 && !selectedMockTest && (
+                <div className="mt-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                  <div className="flex items-center space-x-2">
+                    <div className="w-5 h-5 text-blue-500">
+                      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                      </svg>
+                    </div>
+                    <p className="text-blue-800 dark:text-blue-200 text-sm">
+                      <span className="font-semibold">Select a mock test</span> from the cards above to continue with question generation.
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Selected Summary */}
-          {((activeTab === "hub" && selectedDomain) || (activeTab === "mock" && selectedModule)) && (
+          {((activeTab === "hub" && selectedDomain && selectedModule) || (activeTab === "mock" && selectedModule && selectedMockTest)) && (
             <div className="bg-gradient-to-r from-purple-500 to-purple-600 rounded-lg shadow-lg p-6 text-white">
               <h2 className="text-2xl font-semibold mb-4">Your Selection</h2>
               <div className="space-y-2">
@@ -702,6 +992,15 @@ export default function Home() {
                     return selectedDomainData ? <code className="bg-white/20 px-2 py-1 rounded text-sm ml-2">{selectedDomainData.topic_id}</code> : null;
                   })()}
                 </p>
+                {selectedModule && (
+                  <p>
+                    <span className="font-semibold">Selected Module:</span> {selectedModule}
+                    {(() => {
+                      const selectedModuleData = modules.find(m => m.module_name === selectedModule);
+                      return selectedModuleData ? <code className="bg-white/20 px-2 py-1 rounded text-sm ml-2">{selectedModuleData.module_id}</code> : null;
+                    })()}
+                  </p>
+                )}
                 {/* Show all modules for the selected domain (for both Hub and Mock Questions) */}
                 {modules.length > 0 && (
                   <div>
@@ -734,12 +1033,23 @@ export default function Home() {
                   <span className="font-semibold">Question Type:</span> {questionType === "mcq" ? "Multiple Choice" : "Multiple Select"}
                   <code className="bg-white/20 px-2 py-1 rounded text-sm ml-2">{questionType}</code>
                 </p>
-                {quizzesLoading ? (
-                  <p><span className="font-semibold">Quiz ID:</span> <span className="animate-pulse">Loading...</span></p>
-                ) : quizzes.length > 0 ? (
-                  <p><span className="font-semibold">Quiz ID:</span> <code className="bg-white/20 px-2 py-1 rounded text-sm">{quizzes[0].id}</code></p>
+                {activeTab === "hub" ? (
+                  quizzesLoading ? (
+                    <p><span className="font-semibold">Quiz ID:</span> <span className="animate-pulse">Loading...</span></p>
+                  ) : quizzes.length > 0 ? (
+                    <p><span className="font-semibold">Quiz ID:</span> <code className="bg-white/20 px-2 py-1 rounded text-sm">{quizzes[0].id}</code></p>
+                  ) : (
+                    <p><span className="font-semibold">Quiz ID:</span> <span className="text-gray-300">No quiz available</span></p>
+                  )
                 ) : (
-                  <p><span className="font-semibold">Quiz ID:</span> <span className="text-gray-300">No quiz available</span></p>
+                  selectedMockTest ? (
+                    <div>
+                      <p><span className="font-semibold">Selected Mock Test:</span> {getSelectedMockTest()?.title}</p>
+                      <p><span className="font-semibold">Mock Test ID:</span> <code className="bg-white/20 px-2 py-1 rounded text-sm">{selectedMockTest}</code></p>
+                    </div>
+                  ) : (
+                    <p><span className="font-semibold">Mock Test:</span> <span className="text-gray-300">No mock test selected</span></p>
+                  )
                 )}
               </div>
               
@@ -789,7 +1099,7 @@ export default function Home() {
               
               <button 
                 className="mt-4 bg-white text-purple-600 px-6 py-2 rounded-lg font-semibold hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                onClick={activeTab === "hub" ? generateHubQuestions : undefined}
+                onClick={activeTab === "hub" ? generateHubQuestions : generateMockQuestions}
                 disabled={isGenerating}
               >
                 {isGenerating ? "Generating..." : (activeTab === "hub" ? "Generate Hub Questions" : "Generate Mock Questions")}

@@ -6,7 +6,7 @@ import type { QuestionGenerationParams } from '../types';
  * @returns A formatted prompt string for LLM question generation
  */
 export function createQuestionGenerationPrompt(params: QuestionGenerationParams): string {
-  const { modules, topicName, certificationName, questionsPerModule, certificationContext, questionTypes, questionType = "mcq" } = params;
+  const { modules, topicName, topicDescription, certificationName, questionsPerModule, questionTypes, questionType = "mcq" } = params;
   
   // Build modules information for the prompt
   const modulesInfo = modules.map((module, index) => {
@@ -15,7 +15,7 @@ Module ${index + 1}:
 - ID: ${module.module_id}
 - Name: ${module.module_name}
 - Description: ${module.module_description || 'Not provided'}
-- Content: ${module.module_content || 'Not provided'}`;
+- Content: ${module.module_content ? module.module_content.substring(0, 200) + '...' : 'Not provided'}`;
   }).join('\n');
   
   const totalQuestions = questionsPerModule * modules.length;
@@ -25,18 +25,18 @@ Module ${index + 1}:
   {
     "module_id": "exact_module_id_from_above",
     "question_number": 1,
-    "text": "Which of the following are best practices for AWS security? (Select 2 options)",
+    "text": "Which AWS security practices should be implemented for production environments? (Select 2 options)",
     "options": ["Enable MFA for root account", "Use shared credentials", "Enable CloudTrail logging", "Disable encryption"],
     "correct_answer": [0, 2],
-    "explanation": "Options 1 and 3 are correct: MFA adds security for root account and CloudTrail provides audit logging."
+    "explanation": "MFA protects root account access and CloudTrail provides audit logging for compliance."
   }` : `
   {
     "module_id": "exact_module_id_from_above",
     "question_number": 1,
-    "text": "Professional certification question",
-    "options": ["Wrong option", "Wrong option", "Correct option", "Wrong option"],
-    "correct_answer": "{2}",
-    "explanation": "Why option 3 is correct"
+    "text": "What is the primary benefit of using AWS Lambda for serverless computing?",
+    "options": ["Manual server management", "Automatic scaling and cost optimization", "Fixed pricing model", "Limited language support"],
+    "correct_answer": "{1}",
+    "explanation": "Lambda automatically scales and charges only for actual execution time."
   }`;
 
   const answerFormat = isMultipleSelect 
@@ -50,8 +50,8 @@ QUESTION TYPE: ${isMultipleSelect ? "Multiple Select (choose all that apply)" : 
 MODULES:
 ${modulesInfo}
 
-CONTEXT: ${topicName} - ${certificationContext.focus}
-SERVICES: ${certificationContext.services.slice(0, 8).join(', ')}
+CONTEXT: ${topicName}${topicDescription ? ` - ${topicDescription}` : ''}
+CERTIFICATION: ${certificationName}
 
 FORMAT (JSON only, no markdown):
 [${formatExample}
@@ -62,9 +62,13 @@ REQUIREMENTS:
 - Question type: ${isMultipleSelect ? "Multiple Select" : "Multiple Choice"}
 ${isMultipleSelect ? "- Each question must have 2-3 correct answers out of 4 options" : ""}
 ${isMultipleSelect ? "- Question text must include \"(Select X options)\" where X is the number of correct answers" : ""}
-- Professional difficulty level
-- Real-world scenarios
-- Mix question types: ${questionTypes.slice(0, 3).join(', ')}
+- QUESTION LENGTH: Keep question text between 20-50 words maximum
+- Use concise, clear language - avoid unnecessary words
+- Be direct and specific - no filler words or redundant phrases
+- Professional difficulty level - medium
+- Base questions ONLY on the provided topic description and module descriptions/content
+- Use specific details from module content to create relevant questions
+- Mix question types: ${questionTypes.slice(0, 5).join(', ')}, etc.
 - Proper JSON format with escaped quotes
 ${answerFormat}
 - Return only the JSON array

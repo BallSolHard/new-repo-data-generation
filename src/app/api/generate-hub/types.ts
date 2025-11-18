@@ -5,6 +5,7 @@ export interface GeneratedQuestion {
   correct_answer: string;
   explanation: string;
   module_id?: string;
+  topic_id?: string;
   question_number?: number;
   confidence_score?: 0 | 1; // Simple binary score
   validation_status?: 'correct' | 'incorrect' | 'validation_failed';
@@ -25,12 +26,9 @@ export interface ValidationResponse {
 export interface QuestionGenerationParams {
   modules: any[];
   topicName: string;
+  topicDescription?: string; // Optional topic description for better context
   certificationName: string;
   questionsPerModule: number;
-  certificationContext: {
-    services: string[];
-    focus: string;
-  };
   questionTypes: string[];
   questionType?: string; // Optional: "mcq" or "multiple"
 }

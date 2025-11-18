@@ -24,8 +24,7 @@ export async function GET(request: NextRequest) {
         module_name,
         module_description,
         topic_id,
-        ideal_completion_time,
-        module_content
+        ideal_completion_time
       `)
       .eq('topic_id', topicId)
       .order('module_name');

@@ -9,7 +9,7 @@ export class QuestionPromptTemplates {
    * Generate beginner-level questions focusing on basic concepts
    */
   static createBeginnerPrompt(params: QuestionGenerationParams): string {
-    const { modules, topicName, certificationName, questionsPerModule, certificationContext } = params;
+    const { modules, topicName, certificationName, questionsPerModule } = params;
     
     const modulesInfo = modules.map((module, index) => 
       `Module ${index + 1}: ${module.module_name} - ${module.module_description || 'Basic concepts'}`
@@ -43,10 +43,10 @@ Generate ${questionsPerModule * modules.length} beginner questions:`;
    * Generate scenario-based questions for practical application
    */
   static createScenarioPrompt(params: QuestionGenerationParams): string {
-    const { modules, topicName, certificationName, questionsPerModule, certificationContext } = params;
+    const { modules, topicName, certificationName, questionsPerModule } = params;
     
     const modulesInfo = modules.map((module, index) => 
-      `Module ${index + 1}: ${module.module_name}\nScenarios: ${certificationContext.focus}`
+      `Module ${index + 1}: ${module.module_name}\n`
     ).join('\n\n');
     
     return `Generate ${questionsPerModule * modules.length} SCENARIO-BASED ${certificationName} questions as JSON array.
@@ -56,8 +56,6 @@ ${modulesInfo}
 
 FOCUS: Real-world business scenarios and practical implementations
 STYLE: "A company needs to..." or "An architect must design..."
-SERVICES: ${certificationContext.services.slice(0, 6).join(', ')}
-
 FORMAT (JSON only):
 [
   {
@@ -77,7 +75,7 @@ Generate ${questionsPerModule * modules.length} scenario questions:`;
    * Generate troubleshooting questions for problem-solving skills
    */
   static createTroubleshootingPrompt(params: QuestionGenerationParams): string {
-    const { modules, topicName, certificationName, questionsPerModule, certificationContext } = params;
+    const { modules, topicName, certificationName, questionsPerModule } = params;
     
     return `Generate ${questionsPerModule * modules.length} TROUBLESHOOTING ${certificationName} questions as JSON array.
 

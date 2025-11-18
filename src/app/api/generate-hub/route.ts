@@ -7,7 +7,7 @@ import type { GeneratedQuestion, QuestionGenerationParams } from './types';
 // Initialize Gemini client
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 const model = genAI.getGenerativeModel({ 
-  model: "gemini-2.0-flash" // Using Gemini 2.0 Flash
+  model: "gemini-2.5-flash" // Using Gemini 2.5 Flash
 });
 
 // Initialize Supabase client
@@ -175,25 +175,27 @@ async function generateAllQuestions(
   questionType: string = "mcq"
 ): Promise<GeneratedQuestion[]> {
   
-  // Get certification context for better prompt engineering
-  const certificationContext = getCertificationContext(certificationName);
-  
-  // Define question types for variety
+  // Define question types for variety - different styles/formats of questions
   const questionTypes = [
-    'scenario-based',
-    'best-practice',
-    'troubleshooting', 
-    'architectural',
-    'security-focused'
+    'definition',           // Basic concept and terminology questions
+    'best-practice',        // Industry standards and recommended approaches
+    'scenario-based',       // Real-world application scenarios
+    'troubleshooting',      // Problem identification and resolution
+    'comparison',           // Compare different approaches or services
+    'implementation',       // Step-by-step process questions
+    'security-focused',     // Security considerations and compliance
+    'cost-optimization',    // Budget efficiency and cost considerations
+    'performance',          // Speed, scalability, and optimization
+    'architecture'          // System design and component relationships
   ];
   
   // Create prompt using the template function
   const prompt = createQuestionGenerationPrompt({
     modules,
     topicName,
+    topicDescription,
     certificationName,
     questionsPerModule,
-    certificationContext,
     questionTypes,
     questionType
   });
@@ -285,9 +287,9 @@ async function generateAllQuestions(
             ? questionData.options 
             : [
                 `Basic approach without optimization`,
-                `Professional implementation using ${certificationContext.services[0]} and ${certificationContext.services[1]}`,
+                `Professional implementation following best practices`,
                 `Manual configuration only`,
-                `Legacy approach without cloud services`
+                `Legacy approach without modern tools`
               ],
           correct_answer: correct_answer,
           explanation: questionData.explanation || `Professional implementation addresses the requirements effectively.`,
@@ -306,18 +308,7 @@ async function generateAllQuestions(
 }
 
 
-// Get certification-specific context and services
-function getCertificationContext(certificationName: string) {
-  const contexts = {
-    'AWS Solutions Architect': {
-      services: ['IAM', 'VPC', 'EC2', 'Lambda', 'RDS', 'DynamoDB', 'S3', 'CloudFront', 'ELB', 'Auto Scaling', 'CloudWatch', 'CloudTrail', 'KMS', 'ECS', 'ElastiCache'],
-      focus: 'scalability, reliability, performance optimization, cost optimization, security',
-      scenarios: 'enterprise applications, microservices, data lakes, content delivery, high availability'
-    },
-  };
-  
-  return contexts[certificationName as keyof typeof contexts] || contexts['AWS Solutions Architect'];
-}
+
 
 
 
