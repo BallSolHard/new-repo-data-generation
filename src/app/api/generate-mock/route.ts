@@ -106,6 +106,34 @@ function distributeQuestions(modules: any[], totalQuestions: number) {
   }));
 }
 
+// Function to get the next question order number
+async function getNextQuestionOrder(mockTestId: string): Promise<number> {
+  try {
+    const { data, error } = await supabase
+      .from('mock_test_questions')
+      .select('question_order')
+      .eq('mock_test_id', mockTestId)
+      .order('question_order', { ascending: false })
+      .limit(1);
+
+    if (error) {
+      console.error('Error fetching max question order:', error);
+      return 1; // Default to 1 if there's an error
+    }
+
+    // If no questions exist, start with 1
+    if (!data || data.length === 0) {
+      return 1;
+    }
+
+    // Return the highest question_order + 1
+    return (data[0].question_order || 0) + 1;
+  } catch (error) {
+    console.error('Error in getNextQuestionOrder:', error);
+    return 1; // Default fallback
+  }
+}
+
 // Helper function to parse correct_answer to integer array
 function parseCorrectAnswer(correctAnswer: any): number[] {
   // Log the input for debugging
@@ -466,8 +494,9 @@ export async function POST(request: NextRequest) {
       validationStatus = 'completed';
     }
 
-    // Skip database insertion - only generate SQL script
-    console.log(`Generated ${generatedQuestions.length} questions for mock test: ${mockTestId}`);  
+    // Get the starting question order number
+    const startingQuestionOrder = await getNextQuestionOrder(mockTestId);
+    console.log(`Generated ${generatedQuestions.length} questions for mock test: ${mockTestId}, starting from question order: ${startingQuestionOrder}`);  
 
     // Generate SQL script
     let sqlScript = `-- Generated SQL Script for Mock Test\n`;
@@ -487,7 +516,7 @@ export async function POST(request: NextRequest) {
     sqlScript += `WHERE NOT EXISTS (SELECT 1 FROM public.mock_tests WHERE id = '${mockTestId}');\n\n`;
 
     // Insert questions for mock_test_questions table
-    sqlScript += `-- Insert Mock Test Questions\n`;
+    sqlScript += `-- Insert Mock Test Questions (starting from question_order ${startingQuestionOrder})\n`;
     generatedQuestions.forEach((question, index) => {
       const escapedText = question.text.replace(/'/g, "''");
       const escapedExplanation = question.explanation.replace(/'/g, "''");
@@ -496,9 +525,13 @@ export async function POST(request: NextRequest) {
       const correctAnswerArray = parseCorrectAnswer(question.correct_answer);
       
       const questionTopicId = question.topic_id ? parseInt(question.topic_id) : topic_id;
+      const topicIdValue = questionTopicId && !isNaN(questionTopicId) ? questionTopicId : 'NULL';
+      
+      // Use incremental question_order starting from the next available number
+      const questionOrder = startingQuestionOrder + index;
       
       sqlScript += `INSERT INTO public.mock_test_questions (mock_test_id, question_text, question_type, options, correct_answer, explanation, question_order, module_id, topic_id)\n`;
-      sqlScript += `VALUES ('${mockTestId}', '${escapedText}', '${questionType}', '${JSON.stringify(question.options)}'::jsonb, '{${correctAnswerArray.join(',')}}', '${escapedExplanation}', ${index + 1}, '${question.module_id}', ${questionTopicId || 'NULL'});\n\n`;
+      sqlScript += `VALUES ('${mockTestId}', '${escapedText}', '${questionType}', '${JSON.stringify(question.options)}'::jsonb, '{${correctAnswerArray.join(',')}}', '${escapedExplanation}', ${questionOrder}, '${question.module_id}', ${topicIdValue});\n\n`;
     });
 
     // Update the total_questions count in mock_tests based on actual inserted questions
@@ -522,8 +555,9 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: `Successfully created mock test with ${generatedQuestions.length} questions`,
+      message: `Successfully created mock test with ${generatedQuestions.length} questions (starting from question ${startingQuestionOrder})`,
       mockTestId,
+      startingQuestionOrder,
       script: sqlScript,
       validationStatus,
       validationStats,
