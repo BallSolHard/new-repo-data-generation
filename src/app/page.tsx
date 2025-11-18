@@ -182,7 +182,7 @@ export default function Home() {
   const [activeTab, setActiveTab] = useState<"hub" | "mock">("hub");
   const [selectedCertification, setSelectedCertification] = useState<string>("");
   const [selectedDomain, setSelectedDomain] = useState<string>("");
-  const [selectedModule, setSelectedModule] = useState<string>("");
+  const [selectedModules, setSelectedModules] = useState<string[]>([]);
   const [selectedMockTest, setSelectedMockTest] = useState<string>("");
   const [certifications, setCertifications] = useState<CertificationFromAPI[]>([]);
   const [domains, setDomains] = useState<DomainData[]>([]);
@@ -304,7 +304,7 @@ export default function Home() {
     const fetchQuizzes = async () => {
       // For both Hub and Mock Questions: fetch after module selection
       const shouldFetchQuizzes = 
-        selectedModule && selectedDomain && selectedCertification;
+        selectedModules.length > 0 && selectedDomain && selectedCertification;
 
       if (!shouldFetchQuizzes) {
         setQuizzes([]);
@@ -335,7 +335,7 @@ export default function Home() {
     if (domains.length > 0 && certifications.length > 0) {
       fetchQuizzes();
     }
-  }, [selectedModule, selectedDomain, selectedCertification, domains, certifications, activeTab]);
+  }, [selectedModules, selectedDomain, selectedCertification, domains, certifications, activeTab]);
 
   // Fetch mock tests when certification is selected and in mock mode
   useEffect(() => {
@@ -373,20 +373,24 @@ export default function Home() {
   const handleCertificationChange = (cert: string) => {
     setSelectedCertification(cert);
     setSelectedDomain("");
-    setSelectedModule("");
+    setSelectedModules([]);
     setSelectedMockTest("");
   };
 
   const handleDomainChange = (domain: string) => {
     setSelectedDomain(domain);
-    setSelectedModule("");
+    setSelectedModules([]);
     setSelectedMockTest("");
     setModules([]); // Clear modules when domain changes
   };
 
-  const handleModuleChange = (module: string) => {
-    setSelectedModule(module);
-    setQuizzes([]); // Clear quizzes when module changes
+  const handleModuleToggle = (module: string) => {
+    setSelectedModules(prev => 
+      prev.includes(module) 
+        ? prev.filter(m => m !== module)
+        : [...prev, module]
+    );
+    setQuizzes([]); // Clear quizzes when module selection changes
   };
 
   const handleMockTestChange = (mockTestId: string) => {
@@ -428,7 +432,7 @@ export default function Home() {
     // Reset selections when switching tabs
     setSelectedCertification("");
     setSelectedDomain("");
-    setSelectedModule("");
+    setSelectedModules([]);
     setSelectedMockTest("");
     setGeneratedSQL("");
     setEditableSQL("");
@@ -495,8 +499,8 @@ export default function Home() {
     setGeneratedSQL("");
     setExecutionResult(null);
     setValidationResults(null);
-    if (!selectedCertification || !selectedDomain || !selectedModule) {
-      setError("Please select certification, domain, and module first");
+    if (!selectedCertification || !selectedDomain || selectedModules.length === 0) {
+      setError("Please select certification, domain, and at least one module first");
       return;
     }
 
@@ -517,11 +521,21 @@ export default function Home() {
         quiz_id: quizId,
         questionsPerModule: questionsPerModule,
         questionType: questionType,
-        modules: modules.length > 0 ? modules : getCurrentModules().map((name, index) => ({
-          module_id: `fallback_${index + 1}`,
-          module_name: name,
-          module_description: `Knowledge and skills related to ${name}`,
-        }))
+        modules: selectedModules.length > 0 ? (
+          modules.length > 0 
+            ? modules.filter(m => selectedModules.includes(m.module_name))
+            : selectedModules.map((moduleName, index) => ({
+                module_id: `selected_module_${moduleName.toLowerCase().replace(/\s+/g, '_')}`,
+                module_name: moduleName,
+                module_description: `Knowledge and skills related to ${moduleName}`,
+              }))
+        ) : (
+          modules.length > 0 ? modules : getCurrentModules().map((name, index) => ({
+            module_id: `fallback_${index + 1}`,
+            module_name: name,
+            module_description: `Knowledge and skills related to ${name}`,
+          }))
+        )
       };
       const response = await fetch('/api/generate-hub', {
         method: 'POST',
@@ -555,8 +569,8 @@ export default function Home() {
     setExecutionResult(null);
     setValidationResults(null);
     
-    if (!selectedCertification || !selectedDomain || !selectedModule || !selectedMockTest) {
-      setError("Please select certification, domain, module, and mock test first");
+    if (!selectedCertification || !selectedDomain || selectedModules.length === 0 || !selectedMockTest) {
+      setError("Please select certification, domain, at least one module, and mock test first");
       return;
     }
 
@@ -575,7 +589,7 @@ export default function Home() {
         title: selectedMockTestData?.title || `${selectedCertification} - Practice Test`,
         description: selectedMockTestData?.description || `Practice test for ${selectedCertification} certification`,
         duration: selectedMockTestData?.duration || 120,
-        total_questions: selectedMockTestData?.total_questions || (questionsPerModule * (modules.length || getCurrentModules().length)),
+        total_questions: selectedMockTestData?.total_questions || (questionsPerModule * (selectedModules.length > 0 ? selectedModules.length : (modules.length || getCurrentModules().length))),
         passing_score: selectedMockTestData?.passing_score || 70,
         validity_months: selectedMockTestData?.validity_months || 12,
         recommended_experience_text: selectedMockTestData?.recommended_experience_text || "6+ months of hands-on experience",
@@ -585,11 +599,21 @@ export default function Home() {
         topic_description: selectedDomainData?.topic_description || `${selectedDomain} domain knowledge and best practices`,
         questionsPerModule: questionsPerModule,
         questionType: questionType,
-        modules: modules.length > 0 ? modules : getCurrentModules().map((name, index) => ({
-          module_id: `fallback_${index + 1}`,
-          module_name: name,
-          module_description: `Knowledge and skills related to ${name}`,
-        }))
+        modules: selectedModules.length > 0 ? (
+          modules.length > 0 
+            ? modules.filter(m => selectedModules.includes(m.module_name))
+            : selectedModules.map((moduleName, index) => ({
+                module_id: `selected_module_${moduleName.toLowerCase().replace(/\s+/g, '_')}`,
+                module_name: moduleName,
+                module_description: `Knowledge and skills related to ${moduleName}`,
+              }))
+        ) : (
+          modules.length > 0 ? modules : getCurrentModules().map((name, index) => ({
+            module_id: `fallback_${index + 1}`,
+            module_name: name,
+            module_description: `Knowledge and skills related to ${name}`,
+          }))
+        )
       };
       const response = await fetch('/api/generate-mock', {
         method: 'POST',
@@ -805,9 +829,32 @@ export default function Home() {
           {/* Module/Task Selection - Show for both Hub and Mock Questions */}
           {selectedDomain && (
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
-              <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-4">
-                Choose Module/Task
-              </h2>
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-2xl font-semibold text-gray-900 dark:text-white">
+                  Choose Modules/Tasks
+                </h2>
+                <div className="flex space-x-2">
+                  <button
+                    onClick={() => setSelectedModules(getCurrentModules())}
+                    className="px-3 py-1 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded-lg text-sm hover:bg-purple-200 dark:hover:bg-purple-900/50 transition-colors"
+                  >
+                    Select All
+                  </button>
+                  <button
+                    onClick={() => setSelectedModules([])}
+                    className="px-3 py-1 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg text-sm hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                  >
+                    Clear All
+                  </button>
+                </div>
+              </div>
+              {selectedModules.length > 0 && (
+                <div className="mb-4 p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
+                  <p className="text-sm text-purple-700 dark:text-purple-300">
+                    <span className="font-semibold">{selectedModules.length} module{selectedModules.length !== 1 ? 's' : ''} selected:</span> {selectedModules.join(', ')}
+                  </p>
+                </div>
+              )}
               {modulesLoading ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {[1, 2, 3].map((i) => (
@@ -821,15 +868,24 @@ export default function Home() {
                   {getCurrentModules().map((module: string) => (
                     <button
                       key={module}
-                      onClick={() => handleModuleChange(module)}
-                      className={`p-4 rounded-lg border-2 transition-all duration-200 text-left ${
-                        selectedModule === module
+                      onClick={() => handleModuleToggle(module)}
+                      className={`p-4 rounded-lg border-2 transition-all duration-200 text-left relative ${
+                        selectedModules.includes(module)
                           ? "border-purple-500 bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300"
                           : "border-gray-200 dark:border-gray-600 hover:border-purple-300 dark:hover:border-purple-500"
                       }`}
                     >
-                      <div className="font-semibold text-gray-900 dark:text-white">
-                        {module}
+                      <div className="flex items-center justify-between">
+                        <div className="font-semibold text-gray-900 dark:text-white">
+                          {module}
+                        </div>
+                        {selectedModules.includes(module) && (
+                          <div className="w-5 h-5 bg-purple-500 rounded-full flex items-center justify-center">
+                            <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
+                            </svg>
+                          </div>
+                        )}
                       </div>
                     </button>
                   ))}
@@ -839,7 +895,7 @@ export default function Home() {
           )}
 
           {/* Mock Tests Display - Only show for Mock Questions after module selection */}
-          {activeTab === "mock" && selectedModule && (
+          {activeTab === "mock" && selectedModules.length > 0 && (
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
               <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-4">
                 Available Mock Tests for {selectedCertification}
@@ -973,7 +1029,7 @@ export default function Home() {
           )}
 
           {/* Selected Summary */}
-          {((activeTab === "hub" && selectedDomain && selectedModule) || (activeTab === "mock" && selectedModule && selectedMockTest)) && (
+          {((activeTab === "hub" && selectedDomain && selectedModules.length > 0) || (activeTab === "mock" && selectedModules.length > 0 && selectedMockTest)) && (
             <div className="bg-gradient-to-r from-purple-500 to-purple-600 rounded-lg shadow-lg p-6 text-white">
               <h2 className="text-2xl font-semibold mb-4">Your Selection</h2>
               <div className="space-y-2">
@@ -992,42 +1048,69 @@ export default function Home() {
                     return selectedDomainData ? <code className="bg-white/20 px-2 py-1 rounded text-sm ml-2">{selectedDomainData.topic_id}</code> : null;
                   })()}
                 </p>
-                {selectedModule && (
-                  <p>
-                    <span className="font-semibold">Selected Module:</span> {selectedModule}
-                    {(() => {
-                      const selectedModuleData = modules.find(m => m.module_name === selectedModule);
-                      return selectedModuleData ? <code className="bg-white/20 px-2 py-1 rounded text-sm ml-2">{selectedModuleData.module_id}</code> : null;
-                    })()}
-                  </p>
-                )}
-                {/* Show all modules for the selected domain (for both Hub and Mock Questions) */}
-                {modules.length > 0 && (
+                {selectedModules.length > 0 && (
                   <div>
-                    <p><span className="font-semibold">Modules:</span></p>
+                    <p><span className="font-semibold">Selected Modules ({selectedModules.length}):</span></p>
                     <div className="ml-4 space-y-1">
-                      {modules.map((module, index) => (
-                        <p key={module.module_id} className="text-sm">
-                          {index + 1}. {module.module_name}
-                          <code className="bg-white/20 px-2 py-1 rounded text-xs ml-2">{module.module_id}</code>
-                        </p>
-                      ))}
+                      {selectedModules.map((moduleName, index) => {
+                        const moduleData = modules.find(m => m.module_name === moduleName);
+                        return (
+                          <p key={moduleName} className="text-sm">
+                            {index + 1}. {moduleName}
+                            {moduleData ? <code className="bg-white/20 px-2 py-1 rounded text-xs ml-2">{moduleData.module_id}</code> : <code className="bg-white/20 px-2 py-1 rounded text-xs ml-2">selected_module</code>}
+                          </p>
+                        );
+                      })}
                     </div>
                   </div>
                 )}
-                {/* Fallback to current modules list if API modules not available */}
-                {modules.length === 0 && getCurrentModules().length > 0 && (
+                {/* Show modules for question generation */}
+                {selectedModules.length > 0 ? (
                   <div>
-                    <p><span className="font-semibold">Modules:</span></p>
+                    <p><span className="font-semibold">Modules for Questions ({selectedModules.length}):</span></p>
                     <div className="ml-4 space-y-1">
-                      {getCurrentModules().map((moduleName, index) => (
-                        <p key={moduleName} className="text-sm">
-                          {index + 1}. {moduleName}
-                          <code className="bg-white/20 px-2 py-1 rounded text-xs ml-2">fallback-{index + 1}</code>
-                        </p>
-                      ))}
+                      {selectedModules.map((moduleName, index) => {
+                        const moduleData = modules.find(m => m.module_name === moduleName);
+                        return (
+                          <p key={moduleName} className="text-sm">
+                            {index + 1}. {moduleName}
+                            {moduleData ? <code className="bg-white/20 px-2 py-1 rounded text-xs ml-2">{moduleData.module_id}</code> : <code className="bg-white/20 px-2 py-1 rounded text-xs ml-2">selected_module</code>}
+                          </p>
+                        );
+                      })}
                     </div>
                   </div>
+                ) : (
+                  <>
+                    {/* Show all modules when none specifically selected */}
+                    {modules.length > 0 && (
+                      <div>
+                        <p><span className="font-semibold">Modules (All):</span></p>
+                        <div className="ml-4 space-y-1">
+                          {modules.map((module, index) => (
+                            <p key={module.module_id} className="text-sm">
+                              {index + 1}. {module.module_name}
+                              <code className="bg-white/20 px-2 py-1 rounded text-xs ml-2">{module.module_id}</code>
+                            </p>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {/* Fallback to current modules list if API modules not available */}
+                    {modules.length === 0 && getCurrentModules().length > 0 && (
+                      <div>
+                        <p><span className="font-semibold">Modules (All):</span></p>
+                        <div className="ml-4 space-y-1">
+                          {getCurrentModules().map((moduleName, index) => (
+                            <p key={moduleName} className="text-sm">
+                              {index + 1}. {moduleName}
+                              <code className="bg-white/20 px-2 py-1 rounded text-xs ml-2">fallback-{index + 1}</code>
+                            </p>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </>
                 )}
                 <p>
                   <span className="font-semibold">Question Type:</span> {questionType === "mcq" ? "Multiple Choice" : "Multiple Select"}
@@ -1073,7 +1156,7 @@ export default function Home() {
                     <option value={5} className="text-gray-900">5 Questions</option>
                   </select>
                   <span className="text-sm text-white/80">
-                    Total: {questionsPerModule * (modules.length || getCurrentModules().length)} questions
+                    Total: {questionsPerModule * (selectedModules.length > 0 ? selectedModules.length : (modules.length || getCurrentModules().length))} questions
                   </span>
                 </div>
 

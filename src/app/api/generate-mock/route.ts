@@ -476,15 +476,15 @@ export async function POST(request: NextRequest) {
     sqlScript += `-- Generated on: ${new Date().toISOString()}\n\n`;
     sqlScript += `BEGIN;\n\n`;
 
-    // Insert mock test
+    // Insert mock test only if it doesn't exist
     const escapedTitle = title.replace(/'/g, "''");
     const escapedDescription = (description || '').replace(/'/g, "''");
     const escapedExperienceText = (recommended_experience_text || '').replace(/'/g, "''");
     
-    sqlScript += `-- Create Mock Test\n`;
+    sqlScript += `-- Create Mock Test (only if it doesn't exist)\n`;
     sqlScript += `INSERT INTO public.mock_tests (id, certification_id, title, duration, total_questions, description, validity_months, passing_score, recommended_experience_text, exam_format, created_at)\n`;
-    sqlScript += `VALUES ('${mockTestId}', ${certification_id}, '${escapedTitle}', ${duration}, ${total_questions}, '${escapedDescription}', ${validity_months}, ${passing_score}, '${escapedExperienceText}', '${JSON.stringify(exam_format)}', NOW())\n`;
-    sqlScript += `ON CONFLICT (id) DO NOTHING;\n\n`;
+    sqlScript += `SELECT '${mockTestId}', ${certification_id}, '${escapedTitle}', ${duration}, ${total_questions}, '${escapedDescription}', ${validity_months}, ${passing_score}, '${escapedExperienceText}', '${JSON.stringify(exam_format)}', NOW()\n`;
+    sqlScript += `WHERE NOT EXISTS (SELECT 1 FROM public.mock_tests WHERE id = '${mockTestId}');\n\n`;
 
     // Insert questions for mock_test_questions table
     sqlScript += `-- Insert Mock Test Questions\n`;
