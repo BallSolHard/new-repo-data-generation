@@ -419,7 +419,7 @@ export default function Home() {
       validity_months: 12,
       passing_score: 70,
       recommended_experience_text: "6+ months of hands-on experience",
-      exam_format: ["Multiple Choice", "Multiple Select"]
+      exam_format: ["mcq", "multiple"]
     };
     
     // Add the new mock test to the existing list and select it
@@ -528,12 +528,18 @@ export default function Home() {
                 module_id: `selected_module_${moduleName.toLowerCase().replace(/\s+/g, '_')}`,
                 module_name: moduleName,
                 module_description: `Knowledge and skills related to ${moduleName}`,
+                topic_id: selectedDomainData?.topic_id,
+                topic_name: selectedDomain,
+                topic_description: selectedDomainData?.topic_description || `${selectedDomain} domain knowledge and best practices`
               }))
         ) : (
           modules.length > 0 ? modules : getCurrentModules().map((name, index) => ({
             module_id: `fallback_${index + 1}`,
             module_name: name,
             module_description: `Knowledge and skills related to ${name}`,
+            topic_id: selectedDomainData?.topic_id,
+            topic_name: selectedDomain,
+            topic_description: selectedDomainData?.topic_description || `${selectedDomain} domain knowledge and best practices`
           }))
         )
       };
@@ -593,7 +599,7 @@ export default function Home() {
         passing_score: selectedMockTestData?.passing_score || 70,
         validity_months: selectedMockTestData?.validity_months || 12,
         recommended_experience_text: selectedMockTestData?.recommended_experience_text || "6+ months of hands-on experience",
-        exam_format: selectedMockTestData?.exam_format || ["Multiple Choice", "Multiple Select"],
+        exam_format: selectedMockTestData?.exam_format || ["mcq", "multiple"],
         topic_id: selectedDomainData?.topic_id,
         topic_name: selectedDomain,
         topic_description: selectedDomainData?.topic_description || `${selectedDomain} domain knowledge and best practices`,
@@ -606,12 +612,18 @@ export default function Home() {
                 module_id: `selected_module_${moduleName.toLowerCase().replace(/\s+/g, '_')}`,
                 module_name: moduleName,
                 module_description: `Knowledge and skills related to ${moduleName}`,
+                topic_id: selectedDomainData?.topic_id,
+                topic_name: selectedDomain,
+                topic_description: selectedDomainData?.topic_description || `${selectedDomain} domain knowledge and best practices`
               }))
         ) : (
           modules.length > 0 ? modules : getCurrentModules().map((name, index) => ({
             module_id: `fallback_${index + 1}`,
             module_name: name,
             module_description: `Knowledge and skills related to ${name}`,
+            topic_id: selectedDomainData?.topic_id,
+            topic_name: selectedDomain,
+            topic_description: selectedDomainData?.topic_description || `${selectedDomain} domain knowledge and best practices`
           }))
         )
       };
@@ -771,21 +783,31 @@ export default function Home() {
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {getCertificationsList().map((cert) => (
-                  <button
-                    key={cert}
-                    onClick={() => handleCertificationChange(cert)}
-                    className={`p-4 rounded-lg border-2 transition-all duration-200 ${
-                      selectedCertification === cert
-                        ? "border-purple-500 bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300"
-                        : "border-gray-200 dark:border-gray-600 hover:border-purple-300 dark:hover:border-purple-500"
-                    }`}
-                  >
-                    <div className="font-semibold cursor-pointer text-gray-900 dark:text-white">
-                      {cert}
-                    </div>
-                  </button>
-                ))}
+                {getCertificationsList().map((cert) => {
+                  const certData = certifications.find(c => c.title === cert);
+                  return (
+                    <button
+                      key={cert}
+                      onClick={() => handleCertificationChange(cert)}
+                      className={`p-4 rounded-lg border-2 transition-all duration-200 ${
+                        selectedCertification === cert
+                          ? "border-purple-500 bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300"
+                          : "border-gray-200 dark:border-gray-600 hover:border-purple-300 dark:hover:border-purple-500"
+                      }`}
+                    >
+                      <div className="font-semibold cursor-pointer text-gray-900 dark:text-white">
+                        {cert}
+                      </div>
+                      {certData && (
+                        <div className="mt-2">
+                          <code className="bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded text-xs text-gray-600 dark:text-gray-300">
+                            ID: {certData.id}
+                          </code>
+                        </div>
+                      )}
+                    </button>
+                  );
+                })}
               </div>
             )}
           </div>

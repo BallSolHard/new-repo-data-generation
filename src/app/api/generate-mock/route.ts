@@ -94,8 +94,16 @@ async function getCertificationContent(certificationId: number) {
 }
 
 // Function to distribute questions across modules
-function distributeQuestions(modules: any[], totalQuestions: number) {
+function distributeQuestions(modules: any[], totalQuestions: number, questionsPerModule?: number) {
   if (modules.length === 0) return [];
+  
+  // If questionsPerModule is specified, use it; otherwise distribute totalQuestions evenly
+  if (questionsPerModule && questionsPerModule > 0) {
+    return modules.map((module) => ({
+      ...module,
+      questionsCount: questionsPerModule
+    }));
+  }
   
   const baseQuestionsPerModule = Math.floor(totalQuestions / modules.length);
   const remainingQuestions = totalQuestions % modules.length;
@@ -185,11 +193,12 @@ async function generateMockTestQuestions(
   modules: any[],
   totalQuestions: number,
   certificationName: string,
-  questionType: string = "mcq"
+  questionType: string = "mcq",
+  questionsPerModule: number = 1
 ): Promise<GeneratedQuestion[]> {
   
   // Distribute questions across modules
-  const modulesWithQuestions = distributeQuestions(modules, totalQuestions);
+  const modulesWithQuestions = distributeQuestions(modules, totalQuestions, questionsPerModule);
   
   // Define question types for variety
   const questionTypes = [
@@ -228,13 +237,15 @@ async function generateMockTestQuestions(
     
     if (topicQuestionCount === 0) continue;
     
+    console.log(`Generating ${topicQuestionCount} questions for topic ${topicId} with ${topicModules.length} modules (${questionsPerModule} questions per module)`);
+    
     // Create prompt for this topic's modules
     const prompt = createQuestionGenerationPrompt({
       modules: topicModules,
       topicName: topicGroup.topic_name,
       topicDescription: topicGroup.topic_description,
       certificationName,
-      questionsPerModule: 1, // Will be handled by the total count
+      questionsPerModule: questionsPerModule,
       questionTypes,
       questionType
     });
@@ -303,9 +314,18 @@ async function generateMockTestQuestions(
             correct_answer = questionData.correct_answer || "{1}";
           }
 
-          // Assign to appropriate module
-          const moduleIndex = Math.floor(index / Math.ceil(topicQuestionCount / topicModules.length));
-          const assignedModule = topicModules[Math.min(moduleIndex, topicModules.length - 1)];
+          // Use the module_id from AI response if provided, otherwise assign to appropriate module
+          let assignedModuleId;
+          if (questionData.module_id) {
+            // Verify the module_id exists in our topicModules
+            const foundModule = topicModules.find((m: any) => m.module_id === questionData.module_id);
+            assignedModuleId = foundModule ? questionData.module_id : topicModules[0].module_id;
+          } else {
+            // Fallback: distribute questions evenly across modules
+            const moduleIndex = Math.floor(index / Math.ceil(topicQuestionCount / topicModules.length));
+            const assignedModule = topicModules[Math.min(moduleIndex, topicModules.length - 1)];
+            assignedModuleId = assignedModule.module_id;
+          }
 
           return {
             text: questionData.text || `Generated question ${index + 1}`,
@@ -319,7 +339,7 @@ async function generateMockTestQuestions(
                 ],
             correct_answer: correct_answer,
             explanation: questionData.explanation || `Professional implementation addresses the requirements effectively.`,
-            module_id: assignedModule.module_id,
+            module_id: assignedModuleId,
             topic_id: topicId,
             question_number: index + 1
           };
@@ -333,7 +353,8 @@ async function generateMockTestQuestions(
     }
   }
   
-  return allGeneratedQuestions.slice(0, totalQuestions); // Ensure we don't exceed requested count
+  console.log(`Generated ${allGeneratedQuestions.length} questions total, expected ${totalQuestions}`);
+  return allGeneratedQuestions; // Return all generated questions since we distribute correctly per module
 }
 
 // Function to validate questions
@@ -413,7 +434,7 @@ export async function POST(request: NextRequest) {
       passing_score,
       validity_months = 12,
       recommended_experience_text,
-      exam_format = ['Multiple Choice'],
+      exam_format = ['mcq', 'multiple'],
       questionType = "mcq",
       enableValidation = true,
       topic_id,
@@ -477,7 +498,8 @@ export async function POST(request: NextRequest) {
       modulesToUse,
       total_questions,
       certification_name,
-      questionType
+      questionType,
+      questionsPerModule
     );
 
     if (generatedQuestions.length === 0) {
@@ -512,7 +534,7 @@ export async function POST(request: NextRequest) {
     
     sqlScript += `-- Create Mock Test (only if it doesn't exist)\n`;
     sqlScript += `INSERT INTO public.mock_tests (id, certification_id, title, duration, total_questions, description, validity_months, passing_score, recommended_experience_text, exam_format, created_at)\n`;
-    sqlScript += `SELECT '${mockTestId}', ${certification_id}, '${escapedTitle}', ${duration}, ${total_questions}, '${escapedDescription}', ${validity_months}, ${passing_score}, '${escapedExperienceText}', '${JSON.stringify(exam_format)}', NOW()\n`;
+    sqlScript += `SELECT '${mockTestId}', ${certification_id}, '${escapedTitle}', ${duration}, ${total_questions}, '${escapedDescription}', ${validity_months}, ${passing_score}, '${escapedExperienceText}', ARRAY['${exam_format.join("','")}'], NOW()\n`;
     sqlScript += `WHERE NOT EXISTS (SELECT 1 FROM public.mock_tests WHERE id = '${mockTestId}');\n\n`;
 
     // Insert questions for mock_test_questions table
