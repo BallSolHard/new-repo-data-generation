@@ -382,6 +382,12 @@ export default function Home() {
     setSelectedModules([]);
     setSelectedMockTest("");
     setModules([]); // Clear modules when domain changes
+    // Clear generated results when domain changes
+    setGeneratedSQL("");
+    setEditableSQL("");
+    setValidationResults(null);
+    setExecutionResult(null);
+    setIsEditingSQL(false);
   };
 
   const handleModuleToggle = (module: string) => {
@@ -391,6 +397,12 @@ export default function Home() {
         : [...prev, module]
     );
     setQuizzes([]); // Clear quizzes when module selection changes
+    // Clear generated results when module selection changes
+    setGeneratedSQL("");
+    setEditableSQL("");
+    setValidationResults(null);
+    setExecutionResult(null);
+    setIsEditingSQL(false);
   };
 
   const handleMockTestChange = (mockTestId: string) => {
@@ -857,13 +869,29 @@ export default function Home() {
                 </h2>
                 <div className="flex space-x-2">
                   <button
-                    onClick={() => setSelectedModules(getCurrentModules())}
+                    onClick={() => {
+                      setSelectedModules(getCurrentModules());
+                      // Clear generated results when selecting all modules
+                      setGeneratedSQL("");
+                      setEditableSQL("");
+                      setValidationResults(null);
+                      setExecutionResult(null);
+                      setIsEditingSQL(false);
+                    }}
                     className="px-3 py-1 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded-lg text-sm hover:bg-purple-200 dark:hover:bg-purple-900/50 transition-colors"
                   >
                     Select All
                   </button>
                   <button
-                    onClick={() => setSelectedModules([])}
+                    onClick={() => {
+                      setSelectedModules([]);
+                      // Clear generated results when clearing all modules
+                      setGeneratedSQL("");
+                      setEditableSQL("");
+                      setValidationResults(null);
+                      setExecutionResult(null);
+                      setIsEditingSQL(false);
+                    }}
                     className="px-3 py-1 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg text-sm hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
                   >
                     Clear All
