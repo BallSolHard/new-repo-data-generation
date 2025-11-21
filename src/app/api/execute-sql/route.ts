@@ -57,15 +57,22 @@ export async function POST(request: NextRequest) {
 
     
     try {
+      console.log('Executing SQL script via RPC function...');
+      console.log('Script preview:', sql.substring(0, 200) + '...');
+
       // Execute on production environment
       const { data: prodData, error: prodError } = await supabase.rpc('execute_question_script', {
         script: sql
       });
 
+      console.log('Production execution result:', { data: prodData, error: prodError });
+
       // Execute on pre-production environment
       const { data: preprodData, error: preprodError } = await supabase_preprod.rpc('execute_question_script', {
         script: sql
       });
+
+      console.log('Pre-production execution result:', { data: preprodData, error: preprodError });
 
       // Check for errors in either environment
       if (prodError) {
@@ -114,12 +121,54 @@ export async function POST(request: NextRequest) {
       const prodSuccess = prodData && typeof prodData === 'object' && prodData.success !== false;
       const preprodSuccess = preprodData && typeof preprodData === 'object' && preprodData.success !== false;
 
-      if (!prodSuccess || !preprodSuccess) {
+      // Check for partial failures (when some statements fail)
+      const prodHasFailures = prodData && prodData.statements_processed && prodData.statements_executed && 
+                             prodData.statements_executed < prodData.statements_processed;
+      const preprodHasFailures = preprodData && preprodData.statements_processed && preprodData.statements_executed && 
+                                preprodData.statements_executed < preprodData.statements_processed;
+
+      if (!prodSuccess || !preprodSuccess || prodHasFailures || preprodHasFailures) {
+        console.log('SQL execution had failures or errors');
+        console.log('Production success:', prodSuccess, 'has failures:', prodHasFailures);
+        console.log('Pre-production success:', preprodSuccess, 'has failures:', preprodHasFailures);
+        
         return NextResponse.json(
           { 
-            error: 'SQL Execution Failed in one or both environments',
-            production: prodSuccess ? 'Success' : (prodData?.error || 'Unknown error'),
-            preprod: preprodSuccess ? 'Success' : (preprodData?.error || 'Unknown error')
+            success: false,
+            error: 'SQL Execution Failed or had partial failures',
+            troubleshooting: {
+              common_issues: [
+                'Foreign key constraints - check if referenced IDs exist',
+                'Data type mismatches - verify column types match values',
+                'Unique constraint violations - check for duplicate values',
+                'NULL constraint violations - ensure required fields have values',
+                'Permission issues - verify database access rights'
+              ],
+              recommendations: [
+                'Check the database logs for detailed error messages',
+                'Verify that all referenced tables and columns exist',
+                'Ensure foreign key values exist in parent tables',
+                'Check for any data formatting issues in the SQL script'
+              ]
+            },
+            production: {
+              success: prodSuccess && !prodHasFailures,
+              message: prodData?.message || 'Unknown error',
+              statements_processed: prodData?.statements_processed || 0,
+              statements_executed: prodData?.statements_executed || 0,
+              failures: prodHasFailures ? (prodData?.statements_processed - prodData?.statements_executed) : 0,
+              error_details: prodData?.error_details || prodData?.errors || prodData?.error || null,
+              raw_response: prodData
+            },
+            preprod: {
+              success: preprodSuccess && !preprodHasFailures,
+              message: preprodData?.message || 'Unknown error',
+              statements_processed: preprodData?.statements_processed || 0,
+              statements_executed: preprodData?.statements_executed || 0,
+              failures: preprodHasFailures ? (preprodData?.statements_processed - preprodData?.statements_executed) : 0,
+              error_details: preprodData?.error_details || preprodData?.errors || preprodData?.error || null,
+              raw_response: preprodData
+            }
           },
           { status: 400 }
         );
@@ -129,14 +178,18 @@ export async function POST(request: NextRequest) {
         success: true,
         message: 'Successfully executed SQL script in both environments',
         production: {
+          success: true,
           message: prodData.message || 'Successfully executed SQL script',
           statements_processed: prodData.statements_processed,
-          statements_executed: prodData.statements_executed
+          statements_executed: prodData.statements_executed,
+          failures: 0
         },
         preprod: {
+          success: true,
           message: preprodData.message || 'Successfully executed SQL script',
           statements_processed: preprodData.statements_processed,
-          statements_executed: preprodData.statements_executed
+          statements_executed: preprodData.statements_executed,
+          failures: 0
         }
       });
 

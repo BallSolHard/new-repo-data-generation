@@ -205,6 +205,8 @@ export default function Home() {
   const [editableSQL, setEditableSQL] = useState<string>("");
   const [validationResults, setValidationResults] = useState<any>(null);
   const [questionType, setQuestionType] = useState<string>("mcq");
+  const [generateWithData, setGenerateWithData] = useState<boolean>(false);
+  const [inputText, setInputText] = useState<string>("");
 
   // Fetch certifications from API on component mount
   useEffect(() => {
@@ -265,25 +267,63 @@ export default function Home() {
     }
   }, [selectedCertification, certifications]);
 
-  // Fetch modules when domain is selected
+  // Fetch modules when domain is selected OR when generateWithData is enabled
   useEffect(() => {
     const fetchModules = async () => {
-      if (!selectedDomain) {
+      if (!selectedDomain && !generateWithData) {
         setModules([]);
         return;
       }
 
       try {
         setModulesLoading(true);
-        const selectedTopicData = domains.find(d => d.topic_name === selectedDomain);
         
-        if (selectedTopicData?.topic_id) {
-          const response = await fetch(`/api/modules?topic_id=${selectedTopicData.topic_id}`);
-          if (!response.ok) {
-            throw new Error('Failed to fetch modules');
+        if (generateWithData && domains.length > 0) {
+          // Fetch modules for all domains when using generateWithData
+          console.log('Fetching modules for all domains:', domains);
+          const allModules: ModuleData[] = [];
+          
+          for (const domain of domains) {
+            console.log(`Processing domain: ${domain.topic_name} (ID: ${domain.topic_id})`);
+            
+            if (domain.modules && domain.modules.length > 0) {
+              console.log(`Using embedded modules for ${domain.topic_name}:`, domain.modules.length);
+              allModules.push(...domain.modules);
+            } else if (domain.topic_id) {
+              console.log(`Fetching modules from API for ${domain.topic_name}`);
+              try {
+                const response = await fetch(`/api/modules?topic_id=${domain.topic_id}`);
+                if (response.ok) {
+                  const data = await response.json();
+                  console.log(`API response for ${domain.topic_name}:`, data.modules?.length || 0, 'modules');
+                  if (data.modules && data.modules.length > 0) {
+                    allModules.push(...data.modules);
+                  }
+                } else {
+                  console.error(`Failed to fetch modules for ${domain.topic_name}: ${response.status}`);
+                }
+              } catch (err) {
+                console.error(`Error fetching modules for domain ${domain.topic_name}:`, err);
+              }
+            } else {
+              console.warn(`Domain ${domain.topic_name} has no topic_id and no embedded modules`);
+            }
           }
-          const data = await response.json();
-          setModules(data.modules || []);
+          
+          console.log('Total modules collected:', allModules.length);
+          setModules(allModules);
+        } else if (selectedDomain) {
+          // Original behavior for single domain
+          const selectedTopicData = domains.find(d => d.topic_name === selectedDomain);
+          
+          if (selectedTopicData?.topic_id) {
+            const response = await fetch(`/api/modules?topic_id=${selectedTopicData.topic_id}`);
+            if (!response.ok) {
+              throw new Error('Failed to fetch modules');
+            }
+            const data = await response.json();
+            setModules(data.modules || []);
+          }
         }
       } catch (err) {
         console.error('Error fetching modules:', err);
@@ -294,10 +334,10 @@ export default function Home() {
       }
     };
 
-    if (selectedDomain && domains.length > 0) {
+    if ((selectedDomain && domains.length > 0) || (generateWithData && domains.length > 0)) {
       fetchModules();
     }
-  }, [selectedDomain, domains]);
+  }, [selectedDomain, domains, generateWithData]);
 
   // Fetch quizzes when module is selected (for both Hub and Mock Questions)
   useEffect(() => {
@@ -452,6 +492,8 @@ export default function Home() {
     setValidationResults(null);
     setQuestionType("mcq");
     setQuestionsPerModule(1); // Reset questions per module
+    setGenerateWithData(false); // Reset generate with data option
+    setInputText(""); // Clear input text
     setModules([]); // Clear modules when switching tabs
     setQuizzes([]); // Clear quizzes when switching tabs
     setMockTests([]); // Clear mock tests when switching tabs
@@ -665,6 +707,75 @@ export default function Home() {
     }
   };
 
+  const generateMockWithData = async () => {
+    setGeneratedSQL("");
+    setExecutionResult(null);
+    setValidationResults(null);
+    
+    if (!selectedCertification || !inputText.trim() || !selectedMockTest) {
+      setError("Please select certification, provide input text, and select a mock test");
+      return;
+    }
+
+    setIsGenerating(true);
+    setError(null);
+
+    try {
+      const selectedCertData = certifications.find(c => c.title === selectedCertification);
+      
+      // Get all domains and modules for the selected certification
+      const allDomains = domains.length > 0 ? domains : [];
+      
+      // Use the modules that are already loaded in state (by the useEffect)
+      // If modules are not loaded yet, we should wait or show an error
+      if (modules.length === 0) {
+        setError("Modules are still loading. Please wait a moment and try again.");
+        setIsGenerating(false);
+        return;
+      }
+      
+      const allModules = modules; // Use the pre-loaded modules
+
+      console.log('All domains:', allDomains);
+      console.log('All modules from state:', allModules);
+
+      const payload = {
+        certification_id: selectedCertData?.id,
+        certification_name: selectedCertification,
+        input_text: inputText,
+        questionsPerModule: questionsPerModule,
+        questionType: questionType,
+        domains: allDomains,
+        modules: allModules,
+        mock_test_id: selectedMockTest // Pass the selected mock test ID
+      };
+
+      const response = await fetch('/api/generate-mock-with-data', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload)
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to generate mock questions with data');
+      }
+
+      const data = await response.json();
+      console.log("GENERATED MOCK WITH DATA FOR SQL:", data);
+      setGeneratedSQL(data.script);
+      setEditableSQL(data.script);
+      setValidationResults(data);
+      
+    } catch (err) {
+      console.error('Error generating mock questions with data:', err);
+      setError('Failed to generate mock questions with data. Please try again.');
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
   const handleEditSQL = () => {
     setIsEditingSQL(true);
     setEditableSQL(generatedSQL);
@@ -712,13 +823,90 @@ export default function Home() {
         })
       });
       
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to execute SQL script');
+      const data = await response.json();
+      
+      if (!response.ok || !data.success) {
+        // Handle detailed error information
+        console.error('SQL execution failed:', data);
+        
+        let errorMessage = data.error || 'Failed to execute SQL script';
+        
+        if (data.production || data.preprod) {
+          errorMessage += '\n\nDetailed Results:';
+          
+          if (data.production) {
+            errorMessage += `\n\nProduction Environment:`;
+            errorMessage += `\n- Success: ${data.production.success ? 'Yes' : 'No'}`;
+            errorMessage += `\n- Message: ${data.production.message}`;
+            errorMessage += `\n- Statements Processed: ${data.production.statements_processed || 0}`;
+            errorMessage += `\n- Statements Executed: ${data.production.statements_executed || 0}`;
+            if (data.production.failures > 0) {
+              errorMessage += `\n- Failed Statements: ${data.production.failures}`;
+            }
+            if (data.production.error_details) {
+              errorMessage += `\n- Error Details: ${JSON.stringify(data.production.error_details, null, 2)}`;
+            }
+            if (data.production.raw_response) {
+              errorMessage += `\n- Raw Response: ${JSON.stringify(data.production.raw_response, null, 2)}`;
+            }
+          }
+          
+          if (data.preprod) {
+            errorMessage += `\n\nPre-Production Environment:`;
+            errorMessage += `\n- Success: ${data.preprod.success ? 'Yes' : 'No'}`;
+            errorMessage += `\n- Message: ${data.preprod.message}`;
+            errorMessage += `\n- Statements Processed: ${data.preprod.statements_processed || 0}`;
+            errorMessage += `\n- Statements Executed: ${data.preprod.statements_executed || 0}`;
+            if (data.preprod.failures > 0) {
+              errorMessage += `\n- Failed Statements: ${data.preprod.failures}`;
+            }
+            if (data.preprod.error_details) {
+              errorMessage += `\n- Error Details: ${JSON.stringify(data.preprod.error_details, null, 2)}`;
+            }
+            if (data.preprod.raw_response) {
+              errorMessage += `\n- Raw Response: ${JSON.stringify(data.preprod.raw_response, null, 2)}`;
+            }
+          }
+        }
+        
+        if (data.troubleshooting) {
+          errorMessage += '\n\nTroubleshooting Guide:';
+          
+          if (data.troubleshooting.common_issues) {
+            errorMessage += '\n\nCommon Issues:';
+            data.troubleshooting.common_issues.forEach((issue: string, index: number) => {
+              errorMessage += `\n${index + 1}. ${issue}`;
+            });
+          }
+          
+          if (data.troubleshooting.recommendations) {
+            errorMessage += '\n\nRecommendations:';
+            data.troubleshooting.recommendations.forEach((rec: string, index: number) => {
+              errorMessage += `\n${index + 1}. ${rec}`;
+            });
+          }
+        }
+        
+        setError(errorMessage);
+        return;
       }
 
-      const data = await response.json();
-      setExecutionResult(`Successfully executed! ${data.message || 'Questions inserted into database.'}`);
+      // Success case
+      let successMessage = `Successfully executed! ${data.message || 'Questions inserted into database.'}`;
+      
+      if (data.production || data.preprod) {
+        successMessage += '\n\nExecution Summary:';
+        
+        if (data.production) {
+          successMessage += `\n\nProduction: ${data.production.statements_executed}/${data.production.statements_processed} statements executed`;
+        }
+        
+        if (data.preprod) {
+          successMessage += `\nPre-Production: ${data.preprod.statements_executed}/${data.preprod.statements_processed} statements executed`;
+        }
+      }
+      
+      setExecutionResult(successMessage);
       
     } catch (err) {
       console.error('Error executing SQL:', err);
@@ -771,12 +959,71 @@ export default function Home() {
           </div>
         </div>
 
+        {/* Generate with Data Option - Only show for Mock Questions */}
+        {activeTab === "mock" && (
+          <div className="max-w-6xl mx-auto mb-8">
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+              <div className="flex items-center space-x-3 mb-4">
+                <input
+                  type="checkbox"
+                  id="generateWithData"
+                  checked={generateWithData}
+                  onChange={(e) => {
+                    setGenerateWithData(e.target.checked);
+                    // Clear form when toggling
+                    if (!e.target.checked) {
+                      setInputText("");
+                      setGeneratedSQL("");
+                      setEditableSQL("");
+                      setValidationResults(null);
+                      setExecutionResult(null);
+                      setIsEditingSQL(false);
+                    }
+                  }}
+                  className="w-5 h-5 text-purple-600 bg-gray-100 border-gray-300 rounded focus:ring-purple-500 dark:focus:ring-purple-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                />
+                <label htmlFor="generateWithData" className="text-lg font-semibold text-gray-900 dark:text-white">
+                  Generate Mock with Data
+                </label>
+              </div>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                Enable this option to generate mock questions from your own text data instead of selecting specific domains and modules.
+              </p>
+              
+              {generateWithData && (
+                <div className="space-y-4 p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg border border-purple-200 dark:border-purple-800">
+                  <div className="flex items-center space-x-2">
+                    <div className="w-5 h-5 text-purple-500">
+                      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                      </svg>
+                    </div>
+                    <p className="text-purple-800 dark:text-purple-200 text-sm">
+                      <span className="font-semibold">Data Mode Enabled:</span> You'll parse questions from your input text and add them to the selected mock test. Make sure to select a mock test below after providing your input text.
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Selection Cards */}
         <div className="max-w-6xl mx-auto space-y-8">
           {/* Error Message */}
           {error && (
-            <div className="bg-yellow-50  dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
-              <p className="text-yellow-800 dark:text-yellow-200">{error}</p>
+            <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+              <div className="flex items-start space-x-3">
+                <div className="w-6 h-6 bg-red-500 rounded-full flex items-center justify-center flex-shrink-0 mt-1">
+                  <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path>
+                  </svg>
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-lg font-semibold text-red-800 dark:text-red-200 mb-2">Execution Failed</h3>
+                  <pre className="text-red-700 dark:text-red-300 text-sm whitespace-pre-wrap font-mono bg-red-100 dark:bg-red-900/40 p-3 rounded border overflow-x-auto">{error}</pre>
+                </div>
+              </div>
             </div>
           )}
 
@@ -824,8 +1071,34 @@ export default function Home() {
             )}
           </div>
 
+          {/* Input Text Area - Only show when Generate with Data is enabled */}
+          {activeTab === "mock" && generateWithData && selectedCertification && (
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+              <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-4">
+                Input Text Data
+              </h2>
+              <p className="text-gray-600 dark:text-gray-400 mb-4">
+                Paste your text content below. The system will analyze this content and generate questions covering all domains and modules for {selectedCertification}.
+              </p>
+              <textarea
+                value={inputText}
+                onChange={(e) => setInputText(e.target.value)}
+                placeholder="Paste your text content here... (e.g., study materials, documentation, course content, etc.)"
+                className="w-full h-64 p-4 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent dark:bg-gray-700 dark:text-white resize-none"
+              />
+              <div className="mt-2 flex justify-between items-center">
+                <span className="text-sm text-gray-500 dark:text-gray-400">
+                  {inputText.length} characters
+                </span>
+                <span className="text-sm text-gray-500 dark:text-gray-400">
+                  Minimum recommended: 500 characters
+                </span>
+              </div>
+            </div>
+          )}
+
           {/* Domain Selection */}
-          {selectedCertification && (
+          {selectedCertification && !generateWithData && (
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
               <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-4">
                 Select Domain
@@ -861,7 +1134,7 @@ export default function Home() {
           )}
 
           {/* Module/Task Selection - Show for both Hub and Mock Questions */}
-          {selectedDomain && (
+          {selectedDomain && !generateWithData && (
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
               <div className="flex justify-between items-center mb-4">
                 <h2 className="text-2xl font-semibold text-gray-900 dark:text-white">
@@ -944,8 +1217,8 @@ export default function Home() {
             </div>
           )}
 
-          {/* Mock Tests Display - Only show for Mock Questions after module selection */}
-          {activeTab === "mock" && selectedModules.length > 0 && (
+          {/* Mock Tests Display - Only show for Mock Questions after module selection or when using data mode */}
+          {activeTab === "mock" && ((selectedModules.length > 0 && !generateWithData) || (generateWithData && inputText.trim())) && (
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
               <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-4">
                 Available Mock Tests for {selectedCertification}
@@ -1070,7 +1343,7 @@ export default function Home() {
                       </svg>
                     </div>
                     <p className="text-blue-800 dark:text-blue-200 text-sm">
-                      <span className="font-semibold">Select a mock test</span> from the cards above to continue with question generation.
+                      <span className="font-semibold">Select a mock test</span> from the cards above to continue with question generation{generateWithData ? " using your input text" : ""}.
                     </p>
                   </div>
                 </div>
@@ -1078,12 +1351,27 @@ export default function Home() {
             </div>
           )}
 
+          {/* Module Loading Indicator for Generate with Data */}
+          {activeTab === "mock" && generateWithData && selectedCertification && inputText.trim() && modulesLoading && (
+            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+              <div className="flex items-center space-x-3">
+                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500"></div>
+                <div>
+                  <h3 className="text-lg font-semibold text-blue-800 dark:text-blue-200">Loading Modules</h3>
+                  <p className="text-blue-700 dark:text-blue-300">
+                    Fetching all modules for {selectedCertification}... This may take a moment.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Selected Summary */}
-          {((activeTab === "hub" && selectedDomain && selectedModules.length > 0) || (activeTab === "mock" && selectedModules.length > 0 && selectedMockTest)) && (
+          {((activeTab === "hub" && selectedDomain && selectedModules.length > 0) || (activeTab === "mock" && !generateWithData && selectedModules.length > 0 && selectedMockTest) || (activeTab === "mock" && generateWithData && selectedCertification && inputText.trim() && selectedMockTest && !modulesLoading)) && (
             <div className="bg-gradient-to-r from-purple-500 to-purple-600 rounded-lg shadow-lg p-6 text-white">
               <h2 className="text-2xl font-semibold mb-4">Your Selection</h2>
               <div className="space-y-2">
-                <p><span className="font-semibold">Mode:</span> {activeTab === "hub" ? "Hub Questions" : "Mock Questions"}</p>
+                <p><span className="font-semibold">Mode:</span> {activeTab === "hub" ? "Hub Questions" : (generateWithData ? "Mock Questions (Data Mode)" : "Mock Questions")}</p>
                 <p>
                   <span className="font-semibold">Certification:</span> {selectedCertification}
                   {(() => {
@@ -1091,15 +1379,28 @@ export default function Home() {
                     return selectedCertData ? <code className="bg-white/20 px-2 py-1 rounded text-sm ml-2">{selectedCertData.id}</code> : null;
                   })()}
                 </p>
-                <p>
-                  <span className="font-semibold">Domain:</span> {selectedDomain}
-                  {(() => {
-                    const selectedDomainData = domains.find(d => d.topic_name === selectedDomain);
-                    return selectedDomainData ? <code className="bg-white/20 px-2 py-1 rounded text-sm ml-2">{selectedDomainData.topic_id}</code> : null;
-                  })()}
-                </p>
+                {!generateWithData && (
+                  <p>
+                    <span className="font-semibold">Domain:</span> {selectedDomain}
+                    {(() => {
+                      const selectedDomainData = domains.find(d => d.topic_name === selectedDomain);
+                      return selectedDomainData ? <code className="bg-white/20 px-2 py-1 rounded text-sm ml-2">{selectedDomainData.topic_id}</code> : null;
+                    })()}
+                  </p>
+                )}
+                {generateWithData && (
+                  <div>
+                    <p>
+                      <span className="font-semibold">Input Text:</span> {inputText.length} characters
+                    </p>
+                    <p>
+                      <span className="font-semibold">Coverage:</span> {domains.length} domains, {modules.length} modules
+                      <span className="text-sm text-white/80 ml-2">(All available domains and modules)</span>
+                    </p>
+                  </div>
+                )}
                 {/* Show modules for question generation */}
-                {selectedModules.length > 0 ? (
+                {!generateWithData && selectedModules.length > 0 ? (
                   <div>
                     <p><span className="font-semibold">Modules for Questions ({selectedModules.length}):</span></p>
                     <div className="ml-4 space-y-1">
@@ -1114,7 +1415,7 @@ export default function Home() {
                       })}
                     </div>
                   </div>
-                ) : (
+                ) : !generateWithData ? (
                   <>
                     {/* Show all modules when none specifically selected */}
                     {modules.length > 0 && (
@@ -1145,7 +1446,7 @@ export default function Home() {
                       </div>
                     )}
                   </>
-                )}
+                ) : null}
                 <p>
                   <span className="font-semibold">Question Type:</span> {questionType === "mcq" ? "Multiple Choice" : "Multiple Select"}
                   <code className="bg-white/20 px-2 py-1 rounded text-sm ml-2">{questionType}</code>
@@ -1216,10 +1517,12 @@ export default function Home() {
               
               <button 
                 className="mt-4 bg-white text-purple-600 px-6 py-2 rounded-lg font-semibold hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                onClick={activeTab === "hub" ? generateHubQuestions : generateMockQuestions}
-                disabled={isGenerating}
+                onClick={activeTab === "hub" ? generateHubQuestions : (generateWithData ? generateMockWithData : generateMockQuestions)}
+                disabled={isGenerating || (generateWithData && modulesLoading)}
               >
-                {isGenerating ? "Generating..." : (activeTab === "hub" ? "Generate Hub Questions" : "Generate Mock Questions")}
+                {isGenerating ? "Generating..." : 
+                 modulesLoading && generateWithData ? "Loading Modules..." :
+                 (activeTab === "hub" ? "Generate Hub Questions" : (generateWithData ? "Generate Mock with Data" : "Generate Mock Questions"))}
               </button>
             </div>
           )}
@@ -1292,15 +1595,17 @@ export default function Home() {
           {/* Execution Result Display */}
           {executionResult && (
             <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
-              <div className="flex items-center space-x-2">
-                <div className="w-6 h-6 bg-green-500 rounded-full flex items-center justify-center">
+              <div className="flex items-start space-x-3">
+                <div className="w-6 h-6 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0 mt-1">
                   <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
                   </svg>
                 </div>
-                <h3 className="text-lg font-semibold text-green-800 dark:text-green-200">Execution Successful</h3>
+                <div className="flex-1">
+                  <h3 className="text-lg font-semibold text-green-800 dark:text-green-200 mb-2">Execution Successful</h3>
+                  <pre className="text-green-700 dark:text-green-300 text-sm whitespace-pre-wrap bg-green-100 dark:bg-green-900/40 p-3 rounded border">{executionResult}</pre>
+                </div>
               </div>
-              <p className="text-green-700 dark:text-green-300 mt-2">{executionResult}</p>
             </div>
           )}
           {/* Generated SQL Script Display */}
