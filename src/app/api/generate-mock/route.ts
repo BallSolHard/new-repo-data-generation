@@ -194,25 +194,52 @@ async function generateMockTestQuestions(
   totalQuestions: number,
   certificationName: string,
   questionType: string = "mcq",
-  questionsPerModule: number = 1
+  questionsPerModule: number = 1,
+  complexityLevel: string = 'basic',
+  isProfessionalOrSpecialty: boolean = false
 ): Promise<GeneratedQuestion[]> {
   
   // Distribute questions across modules
   const modulesWithQuestions = distributeQuestions(modules, totalQuestions, questionsPerModule);
   
-  // Define question types for variety
-  const questionTypes = [
-    'definition',           // Basic concept and terminology questions
-    'best-practice',        // Industry standards and recommended approaches
-    'scenario-based',       // Real-world application scenarios
-    'troubleshooting',      // Problem identification and resolution
-    'comparison',           // Compare different approaches or services
-    'implementation',       // Step-by-step process questions
-    'security-focused',     // Security considerations and compliance
-    'cost-optimization',    // Budget efficiency and cost considerations
-    'performance',          // Speed, scalability, and optimization
-    'architecture'          // System design and component relationships
-  ];
+  // Define question types based on complexity level
+  let questionTypes;
+  if (isProfessionalOrSpecialty) {
+    questionTypes = [
+      'complex-enterprise-scenario', // Multi-paragraph enterprise scenarios
+      'architectural-decision',      // Complex architectural trade-offs
+      'advanced-troubleshooting',    // Multi-layered problem diagnosis
+      'strategic-optimization',      // Enterprise-level optimization decisions
+      'compliance-and-security',     // Advanced security and compliance scenarios
+      'scalability-challenges',      // Large-scale system design challenges
+      'integration-complexity',      // Complex system integration scenarios
+      'performance-analysis',        // Deep performance optimization
+      'disaster-recovery',           // Business continuity planning
+      'cost-architecture-balance'    // Balancing cost, performance, and architecture
+    ];
+  } else if (complexityLevel === 'intermediate') {
+    questionTypes = [
+      'scenario-based',       // Real-world application scenarios
+      'best-practice',        // Industry standards and recommended approaches
+      'troubleshooting',      // Problem identification and resolution
+      'implementation',       // Step-by-step process questions
+      'comparison',           // Compare different approaches or services
+      'security-focused',     // Security considerations and compliance
+      'cost-optimization',    // Budget efficiency and cost considerations
+      'performance',          // Speed, scalability, and optimization
+      'architecture'          // System design and component relationships
+    ];
+  } else {
+    questionTypes = [
+      'definition',           // Basic concept and terminology questions
+      'best-practice',        // Industry standards and recommended approaches
+      'scenario-based',       // Simple real-world scenarios
+      'comparison',           // Compare different approaches or services
+      'implementation',       // Basic implementation steps
+      'security-focused',     // Basic security considerations
+      'architecture'          // Basic system design concepts
+    ];
+  }
   
   const allGeneratedQuestions: GeneratedQuestion[] = [];
   
@@ -247,7 +274,9 @@ async function generateMockTestQuestions(
       certificationName,
       questionsPerModule: questionsPerModule,
       questionTypes,
-      questionType
+      questionType,
+      complexityLevel,
+      isProfessionalOrSpecialty
     });
     
     try {
@@ -493,13 +522,35 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Determine certification level based on certification name
+    const certificationLower = certification_name.toLowerCase();
+    const isFoundational = certificationLower.includes('foundational') || certificationLower.includes('foundation') || certificationLower.includes('basics') || certificationLower.includes('fundamentals');
+    const isAssociate = certificationLower.includes('associate') || certificationLower.includes('intermediate');
+    const isProfessional = certificationLower.includes('professional') || certificationLower.includes('expert') || certificationLower.includes('advanced');
+    const isSpecialty = certificationLower.includes('specialty') || certificationLower.includes('speciality') || certificationLower.includes('specialist');
+
+    // Determine complexity level and question characteristics
+    let complexityLevel;
+    if (isProfessional || isSpecialty) {
+      complexityLevel = 'advanced';
+    } else if (isAssociate) {
+      complexityLevel = 'intermediate';
+    } else {
+      complexityLevel = 'basic';
+    }
+
+    console.log(`Detected certification level: ${complexityLevel} (Professional: ${isProfessional}, Specialty: ${isSpecialty}, Associate: ${isAssociate}, Foundational: ${isFoundational})`);
+    console.log(`Question generation will use ${complexityLevel} complexity with ${isProfessional || isSpecialty ? 'lengthy, complex enterprise-level' : complexityLevel === 'intermediate' ? 'moderate practical' : 'concise fundamental'} questions`);
+
     // Generate questions
     const generatedQuestions = await generateMockTestQuestions(
       modulesToUse,
       total_questions,
       certification_name,
       questionType,
-      questionsPerModule
+      questionsPerModule,
+      complexityLevel,
+      isProfessional || isSpecialty
     );
 
     if (generatedQuestions.length === 0) {

@@ -31,4 +31,6 @@ export interface QuestionGenerationParams {
   questionsPerModule: number;
   questionTypes: string[];
   questionType?: string; // Optional: "mcq" or "multiple"
+  complexityLevel?: string; // Optional: "basic", "intermediate", "advanced"
+  isProfessionalOrSpecialty?: boolean; // Optional: true for Professional/Specialty certifications
 }

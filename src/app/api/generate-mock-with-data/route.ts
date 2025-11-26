@@ -341,18 +341,24 @@ export async function POST(request: NextRequest) {
 
     // Determine complexity level and question characteristics
     let complexityLevel, questionCharacteristics, difficultyGuidance;
-    
+    console.log("AAAAA");
     if (isProfessional || isSpecialty) {
+      console.log("PROFESSIONALLLLLLLLLLLLLLLLLLLLL.......");
       complexityLevel = 'advanced';
       questionCharacteristics = `
-- Generate LENGTHY, DETAILED questions with multiple paragraphs when needed
-- Include complex scenario-based questions with detailed context
-- Create questions that require deep understanding and critical thinking
-- Use technical terminology and advanced concepts extensively
-- Questions should often include 3-4 sentence scenarios or case studies
-- Focus on practical application, troubleshooting, and optimization
-- Include questions about best practices, trade-offs, and complex decision-making`;
-      difficultyGuidance = 'advanced - Focus on complex scenarios, detailed technical knowledge, and practical application';
+- Generate EXTREMELY LENGTHY, MULTI-PARAGRAPH questions with complex scenarios (minimum 4-6 sentences per question)
+- Create ELABORATE case studies with multiple variables, constraints, and business requirements
+- Include INTRICATE technical scenarios with multiple interconnected components and dependencies
+- Require DEEP ANALYTICAL THINKING with no straightforward or obvious answers
+- Use ADVANCED technical terminology, architectural patterns, and enterprise-level concepts
+- Present COMPLEX REAL-WORLD situations involving multiple stakeholders, systems, and requirements
+- Include detailed business contexts, compliance requirements, security considerations, and performance constraints
+- Focus on MULTI-LAYERED problem-solving requiring synthesis of multiple concepts
+- Avoid simple definition-based or straightforward procedural questions
+- Emphasize troubleshooting complex failures, optimizing enterprise architectures, and making strategic technical decisions
+- Include questions about advanced patterns, design trade-offs, scalability challenges, and enterprise integration
+- Present scenarios with incomplete information requiring professional judgment and experience-based reasoning`;
+      difficultyGuidance = 'advanced - Focus on complex multi-layered scenarios, enterprise-level decision making, and deep technical analysis requiring professional expertise';
     } else if (isAssociate) {
       complexityLevel = 'intermediate';
       questionCharacteristics = `
@@ -373,6 +379,9 @@ export async function POST(request: NextRequest) {
 - Focus on understanding basic concepts, terminology, and simple procedures`;
       difficultyGuidance = 'basic - Focus on fundamental concepts and basic understanding';
     }
+
+    console.log(`Detected certification level: ${complexityLevel} (Professional: ${isProfessional}, Specialty: ${isSpecialty}, Associate: ${isAssociate}, Foundational: ${isFoundational})`);
+    console.log(`Question characteristics for ${complexityLevel} level:`, questionCharacteristics.substring(0, 150) + '...');
 
     // Create prompt for parsing and extracting pre-formatted questions from input text
     const prompt = `
@@ -401,6 +410,15 @@ ANALYSIS REQUIREMENTS:
 4. Do NOT generate new questions - only extract what exists in the input
 5. Maintain exact original wording for questions, options, and explanations
 
+${isProfessional || isSpecialty ? `
+CRITICAL FOR PROFESSIONAL/SPECIALTY LEVEL - COMPLEXITY ENFORCEMENT:
+- REJECT any questions that are too simple, straightforward, or definition-based
+- PRIORITIZE complex multi-paragraph scenarios with enterprise-level context
+- ENSURE questions require deep analytical thinking and professional experience
+- LOOK FOR questions involving multiple technical domains, business constraints, and real-world complexity
+- AVOID extracting questions that have obvious answers or simple procedural steps
+- FOCUS ON questions that present complex trade-offs, architectural decisions, and strategic technical choices` : ''}
+
 PARSING INSTRUCTIONS:
 - Identify question separators (numbers, labels, blank lines)
 - Extract each question's options (A, B, C, D, etc.)
@@ -412,11 +430,16 @@ PARSING INSTRUCTIONS:
 
 IMPORTANT FOR ${complexityLevel.toUpperCase()} LEVEL QUESTIONS:
 ${isProfessional || isSpecialty ? `
-- Look for LENGTHY, DETAILED questions with multiple sentences or paragraphs
-- Identify complex scenario-based questions with detailed context
-- Preserve all technical details and lengthy explanations exactly as written
-- Maintain complex question structures and comprehensive answer explanations
-- Questions may span multiple lines and include detailed case studies` : isAssociate ? `
+- Look for EXTREMELY LENGTHY questions spanning 4-8+ sentences with detailed multi-paragraph scenarios
+- Identify COMPLEX ENTERPRISE-LEVEL case studies with multiple business and technical requirements
+- Preserve ALL intricate technical details, architectural considerations, and comprehensive context
+- Maintain SOPHISTICATED question structures that require deep analysis and professional judgment
+- Questions should include detailed business scenarios, compliance requirements, performance constraints, and stakeholder considerations
+- Look for questions that present MULTI-FACETED problems with no obvious or straightforward solutions
+- Identify scenarios involving complex system interactions, enterprise integrations, and advanced architectural patterns
+- Preserve questions that require synthesis of multiple technical domains and real-world professional experience
+- Questions should avoid simple definitions and instead focus on complex decision-making and problem-solving
+- Look for scenarios with incomplete information requiring professional intuition and experience-based reasoning` : isAssociate ? `
 - Look for MODERATE-LENGTH questions with practical scenarios
 - Identify questions with clear context and implementation details
 - Preserve technical terminology and practical examples
@@ -460,6 +483,14 @@ CRITICAL REQUIREMENTS:
 - If uncertain, use the first available domain/module from the lists above
 
 IMPORTANT: Return ALL questions found in the input. If there are 3 questions, return 3. If there is 1 question, return 1. Count carefully and extract completely.
+
+${isProfessional || isSpecialty ? `
+FINAL REMINDER FOR PROFESSIONAL/SPECIALTY LEVEL QUESTIONS:
+- Each question MUST be lengthy (minimum 4-6 sentences) with complex scenarios
+- NO simple, straightforward, or definition-based questions allowed
+- MUST involve multi-layered technical and business considerations
+- MUST require deep professional expertise and analytical thinking
+- Questions should be enterprise-level case studies with realistic complexity` : ''}
 `;
 
     console.log('Sending parsing request to AI model...');
