@@ -69,11 +69,126 @@ const model = genAI.getGenerativeModel({
   model: "gemini-2.5-flash" // Using Gemini 2.5 Flash to match generate-mock
 });
 
-// Initialize Supabase client
+// Initialize Supabase clients for both environments
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL || '',
   process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
 );
+
+const supabase_preprod = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL_PREPROD || '',
+  process.env.SUPABASE_SERVICE_ROLE_KEY_PREPROD || ''
+);
+
+// Helper function to verify and create mock test in both environments
+async function ensureMockTestExists(
+  mockTestId: string, 
+  certificationId: number, 
+  certificationName: string
+): Promise<{ success: boolean; wasCreated: boolean; error?: string }> {
+  const defaultTitle = `${certificationName} - Data Mode Practice Test`;
+  const defaultDescription = `Mock test generated from input text data for ${certificationName} certification`;
+  
+  const mockTestData = {
+    id: mockTestId,
+    certification_id: certificationId,
+    title: defaultTitle,
+    description: defaultDescription,
+    duration: 120, // 2 hours default
+    total_questions: 0, // Will be updated after inserting questions
+    passing_score: 70,
+    validity_months: 12,
+    recommended_experience_text: "Practice test based on provided text content",
+    exam_format: ["mcq", "multiple"],
+    created_at: new Date().toISOString()
+  };
+
+  let wasCreated = false;
+  
+  // Check and create in production environment
+  try {
+    const { data: prodMockTest, error: prodError } = await supabase
+      .from('mock_tests')
+      .select('id, title, certification_id')
+      .eq('id', mockTestId)
+      .maybeSingle();
+
+    if (prodError) {
+      console.error('Error checking production mock test:', prodError);
+      return { success: false, wasCreated: false, error: `Production error: ${prodError.message}` };
+    }
+
+    if (!prodMockTest) {
+      console.log(`Creating mock test in production: ${mockTestId}`);
+      const { data: newProdMockTest, error: createProdError } = await supabase
+        .from('mock_tests')
+        .insert(mockTestData)
+        .select()
+        .single();
+
+      if (createProdError) {
+        console.error('Error creating production mock test:', createProdError);
+        return { success: false, wasCreated: false, error: `Failed to create in production: ${createProdError.message}` };
+      }
+      wasCreated = true;
+    } else {
+      // Verify certification ID matches
+      if (prodMockTest.certification_id !== certificationId) {
+        return { 
+          success: false, 
+          wasCreated: false, 
+          error: `Mock test '${mockTestId}' belongs to certification ID ${prodMockTest.certification_id}, but you're trying to add questions for certification ID ${certificationId}.` 
+        };
+      }
+    }
+  } catch (error) {
+    console.error('Error with production mock test operations:', error);
+    return { success: false, wasCreated: false, error: `Production error: ${error instanceof Error ? error.message : 'Unknown error'}` };
+  }
+
+  // Check and create in preprod environment
+  try {
+    const { data: preprodMockTest, error: preprodError } = await supabase_preprod
+      .from('mock_tests')
+      .select('id, title, certification_id')
+      .eq('id', mockTestId)
+      .maybeSingle();
+
+    if (preprodError) {
+      console.error('Error checking preprod mock test:', preprodError);
+      return { success: false, wasCreated, error: `Preprod error: ${preprodError.message}` };
+    }
+
+    if (!preprodMockTest) {
+      console.log(`Creating mock test in preprod: ${mockTestId}`);
+      const { data: newPreprodMockTest, error: createPreprodError } = await supabase_preprod
+        .from('mock_tests')
+        .insert(mockTestData)
+        .select()
+        .single();
+
+      if (createPreprodError) {
+        console.error('Error creating preprod mock test:', createPreprodError);
+        return { success: false, wasCreated, error: `Failed to create in preprod: ${createPreprodError.message}` };
+      }
+      wasCreated = true;
+    } else {
+      // Verify certification ID matches
+      if (preprodMockTest.certification_id !== certificationId) {
+        return { 
+          success: false, 
+          wasCreated, 
+          error: `Preprod mock test '${mockTestId}' belongs to certification ID ${preprodMockTest.certification_id}, but you're trying to add questions for certification ID ${certificationId}.` 
+        };
+      }
+    }
+  } catch (error) {
+    console.error('Error with preprod mock test operations:', error);
+    return { success: false, wasCreated, error: `Preprod error: ${error instanceof Error ? error.message : 'Unknown error'}` };
+  }
+
+  return { success: true, wasCreated };
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -85,9 +200,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
+    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_URL_PREPROD) {
       return NextResponse.json(
-        { error: 'Supabase URL not configured' },
+        { error: 'Supabase URLs not configured for both environments' },
         { status: 500 }
       );
     }
@@ -156,86 +271,30 @@ export async function POST(request: NextRequest) {
     // Use the selected mock test ID
     const mockTestId = mock_test_id;
 
-    // First, verify that the mock test exists in the database, create if it doesn't exist
-    console.log(`Verifying mock test exists: ${mockTestId}`);
-    let mockTestExists = false;
-    let mockTestWasCreated = false;
+    // First, verify that the mock test exists in both environments, create if it doesn't exist
+    console.log(`Verifying mock test exists in both environments: ${mockTestId}`);
     
-    try {
-      const { data: mockTest, error: mockTestError } = await supabase
-        .from('mock_tests')
-        .select('id, title, certification_id')
-        .eq('id', mockTestId)
-        .maybeSingle(); // Use maybeSingle() instead of single() to handle no results gracefully
-
-      if (mockTest) {
-        console.log(`Mock test found:`, mockTest);
-        mockTestExists = true;
-        
-        // Verify certification ID matches
-        if (mockTest.certification_id !== certification_id) {
-          return NextResponse.json(
-            { 
-              error: `Mock test '${mockTestId}' belongs to certification ID ${mockTest.certification_id}, but you're trying to add questions for certification ID ${certification_id}.`,
-              details: 'Certification ID mismatch'
-            },
-            { status: 400 }
-          );
-        }
-      } else {
-        console.log(`Mock test '${mockTestId}' not found. Creating new mock test...`);
-        
-        // Create the mock test if it doesn't exist
-        const defaultTitle = `${certification_name} - Data Mode Practice Test`;
-        const defaultDescription = `Mock test generated from input text data for ${certification_name} certification`;
-        
-        const { data: newMockTest, error: createError } = await supabase
-          .from('mock_tests')
-          .insert({
-            id: mockTestId,
-            certification_id: certification_id,
-            title: defaultTitle,
-            description: defaultDescription,
-            duration: 120, // 2 hours default
-            total_questions: 0, // Will be updated after inserting questions
-            passing_score: 70,
-            validity_months: 12,
-            recommended_experience_text: "Practice test based on provided text content",
-            exam_format: ["mcq", "multiple"],
-            created_at: new Date().toISOString()
-          })
-          .select()
-          .single();
-
-        if (createError) {
-          console.error('Error creating mock test:', createError);
-          return NextResponse.json(
-            { 
-              error: `Failed to create mock test '${mockTestId}': ${createError.message}`,
-              details: 'Mock test creation failed'
-            },
-            { status: 500 }
-          );
-        }
-
-        console.log(`Successfully created mock test:`, newMockTest);
-        mockTestExists = true;
-        mockTestWasCreated = true;
-      }
-    } catch (error) {
-      console.error('Error verifying/creating mock test:', error);
+    const mockTestResult = await ensureMockTestExists(mockTestId, certification_id, certification_name);
+    
+    if (!mockTestResult.success) {
       return NextResponse.json(
         { 
-          error: `Failed to verify or create mock test: ${error instanceof Error ? error.message : 'Unknown error'}`,
-          details: 'Database operation failed'
+          error: `Failed to ensure mock test exists: ${mockTestResult.error}`,
+          details: 'Mock test verification/creation failed'
         },
         { status: 500 }
       );
     }
+    
+    const mockTestWasCreated = mockTestResult.wasCreated;
+    console.log(mockTestWasCreated ? 
+      `Successfully created mock test in both environments: ${mockTestId}` : 
+      `Mock test already exists in both environments: ${mockTestId}`
+    );
 
     // Get the current maximum question_order for this mock test to continue the sequence
     console.log(`Checking existing questions for mock test: ${mockTestId}`);
-    let startingQuestionOrder = 0;
+    let startingQuestionOrder = 1; // Default to 1 if no existing questions
     
     try {
       const { data: existingQuestions, error: queryError } = await supabase
@@ -250,7 +309,7 @@ export async function POST(request: NextRequest) {
         // Continue with default starting order if query fails
       } else if (existingQuestions && existingQuestions.length > 0) {
         startingQuestionOrder = existingQuestions[0].question_order + 1;
-        console.log(`Found existing questions. Starting new questions at order: ${startingQuestionOrder}`);
+        console.log(`Found existing questions. Max question_order: ${existingQuestions[0].question_order}. Starting new questions at order: ${startingQuestionOrder}`);
       } else {
         console.log('No existing questions found. Starting at order: 1');
       }
@@ -273,6 +332,48 @@ export async function POST(request: NextRequest) {
     const estimatedQuestions = Math.max(...questionMatches, 1);
     console.log(`Estimated ${estimatedQuestions} questions in input text based on patterns`);
 
+    // Determine certification level based on certification name
+    const certificationLower = certification_name.toLowerCase();
+    const isFoundational = certificationLower.includes('foundational') || certificationLower.includes('foundation') || certificationLower.includes('basics') || certificationLower.includes('fundamentals');
+    const isAssociate = certificationLower.includes('associate') || certificationLower.includes('intermediate');
+    const isProfessional = certificationLower.includes('professional') || certificationLower.includes('expert') || certificationLower.includes('advanced');
+    const isSpecialty = certificationLower.includes('specialty') || certificationLower.includes('speciality') || certificationLower.includes('specialist');
+
+    // Determine complexity level and question characteristics
+    let complexityLevel, questionCharacteristics, difficultyGuidance;
+    
+    if (isProfessional || isSpecialty) {
+      complexityLevel = 'advanced';
+      questionCharacteristics = `
+- Generate LENGTHY, DETAILED questions with multiple paragraphs when needed
+- Include complex scenario-based questions with detailed context
+- Create questions that require deep understanding and critical thinking
+- Use technical terminology and advanced concepts extensively
+- Questions should often include 3-4 sentence scenarios or case studies
+- Focus on practical application, troubleshooting, and optimization
+- Include questions about best practices, trade-offs, and complex decision-making`;
+      difficultyGuidance = 'advanced - Focus on complex scenarios, detailed technical knowledge, and practical application';
+    } else if (isAssociate) {
+      complexityLevel = 'intermediate';
+      questionCharacteristics = `
+- Generate MODERATE-LENGTH questions with clear context
+- Include scenario-based questions with practical examples
+- Balance between conceptual understanding and practical application
+- Use standard technical terminology with some advanced concepts
+- Questions should be 1-2 sentences with additional context when needed
+- Focus on implementation, configuration, and common use cases`;
+      difficultyGuidance = 'intermediate - Focus on practical implementation and standard use cases';
+    } else {
+      complexityLevel = 'basic';
+      questionCharacteristics = `
+- Generate CLEAR, CONCISE questions focusing on fundamental concepts
+- Include straightforward questions about basic principles and definitions
+- Use simple, direct language with minimal technical jargon
+- Questions should be brief and focused on core knowledge
+- Focus on understanding basic concepts, terminology, and simple procedures`;
+      difficultyGuidance = 'basic - Focus on fundamental concepts and basic understanding';
+    }
+
     // Create prompt for parsing and extracting pre-formatted questions from input text
     const prompt = `
 You are an expert question parser for certification exams. The input text contains pre-formatted questions with options and explanations. Your task is to carefully analyze and extract ALL questions present in the text.
@@ -282,9 +383,12 @@ ${input_text}
 
 CERTIFICATION CONTEXT:
 - Certification: ${certification_name}
+- Certification Level: ${complexityLevel.toUpperCase()}
 - Mock Test ID: ${mockTestId}
 - Available Domains: ${domains.map(d => `${d.topic_name} (ID: ${d.topic_id})`).join(', ')}
 - Available Modules: ${modules.map(m => `${m.module_name} (ID: ${m.module_id})`).join(', ')}
+
+QUESTION COMPLEXITY REQUIREMENTS FOR ${complexityLevel.toUpperCase()} LEVEL:${questionCharacteristics}
 
 ANALYSIS REQUIREMENTS:
 1. CAREFULLY scan the entire input text to identify ALL separate questions
@@ -306,6 +410,22 @@ PARSING INSTRUCTIONS:
 - If you find multiple questions, return ALL of them in the array
 - If you find only one question, return just that one
 
+IMPORTANT FOR ${complexityLevel.toUpperCase()} LEVEL QUESTIONS:
+${isProfessional || isSpecialty ? `
+- Look for LENGTHY, DETAILED questions with multiple sentences or paragraphs
+- Identify complex scenario-based questions with detailed context
+- Preserve all technical details and lengthy explanations exactly as written
+- Maintain complex question structures and comprehensive answer explanations
+- Questions may span multiple lines and include detailed case studies` : isAssociate ? `
+- Look for MODERATE-LENGTH questions with practical scenarios
+- Identify questions with clear context and implementation details
+- Preserve technical terminology and practical examples
+- Maintain question structure with adequate detail for implementation guidance` : `
+- Look for CLEAR, CONCISE questions about fundamental concepts
+- Identify straightforward questions with basic definitions and principles
+- Preserve simple, direct language and basic terminology
+- Maintain clear, focused question structure for foundational understanding`}
+
 OUTPUT FORMAT (CRITICAL - Follow exactly):
 {
   "questions": [
@@ -320,7 +440,7 @@ OUTPUT FORMAT (CRITICAL - Follow exactly):
       ],
       "correct_answers": ["A"], // Array of correct option IDs based on the input
       "explanation": "Exact explanation from input",
-      "difficulty": "intermediate", // basic|intermediate|advanced based on content complexity
+      "difficulty": "${complexityLevel}", // ${difficultyGuidance}
       "topic_id": ${domains[0]?.topic_id || 1}, // MUST use one of: ${domains.map(d => d.topic_id).join(', ')}
       "topic_name": "${domains[0]?.topic_name || 'General'}", // MUST match the topic_id
       "module_id": "${modules[0]?.module_id || 'general'}", // MUST use one of: ${modules.map(m => m.module_id).join(', ')}
@@ -468,6 +588,9 @@ IMPORTANT: Return ALL questions found in the input. If there are 3 questions, re
     sqlScript += `-- Mock test status: ${mockTestWasCreated ? 'New mock test created' : 'Existing mock test found'}\n`;
     sqlScript += `-- Note: Mock test verified/created in database\n\n`;
 
+    // Start transaction
+    sqlScript += `BEGIN;\n\n`;
+
     // Note: Mock test creation is handled separately in the API, SQL only contains question inserts
     sqlScript += `-- Mock test: ${mockTestId}\n`;
     sqlScript += `-- Questions will be added to the mock test\n\n`;
@@ -506,6 +629,8 @@ IMPORTANT: Return ALL questions found in the input. If there are 3 questions, re
     sqlScript += `)\n`;
     sqlScript += `WHERE id = '${mockTestId}';\n\n`;
 
+    // End transaction
+    sqlScript += `COMMIT;\n\n`;
     sqlScript += `-- Summary: ${aiData.questions.length} questions generated from input text for ${certification_name}`;
 
     const fullScript = sqlScript;
@@ -522,7 +647,7 @@ IMPORTANT: Return ALL questions found in the input. If there are 3 questions, re
     // Return the generated data matching generate-mock format
     return NextResponse.json({
       success: true,
-      message: `Successfully parsed ${aiData.questions.length} question${aiData.questions.length !== 1 ? 's' : ''} from input text and generated SQL for mock test: ${mockTestId} (questions ${startingQuestionOrder}-${startingQuestionOrder + aiData.questions.length - 1}). ${mockTestWasCreated ? 'Created new mock test.' : 'Used existing mock test.'}`,
+      message: `Successfully parsed ${aiData.questions.length} question${aiData.questions.length !== 1 ? 's' : ''} from input text and generated SQL for mock test: ${mockTestId} (questions ${startingQuestionOrder}-${startingQuestionOrder + aiData.questions.length - 1}). ${mockTestWasCreated ? 'Created new mock test in both environments.' : 'Used existing mock test from both environments.'}`,
       mockTestId,
       startingQuestionOrder,
       script: fullScript,
