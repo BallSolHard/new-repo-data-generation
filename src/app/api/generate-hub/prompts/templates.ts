@@ -73,7 +73,7 @@ Generate ${totalQuestions} beginner questions:`;
     return `Generate ${totalQuestions} SCENARIO-BASED ${certificationName} questions as JSON array.
 
  MANDATORY RULE #1 - THE CORRECT ANSWER MUST NEVER BE THE LONGEST OPTION 
-For EVERY question, make ONE WRONG answer the LONGEST 
+For EVERY question, make ONE WRONG answer at least a couple of words longer than the correct answer
 
 MODULES & SCENARIOS:
 ${modulesInfo}
@@ -111,7 +111,7 @@ Generate ${totalQuestions} scenario questions:`;
     return `Generate ${totalQuestions} TROUBLESHOOTING ${certificationName} questions as JSON array.
 
  MANDATORY RULE #1 - THE CORRECT ANSWER MUST NEVER BE THE LONGEST OPTION 
-For EVERY question, make ONE WRONG answer the LONGEST
+For EVERY question, make ONE WRONG answer at least a couple of words longer than the correct answer
 
 FOCUS: Problem diagnosis, debugging, and resolution
 CONTEXT: Systems experiencing issues, performance problems, or failures
