@@ -6,8 +6,27 @@ import type { GeneratedQuestion, QuestionGenerationParams } from './types';
 
 // Initialize Gemini client
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
+
+// Primary model for question generation (high creativity)
 const model = genAI.getGenerativeModel({ 
-  model: "gemini-2.5-flash" // Using Gemini 2.5 Flash
+  model: "gemini-2.5-flash", // Using Gemini 2.5 Flash
+  generationConfig: {
+    temperature: 0.9,        // High temperature for creativity and diversity
+    topP: 0.8,              // Nucleus sampling for varied responses  
+    topK: 40,               // Consider top 40 tokens for variety
+    maxOutputTokens: 8192,  // Allow longer responses
+  }
+});
+
+// Validation model (more conservative for accurate validation)
+const validationModel = genAI.getGenerativeModel({ 
+  model: "gemini-2.5-flash",
+  generationConfig: {
+    temperature: 0.3,        // Lower temperature for more focused validation
+    topP: 0.6,              // More focused sampling for validation
+    topK: 20,               // Narrower token consideration for consistency
+    maxOutputTokens: 2048,  // Shorter responses for validation
+  }
 });
 
 // Initialize Supabase client
@@ -69,7 +88,7 @@ async function addValidationScores(
     const validationPrompt = createValidationPrompt(question, certificationName);
 
     try {
-      const validationResult = await model.generateContent(validationPrompt);
+      const validationResult = await validationModel.generateContent(validationPrompt);
       const validationText = validationResult.response.text();
     
       // Clean and parse validation response with better error handling
@@ -197,7 +216,8 @@ async function generateAllQuestions(
   topicDescription: string,
   certificationName: string,
   questionsPerModule: number = 2,
-  questionType: string = "mcq"
+  questionType: string = "mcq",
+  patternKey?: string
 ): Promise<GeneratedQuestion[]> {
   
   // Define question types for variety - different styles/formats of questions
@@ -246,6 +266,14 @@ async function generateAllQuestions(
     questionTypes,
     questionType
   });
+  
+  // Add dynamic variety and randomization instructions
+  prompt += generateVarietyInstructions(questionType, modules);
+  
+  // Add pattern avoidance instructions if pattern key is provided
+  if (patternKey) {
+    prompt += getAvoidanceInstructions(patternKey);
+  }
   
   // Add specific constraints for matching questions to ensure concise text
   if (questionType === 'matching') {
@@ -426,7 +454,182 @@ async function generateAllQuestions(
   }
 }
 
+// Function to generate dynamic variety instructions for question uniqueness
+function generateVarietyInstructions(questionType: string, modules: any[]): string {
+  const timestamp = Date.now();
+  const randomSeed = Math.floor(Math.random() * 1000000);
+  
+  // Dynamic variety approaches for each question type
+  const varietyApproaches = {
+    matching: [
+      "Focus on service-to-feature relationships",
+      "Match technologies with their primary use cases", 
+      "Connect architectural patterns with their benefits",
+      "Pair tools with their specific capabilities",
+      "Link protocols with their functions",
+      "Associate metrics with what they measure",
+      "Match roles with their responsibilities",
+      "Connect components with their purposes"
+    ],
+    ordering: [
+      "Focus on deployment sequence steps",
+      "Order troubleshooting procedures", 
+      "Sequence configuration steps",
+      "Arrange lifecycle phases",
+      "Order data processing steps",
+      "Sequence security implementation",
+      "Order scaling procedures",
+      "Arrange integration steps"
+    ],
+    multiple: [
+      "Focus on multiple benefits of a service",
+      "Identify all valid configuration options",
+      "Select multiple correct implementation approaches",
+      "Choose all applicable security measures", 
+      "Identify multiple optimization strategies",
+      "Select all relevant monitoring metrics",
+      "Choose multiple deployment options",
+      "Identify all compliance requirements"
+    ],
+    mcq: [
+      "Focus on best practices and recommendations",
+      "Emphasize optimal configurations",
+      "Highlight most efficient solutions",
+      "Focus on primary use cases",
+      "Emphasize key differentiators",
+      "Focus on troubleshooting approaches",
+      "Highlight security best practices",
+      "Focus on cost optimization strategies"
+    ]
+  };
 
+  // Select random approach based on timestamp
+  const approaches = varietyApproaches[questionType as keyof typeof varietyApproaches] || varietyApproaches.mcq;
+  const selectedApproach = approaches[Math.floor((timestamp + randomSeed) % approaches.length)];
+  
+  // Generate unique perspective instructions
+  const perspectiveInstructions = [
+    "Think from a solutions architect perspective",
+    "Consider a DevOps engineer's viewpoint", 
+    "Focus on a security specialist's concerns",
+    "Approach from a performance optimization angle",
+    "Consider cost management priorities",
+    "Think about compliance and governance",
+    "Focus on scalability and reliability",
+    "Consider developer experience aspects"
+  ];
+  
+  const selectedPerspective = perspectiveInstructions[Math.floor((randomSeed) % perspectiveInstructions.length)];
+  
+  // Module-specific variety prompts
+  const moduleTopics = modules.map(m => m.module_name).join(", ");
+  
+  return `\n\n🎲 UNIQUENESS & VARIETY REQUIREMENTS (Seed: ${randomSeed}):
+MANDATORY: Generate completely UNIQUE questions every time - never repeat similar scenarios!
+
+VARIETY APPROACH FOR THIS GENERATION: ${selectedApproach}
+PERSPECTIVE: ${selectedPerspective}
+MODULE CONTEXT: Focus on different aspects of: ${moduleTopics}
+
+${questionType === 'matching' ? `
+MATCHING VARIETY REQUIREMENTS:
+- Use DIFFERENT matching relationships than previous generations
+- Vary the types of items being matched (services vs features vs patterns vs tools)
+- Mix technical terms with business concepts
+- Rotate between different AWS service categories
+- Create unexpected but valid connections
+- Use diverse terminology and phrasing
+` : questionType === 'ordering' ? `
+ORDERING VARIETY REQUIREMENTS:
+- Create DIFFERENT sequences than previous generations  
+- Vary the context (deployment vs troubleshooting vs configuration)
+- Mix high-level processes with detailed technical steps
+- Use different starting points and endpoints
+- Include various complexity levels within the sequence
+- Focus on different workflow aspects
+` : questionType === 'multiple' ? `
+MULTIPLE SELECT VARIETY REQUIREMENTS:
+- Identify DIFFERENT combinations than previous generations
+- Vary the number of correct answers (2-3 different amounts)
+- Mix feature benefits with implementation approaches
+- Create diverse option sets with varying themes
+- Include different levels of technical detail
+- Focus on various aspects (security, performance, cost, etc.)
+` : `
+MCQ VARIETY REQUIREMENTS:
+- Create DIFFERENT scenarios than previous generations
+- Vary question complexity and depth  
+- Mix conceptual and practical questions
+- Use different business contexts and use cases
+- Include various AWS services and features
+- Rotate between different problem-solving approaches
+`}
+
+CRITICAL UNIQUENESS RULES:
+❌ NEVER generate similar questions to previous runs
+❌ AVOID repeating the same service combinations  
+❌ DON'T reuse identical phrasing or scenarios
+❌ PREVENT similar option patterns
+✅ CREATE fresh scenarios and contexts every time
+✅ USE diverse vocabulary and technical terminology  
+✅ GENERATE unexpected but valid question combinations
+✅ ENSURE each question has a unique angle or perspective
+
+RANDOMIZATION DIRECTIVE: Use timestamp ${timestamp} and seed ${randomSeed} to ensure different generation patterns.`;
+}
+
+// Simple session-based tracking for question uniqueness (can be enhanced with database storage)
+const questionPatternCache = new Map<string, Set<string>>();
+
+function generatePatternHash(questionType: string, modules: any[], questionsPerModule: number): string {
+  const moduleIds = modules.map(m => m.module_id).sort().join('|');
+  return `${questionType}_${moduleIds}_${questionsPerModule}`;
+}
+
+function addQuestionPatterns(patternKey: string, questions: GeneratedQuestion[]): void {
+  if (!questionPatternCache.has(patternKey)) {
+    questionPatternCache.set(patternKey, new Set());
+  }
+  
+  const patterns = questionPatternCache.get(patternKey)!;
+  
+  questions.forEach(q => {
+    // Create pattern signatures to avoid similar questions
+    const textWords = q.text.toLowerCase().split(' ').slice(0, 5).join(' '); // First 5 words
+    const optionsSignature = Array.isArray(q.options) 
+      ? q.options.map(opt => opt.toLowerCase().split(' ')[0]).join('|')
+      : JSON.stringify(q.options).toLowerCase().substring(0, 50);
+    
+    patterns.add(`${textWords}|${optionsSignature}`);
+  });
+  
+  // Keep only recent patterns (max 50 per pattern type)
+  if (patterns.size > 50) {
+    const patternsArray = Array.from(patterns);
+    patterns.clear();
+    patternsArray.slice(-30).forEach(pattern => patterns.add(pattern)); // Keep last 30
+  }
+}
+
+function getAvoidanceInstructions(patternKey: string): string {
+  const patterns = questionPatternCache.get(patternKey);
+  if (!patterns || patterns.size === 0) {
+    return "\n🔄 FIRST GENERATION: Create diverse and unique questions.";
+  }
+  
+  const recentPatterns = Array.from(patterns).slice(-10); // Last 10 patterns
+  const avoidanceTerms = recentPatterns
+    .map(pattern => pattern.split('|')[0]) // Extract text patterns
+    .filter(text => text.length > 10) // Only meaningful text
+    .slice(0, 5); // Max 5 examples
+  
+  if (avoidanceTerms.length === 0) {
+    return "\n🔄 GENERATE: Create completely different questions from previous sessions.";
+  }
+  
+  return `\n🚫 AVOID REPETITION: DO NOT start questions with phrases like: ${avoidanceTerms.map(term => `"${term}"`).join(', ')}
+🔄 GENERATE: Completely different scenarios, contexts, and phrasing than previous generations.`;
+}
 
 
 
@@ -504,6 +707,9 @@ export async function POST(request: NextRequest) {
     sqlScript += `-- Generated on: ${new Date().toISOString()}\n\n`;
     sqlScript += `BEGIN;\n\n`;
 
+    // Generate pattern key for uniqueness tracking
+    const patternKey = generatePatternHash(questionType, modules, questionsPerModule);
+    
     // Generate all questions in a single API call
     const generatedQuestions = await generateAllQuestions(
       modules,
@@ -511,8 +717,12 @@ export async function POST(request: NextRequest) {
       body.topic_description,
       body.certification_name,
       questionsPerModule, // Use the user-selected number of questions per module
-      questionType // Pass the question type to the generation function
+      questionType, // Pass the question type to the generation function
+      patternKey // Pass pattern key for avoidance instructions
     );
+
+    // Track generated patterns for future uniqueness
+    addQuestionPatterns(patternKey, generatedQuestions);
 
     // // Add one intentionally incorrect test question to validate the validation system
     // if (generatedQuestions.length > 0) {
