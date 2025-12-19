@@ -61,7 +61,10 @@ ${claimedAnswers}
 VALIDATION CHECKLIST:
 ✓ Does each left item match correctly with its paired right item?
 ✓ Are all the relationships factually accurate?
-✓ Are any matches incorrect or could be improved?`;
+✓ Are any matches incorrect or could be improved?
+✓ TEXT LENGTH CHECK: Are left items concise (1-3 words max)?
+✓ TEXT LENGTH CHECK: Are right items brief (6-10 words max, fit in 2 lines)?
+✓ REJECT if any text is too long - matching pairs must be concise for good UI display`;
     
   } else if (question.type === 'ordering') {
     // Ordering questions

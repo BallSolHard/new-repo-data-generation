@@ -96,8 +96,8 @@ ${
     "C": "Term 3"
   },
   "pairs": {
-    "left": ["Term 1", "Term 2", "Term 3"],
-    "right": ["Description for Term 2", "Description for Term 1", "Description for Term 3"]
+    "left": ["API Gateway", "Lambda", "DynamoDB"],
+    "right": ["Serverless compute", "HTTP API routing", "NoSQL database"]
   },
   "matches": {
     "left": [0, 1, 2],
@@ -129,7 +129,7 @@ ${
 
 NOTICE: ${
     isMatching
-      ? "For matching questions, create clear relationships between left and right items. Left items should be terms/concepts, right items should be definitions/descriptions."
+      ? "For matching questions, create clear relationships between left and right items. Left items should be terms/concepts (1-3 words max), right items should be concise definitions/descriptions (maximum 10 words, ideally 1-2 lines when displayed)."
       : isOrdering 
       ? "For ordering questions, focus on logical sequence. Options should be clear, distinct steps or phases." 
       : "The longest option must be WRONG. Correct answers must be concise!"
@@ -151,7 +151,7 @@ ADDITIONAL REQUIREMENTS:
       }
 ${
         isMatching
-          ? "- Each question must have 3-4 items to match\n- Question text must include 'Match each...' or similar phrasing\n- Create clear left items (terms/concepts) and right items (definitions/descriptions)\n- Provide correct matches in the matches object with left and right arrays"
+          ? "- Each question must have 3-4 items to match\n- Question text must include 'Match each...' or similar phrasing\n- LEFT items: Use concise terms/concepts (1-3 words maximum)\n- RIGHT items: Use brief descriptions (6-10 words maximum, must fit in 2 lines when displayed)\n- Avoid long explanatory text in pairs - keep it short and clear\n- Provide correct matches in the matches object with left and right arrays"
           : isOrdering
           ? "- Each question must have 4 options that need to be arranged in correct sequence\n- Question text must include 'Order the following...' or similar phrasing\n- Options should be steps, phases, or items with a logical sequence\n- Correct answer is always [0,1,2,3] representing the proper order"
           : isMultipleSelect

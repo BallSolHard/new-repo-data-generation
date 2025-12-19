@@ -237,7 +237,7 @@ async function generateAllQuestions(
   ];
   
   // Create prompt using the template function
-  const prompt = createQuestionGenerationPrompt({
+  let prompt = createQuestionGenerationPrompt({
     modules,
     topicName,
     topicDescription,
@@ -246,6 +246,17 @@ async function generateAllQuestions(
     questionTypes,
     questionType
   });
+  
+  // Add specific constraints for matching questions to ensure concise text
+  if (questionType === 'matching') {
+    prompt += `\n\nCRITICAL MATCHING QUESTION CONSTRAINTS:
+- LEFT items: Maximum 3 words (e.g., "API Gateway", "Lambda Function", "DynamoDB")  
+- RIGHT items: Maximum 8 words, must fit on 2 lines when displayed (e.g., "Serverless compute service", "HTTP request routing", "NoSQL database service")
+- NO long explanations in pairs - keep descriptions brief and clear
+- Examples of GOOD right items: "Manages user authentication", "Stores application data", "Routes HTTP requests"
+- Examples of BAD right items: "A comprehensive service that provides robust authentication and authorization capabilities for applications", "Database service that offers high performance and scalability for modern applications"
+- Each right item should be a concise phrase that clearly identifies the left item`;
+  }
   
   // Alternative specialized prompts available:
   // const prompt = QuestionPromptTemplates.createBeginnerPrompt(params);
