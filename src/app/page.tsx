@@ -1448,7 +1448,7 @@ export default function Home() {
                   </>
                 ) : null}
                 <p>
-                  <span className="font-semibold">Question Type:</span> {questionType === "mcq" ? "Multiple Choice" : "Multiple Select"}
+                  <span className="font-semibold">Question Type:</span> {questionType === "mcq" ? "Multiple Choice" : questionType === "multiple" ? "Multiple Select" : questionType === "ordering" ? "Ordering" : "Matching"}
                   <code className="bg-white/20 px-2 py-1 rounded text-sm ml-2">{questionType}</code>
                 </p>
                 {activeTab === "hub" ? (
@@ -1509,11 +1509,13 @@ export default function Home() {
                     <option value="mcq" className="text-gray-900">Multiple Choice (MCQ)</option>
                     <option value="multiple" className="text-gray-900">Multiple Select</option>
                     <option value="ordering" className="text-gray-900">Ordering Questions</option>
+                    <option value="matching" className="text-gray-900">Matching Questions</option>
                   </select>
                   <span className="text-sm text-white/80">
                     {questionType === "mcq" ? "Single correct answer" : 
                      questionType === "multiple" ? "Multiple correct answers" : 
-                     "Arrange options in correct sequence"}
+                     questionType === "ordering" ? "Arrange options in correct sequence" :
+                     "Match terms with their descriptions"}
                   </span>
                 </div>
               </div>

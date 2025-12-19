@@ -116,29 +116,54 @@ async function addValidationScores(
         // Handle correct answer suggestion based on type
         if (validation.correct_answer_index !== undefined && validation.correct_answer_index !== null) {
           try {
-            if (Array.isArray(validation.correct_answer_index)) {
+            if (typeof validation.correct_answer_index === 'object' && validation.correct_answer_index !== null && 'left' in validation.correct_answer_index && 'right' in validation.correct_answer_index) {
+              // Matching question format - validator provided object with left and right arrays
+              const matchingResponse = validation.correct_answer_index as {left: number[], right: number[]};
+              if (Array.isArray(matchingResponse.left) && Array.isArray(matchingResponse.right)) {
+                question.new_correct_answer = JSON.stringify(matchingResponse);
+                
+                // Create human-readable explanation of correct matches
+                if (question.pairs) {
+                  const correctMatches = matchingResponse.left
+                    .map((leftIdx: number, position: number) => {
+                      const rightIdx = matchingResponse.right[position];
+                      return `${question.pairs!.left[leftIdx]} → ${question.pairs!.right[rightIdx]}`;
+                    })
+                    .join(', ');
+                  question.new_explanation = `${validation.validation_notes || ''} Correct matches should be: ${correctMatches}`;
+                } else {
+                  question.new_explanation = `${validation.validation_notes || ''} Corrected matching provided`;
+                }
+              } else {
+                question.new_explanation = `${validation.validation_notes || ''} (Invalid matching format provided)`;
+              }
+            } else if (Array.isArray(validation.correct_answer_index)) {
               // Multiple select format - validator provided array of correct indices
               const validIndices = validation.correct_answer_index.filter((idx: any) => 
-                typeof idx === 'number' && idx >= 0 && idx < question.options.length
+                typeof idx === 'number' && idx >= 0 && Array.isArray(question.options) && idx < question.options.length
               );
               
               if (validIndices.length > 0) {
                 question.new_correct_answer = JSON.stringify(validIndices);
                 
                 // Create human-readable explanation of correct answers
-                const correctOptions = validIndices
-                  .map((index: number) => `${String.fromCharCode(65 + index)}) ${question.options[index]}`)
-                  .join(', ');
-                question.new_explanation = `${validation.validation_notes || ''} Correct answers should be: ${correctOptions}`;
+                if (Array.isArray(question.options)) {
+                  const correctOptions = validIndices
+                    .map((index: number) => `${String.fromCharCode(65 + index)}) ${(question.options as string[])[index]}`)
+                    .join(', ');
+                  question.new_explanation = `${validation.validation_notes || ''} Correct answers should be: ${correctOptions}`;
+                } else {
+                  question.new_explanation = `${validation.validation_notes || ''} Corrected answers provided`;
+                }
               } else {
                 question.new_explanation = `${validation.validation_notes || ''} (Invalid suggested indices provided)`;
               }
             } else if (typeof validation.correct_answer_index === 'number') {
               // Single answer format
               const idx = validation.correct_answer_index;
-              if (idx >= 0 && idx < question.options.length) {
+              if (Array.isArray(question.options) && idx >= 0 && idx < question.options.length) {
                 question.new_correct_answer = `{${idx}}`;
-                const correctOption = `${String.fromCharCode(65 + idx)}) ${question.options[idx]}`;
+                const correctOption = `${String.fromCharCode(65 + idx)}) ${(question.options as string[])[idx]}`;
                 question.new_explanation = `${validation.validation_notes || ''} Correct answer should be: ${correctOption}`;
               } else {
                 question.new_explanation = `${validation.validation_notes || ''} (Invalid suggested index: ${idx})`;
@@ -176,7 +201,18 @@ async function generateAllQuestions(
 ): Promise<GeneratedQuestion[]> {
   
   // Define question types for variety - different styles/formats of questions
-  const questionTypes = questionType === 'ordering' ? [
+  const questionTypes = questionType === 'matching' ? [
+    'term-definition',      // Match terms with their definitions
+    'service-feature',      // Match services with their key features
+    'concept-application',  // Match concepts with real-world applications
+    'tool-purpose',         // Match tools with their primary purposes
+    'architecture-component', // Match architecture patterns with components
+    'protocol-function',    // Match protocols with their functions
+    'technology-benefit',   // Match technologies with their benefits
+    'role-responsibility',  // Match roles with their responsibilities
+    'metric-measurement',   // Match metrics with what they measure
+    'pattern-use-case'      // Match patterns with appropriate use cases
+  ] : questionType === 'ordering' ? [
     'process-flow',         // Sequential steps or procedures
     'deployment-sequence',  // Deployment and setup workflows
     'lifecycle-phases',     // Project or service lifecycle stages
@@ -279,43 +315,95 @@ async function generateAllQuestions(
       return questionsData.map((questionData, index) => {
         // Handle correct_answer based on question type
         let correct_answer;
-        if (questionType === "ordering") {
+        let pairs = undefined;
+        let matches = undefined;
+        let options;
+        
+        if (questionType === "matching") {
+          // For matching questions, correct_answer should be null
+          correct_answer = null;
+          pairs = questionData.pairs || {
+            left: ["Term 1", "Term 2", "Term 3"],
+            right: ["Definition 1", "Definition 2", "Definition 3"]
+          };
+          matches = questionData.matches || {
+            left: [0, 1, 2],
+            right: [0, 1, 2]
+          };
+          options = questionData.options || {
+            "A": pairs.left[0],
+            "B": pairs.left[1], 
+            "C": pairs.left[2]
+          };
+        } else if (questionType === "ordering") {
           // For ordering, expect array format representing the correct sequence
           if (Array.isArray(questionData.correct_answer)) {
             correct_answer = questionData.correct_answer; // Keep as array for internal processing
           } else {
-            // Fallback: assume natural order
-            correct_answer = [0, 1, 2, 3];
+            // ERROR: Invalid correct_answer for ordering - log and mark for review
+            console.error(`Invalid correct_answer for ordering question ${index + 1}:`, questionData.correct_answer);
+            correct_answer = null; // Mark as invalid - will be caught in validation
           }
+          options = questionData.options;
         } else if (questionType === "multiple") {
-          // For multiple select, expect array format
+          // For multiple select, expect array format - keep as array for SQL conversion
           if (Array.isArray(questionData.correct_answer)) {
-            correct_answer = JSON.stringify(questionData.correct_answer);
+            correct_answer = questionData.correct_answer; // Keep as array for PostgreSQL format conversion
           } else {
-            // Fallback: assume first two options are correct
-            correct_answer = JSON.stringify([0, 1]);
+            // ERROR: Invalid correct_answer for multiple select - log and mark for review
+            console.error(`Invalid correct_answer for multiple select question ${index + 1}:`, questionData.correct_answer);
+            correct_answer = null; // Mark as invalid - will be caught in validation
           }
+          options = questionData.options;
         } else {
           // For MCQ, use string format
-          correct_answer = questionData.correct_answer || "{1}";
+          if (questionData.correct_answer) {
+            correct_answer = questionData.correct_answer;
+          } else {
+            // ERROR: Missing correct_answer for MCQ - log and mark for review
+            console.error(`Missing correct_answer for MCQ question ${index + 1}:`, questionData);
+            correct_answer = null; // Mark as invalid - will be caught in validation
+          }
+          options = questionData.options;
         }
 
-        return {
+        const baseQuestion = {
           text: questionData.text || `Generated question ${index + 1}`,
-          options: Array.isArray(questionData.options) && questionData.options.length === 4 
-            ? questionData.options 
-            : [
-                `Basic approach without optimization`,
-                `Professional implementation following best practices`,
-                `Manual configuration only`,
-                `Legacy approach without modern tools`
-              ],
           correct_answer: correct_answer,
           explanation: questionData.explanation || `Professional implementation addresses the requirements effectively.`,
-          type: questionType as 'mcq' | 'multiple' | 'ordering', // Add type field
+          type: questionType as 'mcq' | 'multiple' | 'ordering' | 'matching',
           module_id: questionData.module_id || modules[Math.floor(index / questionsPerModule)]?.module_id,
           question_number: questionData.question_number || ((index % questionsPerModule) + 1)
         };
+
+        if (questionType === "matching") {
+          return {
+            ...baseQuestion,
+            options: options,
+            pairs: pairs,
+            matches: matches
+          };
+        } else {
+          // Validate options for non-matching questions
+          let validOptions;
+          if (Array.isArray(options) && options.length >= 2) {
+            validOptions = options;
+          } else {
+            // ERROR: Invalid or insufficient options - log and create placeholder
+            console.error(`Invalid options for question ${index + 1}:`, options);
+            validOptions = [
+              `[INVALID] Generated option A - requires manual review`,
+              `[INVALID] Generated option B - requires manual review`,
+              `[INVALID] Generated option C - requires manual review`,
+              `[INVALID] Generated option D - requires manual review`
+            ];
+          }
+          
+          return {
+            ...baseQuestion,
+            options: validOptions
+          };
+        }
       });
     } else {
       throw new Error('Invalid response format from Gemini');
@@ -443,6 +531,12 @@ export async function POST(request: NextRequest) {
 
     // Process each validated question
     for (const question of generatedQuestions) {
+      // Skip questions with invalid correct_answer (marked as null during processing)
+      if (question.correct_answer === null && questionType !== 'matching') {
+        console.error(`Skipping invalid question for module ${question.module_id}: ${question.text?.substring(0, 100)}...`);
+        continue; // Skip this question entirely
+      }
+      
       const moduleForQuestion = modules.find((m: any) => m.module_id === question.module_id) || modules[0];
       const moduleId = moduleForQuestion.module_id;
       
@@ -464,12 +558,36 @@ export async function POST(request: NextRequest) {
       
       // Handle correct_answer format based on question type
       let correctAnswerValue;
-      if (questionType === 'ordering' && Array.isArray(question.correct_answer)) {
+      let pairsValue = 'NULL';
+      let matchesValue = 'NULL';
+      
+      if (questionType === 'matching') {
+        // For matching questions, correct_answer is null, but we need pairs and matches
+        correctAnswerValue = 'NULL';  // This will be used without quotes in SQL
+        if (question.pairs) {
+          pairsValue = `'${JSON.stringify(question.pairs).replace(/'/g, "''")}'::json`;
+        }
+        if (question.matches) {
+          matchesValue = `'${JSON.stringify(question.matches).replace(/'/g, "''")}'::json`;
+        }
+      } else if (questionType === 'ordering' && Array.isArray(question.correct_answer)) {
         // For ordering questions, store as PostgreSQL array format
         correctAnswerValue = `{${question.correct_answer.join(',')}}`;
       } else if (Array.isArray(question.correct_answer)) {
         // For multiple select, convert array to PostgreSQL array format
         correctAnswerValue = `{${question.correct_answer.join(',')}}`;
+      } else if (questionType === 'multiple' && typeof question.correct_answer === 'string') {
+        // Handle JSON string format for multiple select questions (legacy compatibility)
+        try {
+          const parsed = JSON.parse(question.correct_answer);
+          if (Array.isArray(parsed)) {
+            correctAnswerValue = `{${parsed.join(',')}}`;
+          } else {
+            correctAnswerValue = '{0,1}'; // Default multiple select
+          }
+        } catch {
+          correctAnswerValue = '{0,1}'; // Default multiple select
+        }
       } else if (questionType === 'ordering' && typeof question.correct_answer === 'string') {
         // Handle string format for ordering questions (parse JSON and convert to PG array)
         try {
@@ -478,13 +596,21 @@ export async function POST(request: NextRequest) {
         } catch {
           correctAnswerValue = '{0,1,2,3}'; // Default ordering
         }
+      } else if (question.correct_answer === null) {
+        // Handle invalid questions that were marked as null during processing
+        console.error(`Skipping question with invalid correct_answer: ${questionId}`);
+        correctAnswerValue = 'NULL'; // This will create a SQL NULL value
       } else {
         // For single answer (mcq), use the string value
         correctAnswerValue = question.correct_answer;
       }
       
       sqlScript += `INSERT INTO public.question (id, text, type, options, correct_answer, explanation, created_at, quiz_id, modified_at, index, pairs, matches, module_id)\n`;
-      sqlScript += `VALUES ('${questionId}','${escapedText}','${questionType}','${escapedOptions}'::json,'${correctAnswerValue}','${escapedExplanation}',NOW(),'${quiz_id}',NOW(),${questionIndex},NULL,NULL,'${moduleForQuestion.module_id}') ON CONFLICT (id) DO NOTHING;\n\n`;
+      
+      // Handle NULL values properly - don't wrap NULL in quotes
+      const correctAnswerSQL = correctAnswerValue === 'NULL' ? 'NULL' : `'${correctAnswerValue}'`;
+      
+      sqlScript += `VALUES ('${questionId}','${escapedText}','${questionType}','${escapedOptions}'::json,${correctAnswerSQL},'${escapedExplanation}',NOW(),'${quiz_id}',NOW(),${questionIndex},${pairsValue},${matchesValue},'${moduleForQuestion.module_id}') ON CONFLICT (id) DO NOTHING;\n\n`;
       
       quizQuestionLinks.push(`(NOW(),'${quiz_id}','${questionId}')`);
       

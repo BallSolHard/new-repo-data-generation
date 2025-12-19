@@ -38,8 +38,11 @@ Module ${index + 1}:
   const totalQuestions = questionsPerModule * modules.length;
   const isMultipleSelect = questionType === "multiple";
   const isOrdering = questionType === "ordering";
+  const isMatching = questionType === "matching";
 
-  const answerFormat = isOrdering
+  const answerFormat = isMatching
+    ? "- For matching: use null for correct_answer, provide pairs and matches objects"
+    : isOrdering
     ? "- For ordering: use array format [0,1,2,3] representing the correct sequence of all options"
     : isMultipleSelect
     ? "- For multiple select: use array format like [0,2] for options 1 and 3 (NO quotes, NO curly braces)"
@@ -81,7 +84,29 @@ CONTEXT: ${topicName}${topicDescription ? ` - ${topicDescription}` : ""}
 CERTIFICATION: ${certificationName}
 
 JSON STRUCTURE (strict - no examples allowed):
-{
+${
+  isMatching 
+    ? `{
+  "module_id": "exact_module_id_from_above",
+  "question_number": 1,
+  "text": "Match each term to its description.",
+  "options": {
+    "A": "Term 1",
+    "B": "Term 2", 
+    "C": "Term 3"
+  },
+  "pairs": {
+    "left": ["Term 1", "Term 2", "Term 3"],
+    "right": ["Description for Term 2", "Description for Term 1", "Description for Term 3"]
+  },
+  "matches": {
+    "left": [0, 1, 2],
+    "right": [1, 0, 2]
+  },
+  "correct_answer": null,
+  "explanation": "Brief explanation"
+}`
+    : `{
   "module_id": "exact_module_id_from_above",
   "question_number": 1,
   "text": "Your question text here...",
@@ -99,10 +124,13 @@ JSON STRUCTURE (strict - no examples allowed):
       : '"{0}"'
   },
   "explanation": "Brief explanation"
+}`
 }
 
 NOTICE: ${
-    isOrdering 
+    isMatching
+      ? "For matching questions, create clear relationships between left and right items. Left items should be terms/concepts, right items should be definitions/descriptions."
+      : isOrdering 
       ? "For ordering questions, focus on logical sequence. Options should be clear, distinct steps or phases." 
       : "The longest option must be WRONG. Correct answers must be concise!"
   }
@@ -113,14 +141,18 @@ ${
 ADDITIONAL REQUIREMENTS:
 - Exactly ${questionsPerModule} questions per module  
 - Question type: ${
-        isOrdering 
+        isMatching
+          ? "Matching"
+          : isOrdering 
           ? "Ordering" 
           : isMultipleSelect 
           ? "Multiple Select" 
           : "Multiple Choice"
       }
 ${
-        isOrdering
+        isMatching
+          ? "- Each question must have 3-4 items to match\n- Question text must include 'Match each...' or similar phrasing\n- Create clear left items (terms/concepts) and right items (definitions/descriptions)\n- Provide correct matches in the matches object with left and right arrays"
+          : isOrdering
           ? "- Each question must have 4 options that need to be arranged in correct sequence\n- Question text must include 'Order the following...' or similar phrasing\n- Options should be steps, phases, or items with a logical sequence\n- Correct answer is always [0,1,2,3] representing the proper order"
           : isMultipleSelect
           ? "- Each question must have 2-3 correct answers out of 4 options\n- Question text must include '(Select X options)' where X is the number of correct answers"
