@@ -1508,9 +1508,12 @@ export default function Home() {
                   >
                     <option value="mcq" className="text-gray-900">Multiple Choice (MCQ)</option>
                     <option value="multiple" className="text-gray-900">Multiple Select</option>
+                    <option value="ordering" className="text-gray-900">Ordering Questions</option>
                   </select>
                   <span className="text-sm text-white/80">
-                    {questionType === "mcq" ? "Single correct answer" : "Multiple correct answers"}
+                    {questionType === "mcq" ? "Single correct answer" : 
+                     questionType === "multiple" ? "Multiple correct answers" : 
+                     "Arrange options in correct sequence"}
                   </span>
                 </div>
               </div>

@@ -593,6 +593,7 @@ export async function POST(request: NextRequest) {
     generatedQuestions.forEach((question, index) => {
       const escapedText = question.text.replace(/'/g, "''");
       const escapedExplanation = question.explanation.replace(/'/g, "''");
+      const escapedOptions = JSON.stringify(question.options).replace(/'/g, "''");
       
       // Parse correct_answer to integer array using helper function
       const correctAnswerArray = parseCorrectAnswer(question.correct_answer);
@@ -604,7 +605,7 @@ export async function POST(request: NextRequest) {
       const questionOrder = startingQuestionOrder + index;
       
       sqlScript += `INSERT INTO public.mock_test_questions (mock_test_id, question_text, question_type, options, correct_answer, explanation, question_order, module_id, topic_id)\n`;
-      sqlScript += `VALUES ('${mockTestId}', '${escapedText}', '${questionType}', '${JSON.stringify(question.options)}'::jsonb, '{${correctAnswerArray.join(',')}}', '${escapedExplanation}', ${questionOrder}, '${question.module_id}', ${topicIdValue});\n\n`;
+      sqlScript += `VALUES ('${mockTestId}', '${escapedText}', '${questionType}', '${escapedOptions}'::jsonb, '{${correctAnswerArray.join(',')}}', '${escapedExplanation}', ${questionOrder}, '${question.module_id}', ${topicIdValue});\n\n`;
     });
 
     // Update the total_questions count in mock_tests based on actual inserted questions

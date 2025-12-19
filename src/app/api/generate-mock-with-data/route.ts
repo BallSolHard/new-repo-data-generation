@@ -634,6 +634,7 @@ FINAL REMINDER FOR PROFESSIONAL/SPECIALTY LEVEL QUESTIONS:
       
       // Convert options to the format used in mock_test_questions table
       const optionsArray = question.options.map((opt: any) => opt.option_text);
+      const escapedOptions = JSON.stringify(optionsArray).replace(/'/g, "''");
       
       // Convert correct_answers array to the integer array format expected by mock_test_questions
       const correctAnswerIndices = question.correct_answers.map((answer: string) => {
@@ -647,7 +648,7 @@ FINAL REMINDER FOR PROFESSIONAL/SPECIALTY LEVEL QUESTIONS:
       const topicIdValue = question.topic_id && !isNaN(question.topic_id) ? question.topic_id : 'NULL';
       
       sqlScript += `INSERT INTO public.mock_test_questions (mock_test_id, question_text, question_type, options, correct_answer, explanation, question_order, module_id, topic_id)\n`;
-      sqlScript += `VALUES ('${mockTestId}', '${escapedText}', '${question.question_type}', '${JSON.stringify(optionsArray)}'::jsonb, '{${correctAnswerIndices.join(',')}}', '${escapedExplanation}', ${questionOrder}, '${question.module_id}', ${topicIdValue});\n\n`;
+      sqlScript += `VALUES ('${mockTestId}', '${escapedText}', '${question.question_type}', '${escapedOptions}'::jsonb, '{${correctAnswerIndices.join(',')}}', '${escapedExplanation}', ${questionOrder}, '${question.module_id}', ${topicIdValue});\n\n`;
     });
 
     // Update the total_questions count in mock_tests based on actual inserted questions

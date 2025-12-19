@@ -176,7 +176,18 @@ async function generateAllQuestions(
 ): Promise<GeneratedQuestion[]> {
   
   // Define question types for variety - different styles/formats of questions
-  const questionTypes = [
+  const questionTypes = questionType === 'ordering' ? [
+    'process-flow',         // Sequential steps or procedures
+    'deployment-sequence',  // Deployment and setup workflows
+    'lifecycle-phases',     // Project or service lifecycle stages
+    'troubleshooting-steps',// Sequential problem-solving approach
+    'data-flow',           // Data processing or transformation steps
+    'security-workflow',    // Security implementation sequence
+    'development-stages',   // Software development lifecycle
+    'migration-phases',     // System or data migration steps
+    'configuration-order',  // Sequential configuration steps
+    'rollback-procedure'    // Recovery and rollback sequences
+  ] : [
     'definition',           // Basic concept and terminology questions
     'best-practice',        // Industry standards and recommended approaches
     'scenario-based',       // Real-world application scenarios
@@ -268,7 +279,15 @@ async function generateAllQuestions(
       return questionsData.map((questionData, index) => {
         // Handle correct_answer based on question type
         let correct_answer;
-        if (questionType === "multiple") {
+        if (questionType === "ordering") {
+          // For ordering, expect array format representing the correct sequence
+          if (Array.isArray(questionData.correct_answer)) {
+            correct_answer = questionData.correct_answer; // Keep as array for internal processing
+          } else {
+            // Fallback: assume natural order
+            correct_answer = [0, 1, 2, 3];
+          }
+        } else if (questionType === "multiple") {
           // For multiple select, expect array format
           if (Array.isArray(questionData.correct_answer)) {
             correct_answer = JSON.stringify(questionData.correct_answer);
@@ -293,6 +312,7 @@ async function generateAllQuestions(
               ],
           correct_answer: correct_answer,
           explanation: questionData.explanation || `Professional implementation addresses the requirements effectively.`,
+          type: questionType as 'mcq' | 'multiple' | 'ordering', // Add type field
           module_id: questionData.module_id || modules[Math.floor(index / questionsPerModule)]?.module_id,
           question_number: questionData.question_number || ((index % questionsPerModule) + 1)
         };
@@ -437,12 +457,34 @@ export async function POST(request: NextRequest) {
         sqlScript += `-- =====================\n\n`;
       }
       
-      // Escape single quotes in text and explanation for SQL
+      // Escape single quotes in text, explanation, and options for SQL
       const escapedText = question.text.replace(/'/g, "''");
       const escapedExplanation = question.explanation.replace(/'/g, "''");
+      const escapedOptions = JSON.stringify(question.options).replace(/'/g, "''");
+      
+      // Handle correct_answer format based on question type
+      let correctAnswerValue;
+      if (questionType === 'ordering' && Array.isArray(question.correct_answer)) {
+        // For ordering questions, store as PostgreSQL array format
+        correctAnswerValue = `{${question.correct_answer.join(',')}}`;
+      } else if (Array.isArray(question.correct_answer)) {
+        // For multiple select, convert array to PostgreSQL array format
+        correctAnswerValue = `{${question.correct_answer.join(',')}}`;
+      } else if (questionType === 'ordering' && typeof question.correct_answer === 'string') {
+        // Handle string format for ordering questions (parse JSON and convert to PG array)
+        try {
+          const parsed = JSON.parse(question.correct_answer);
+          correctAnswerValue = `{${parsed.join(',')}}`;
+        } catch {
+          correctAnswerValue = '{0,1,2,3}'; // Default ordering
+        }
+      } else {
+        // For single answer (mcq), use the string value
+        correctAnswerValue = question.correct_answer;
+      }
       
       sqlScript += `INSERT INTO public.question (id, text, type, options, correct_answer, explanation, created_at, quiz_id, modified_at, index, pairs, matches, module_id)\n`;
-      sqlScript += `VALUES ('${questionId}','${escapedText}','${questionType}','${JSON.stringify(question.options)}'::json,'${question.correct_answer}','${escapedExplanation}',NOW(),'${quiz_id}',NOW(),${questionIndex},NULL,NULL,'${moduleForQuestion.module_id}') ON CONFLICT (id) DO NOTHING;\n\n`;
+      sqlScript += `VALUES ('${questionId}','${escapedText}','${questionType}','${escapedOptions}'::json,'${correctAnswerValue}','${escapedExplanation}',NOW(),'${quiz_id}',NOW(),${questionIndex},NULL,NULL,'${moduleForQuestion.module_id}') ON CONFLICT (id) DO NOTHING;\n\n`;
       
       quizQuestionLinks.push(`(NOW(),'${quiz_id}','${questionId}')`);
       

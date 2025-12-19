@@ -2,8 +2,9 @@
 export interface GeneratedQuestion {
   text: string;
   options: string[];
-  correct_answer: string;
+  correct_answer: string | number[]; // string for mcq, number[] for multiple/ordering
   explanation: string;
+  type?: 'mcq' | 'multiple' | 'ordering'; // Add type field
   module_id?: string;
   topic_id?: string;
   question_number?: number;
@@ -17,7 +18,7 @@ export interface GeneratedQuestion {
 // Interface for validation response
 export interface ValidationResponse {
   is_correct: boolean;
-  correct_answer_index: string;
+  correct_answer_index: string | number[]; // string for mcq, number[] for multiple/ordering
   confidence: 'high' | 'medium' | 'low';
   validation_notes: string;
 }
@@ -30,7 +31,7 @@ export interface QuestionGenerationParams {
   certificationName: string;
   questionsPerModule: number;
   questionTypes: string[];
-  questionType?: string; // Optional: "mcq" or "multiple"
+  questionType?: string; // Optional: "mcq", "multiple", or "ordering"
   complexityLevel?: string; // Optional: "basic", "intermediate", "advanced"
   isProfessionalOrSpecialty?: boolean; // Optional: true for Professional/Specialty certifications
 }
