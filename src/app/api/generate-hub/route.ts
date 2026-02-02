@@ -7,14 +7,15 @@ import type { GeneratedQuestion, QuestionGenerationParams } from './types';
 // Initialize Gemini client
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 
-// Primary model for question generation (high creativity)
+// Primary model for question generation (maximum creativity and diversity)
 const model = genAI.getGenerativeModel({ 
   model: "gemini-2.5-flash", // Using Gemini 2.5 Flash
   generationConfig: {
-    temperature: 0.9,        // High temperature for creativity and diversity
-    topP: 0.8,              // Nucleus sampling for varied responses  
-    topK: 40,               // Consider top 40 tokens for variety
+    temperature: 1.0,        // Maximum temperature for creativity and diversity
+    topP: 0.95,             // Very broad nucleus sampling for maximum variety  
+    topK: 60,               // Consider more tokens for variety
     maxOutputTokens: 8192,  // Allow longer responses
+    candidateCount: 1,      // Single candidate for consistency
   }
 });
 
@@ -286,6 +287,25 @@ async function generateAllQuestions(
 - Each right item should be a concise phrase that clearly identifies the left item`;
   }
   
+  // Add JSON format enforcement
+  prompt += `\n\nCRITICAL JSON FORMAT REQUIREMENTS:
+🚨 MANDATORY: Return ONLY a valid JSON array - no markdown, no explanations, no comments
+🚨 ENSURE: Every question object is complete with ALL required fields
+🚨 VALIDATE: Each question must have proper closing brackets and commas
+🚨 DOUBLE-CHECK: The entire response must be valid JSON that can be parsed
+
+REQUIRED JSON STRUCTURE - Every question MUST have:
+- "module_id": string
+- "question_number": number  
+- "text": string
+- "options": array or object
+- "correct_answer": appropriate type for question type
+- "explanation": string
+${questionType === 'matching' ? '- "pairs": object with left/right arrays\n- "matches": object with left/right arrays' : ''}
+
+⚠️ CRITICAL: If you cannot complete a question properly, do not include it in the response.
+✅ VALIDATION: Before sending, verify the JSON is complete and parseable.`;
+  
   // Alternative specialized prompts available:
   // const prompt = QuestionPromptTemplates.createBeginnerPrompt(params);
   // const prompt = QuestionPromptTemplates.createScenarioPrompt(params);  
@@ -318,34 +338,127 @@ async function generateAllQuestions(
       questionsData = JSON.parse(cleanedText);
     } catch (parseError) {
       console.error('JSON parse error:', parseError);
-      console.error('Failed to parse text:', cleanedText);
+      console.error('Failed to parse text (first 500 chars):', cleanedText.substring(0, 500));
       
-      // Try to extract individual JSON objects if array parsing failed
+      // Enhanced recovery: Try to fix common JSON issues
       try {
-        const jsonObjects = [];
-        const regex = /\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}/g;
-        const matches = cleanedText.match(regex);
+        let fixedText = cleanedText;
         
-        if (matches) {
-          for (const match of matches) {
+        // Step 1: Ensure it's a proper array
+        if (!fixedText.startsWith('[')) {
+          fixedText = '[' + fixedText;
+        }
+        
+        // Step 2: Handle incomplete JSON objects - find the last complete object
+        const objectMatches = fixedText.match(/\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}/g);
+        
+        if (objectMatches && objectMatches.length > 0) {
+          // Reconstruct array with complete objects only
+          const completeObjects = [];
+          
+          for (const match of objectMatches) {
             try {
               const obj = JSON.parse(match);
-              if (obj.text && obj.options && obj.correct_answer && obj.explanation) {
-                jsonObjects.push(obj);
+              // Validate required fields based on question type
+              if (obj.text && obj.options && (obj.correct_answer !== undefined || obj.pairs)) {
+                completeObjects.push(obj);
               }
             } catch (objError) {
-              console.log('Skipping malformed object:', match.substring(0, 100));
+              console.log('Skipping malformed object:', match.substring(0, 100) + '...');
             }
           }
+          
+          if (completeObjects.length > 0) {
+            questionsData = completeObjects;
+            console.log(`Recovered ${completeObjects.length} valid questions from malformed JSON`);
+          } else {
+            throw new Error('No valid question objects found in response');
+          }
+        } else {
+          // Step 3: Try to fix the JSON by adding missing closing brackets/commas
+          const bracketCount = (fixedText.match(/\{/g) || []).length - (fixedText.match(/\}/g) || []).length;
+          const squareBracketCount = (fixedText.match(/\[/g) || []).length - (fixedText.match(/\]/g) || []).length;
+          
+          // Add missing closing brackets
+          for (let i = 0; i < bracketCount; i++) {
+            fixedText += '}';
+          }
+          for (let i = 0; i < squareBracketCount; i++) {
+            fixedText += ']';
+          }
+          
+          // Try to fix incomplete last property (common issue)
+          if (fixedText.includes('"correct_answer": [') && !fixedText.includes('"correct_answer": []')) {
+            // Look for incomplete array in correct_answer
+            const lastCorrectAnswer = fixedText.lastIndexOf('"correct_answer": [');
+            if (lastCorrectAnswer !== -1) {
+              const afterCorrectAnswer = fixedText.substring(lastCorrectAnswer);
+              if (!afterCorrectAnswer.includes(']')) {
+                // Find the partial array and close it
+                const arrayStart = afterCorrectAnswer.indexOf('[') + 1;
+                const partialContent = afterCorrectAnswer.substring(arrayStart);
+                const numbers = partialContent.match(/\d+/g);
+                
+                if (numbers && numbers.length > 0) {
+                  const beforeArray = fixedText.substring(0, lastCorrectAnswer);
+                  const validNumbers = numbers.slice(0, 4); // Take first 4 numbers max
+                  fixedText = beforeArray + `"correct_answer": [${validNumbers.join(', ')}]` + 
+                             (fixedText.includes('"explanation"') ? '' : ', "explanation": "Generated explanation"') + '}]';
+                }
+              }
+            }
+          }
+          
+          console.log('Attempting to parse fixed JSON (first 200 chars):', fixedText.substring(0, 200));
+          questionsData = JSON.parse(fixedText);
         }
         
-        if (jsonObjects.length > 0) {
-          questionsData = jsonObjects;
-        } else {
-          throw new Error(`Could not extract valid JSON objects: ${parseError}`);
-        }
       } catch (recoveryError) {
-        throw new Error(`Invalid JSON response from Gemini and recovery failed: ${parseError}`);
+        console.error('Recovery attempt failed:', recoveryError);
+        console.error('Original error:', parseError);
+        
+        // Final fallback: Generate minimal valid structure with available data
+        console.log('Attempting emergency fallback question generation...');
+        
+        try {
+          const fallbackQuestions = [];
+          const moduleCount = modules.length;
+          const totalNeeded = moduleCount * questionsPerModule;
+          
+          for (let i = 0; i < totalNeeded; i++) {
+            const moduleIndex = Math.floor(i / questionsPerModule);
+            const currentModule = modules[moduleIndex] || modules[0];
+            
+            const fallbackQuestion = {
+              module_id: currentModule.module_id,
+              question_number: (i % questionsPerModule) + 1,
+              text: `[FALLBACK] Complex ${questionType} question for ${currentModule.module_name}. This question needs manual review due to AI generation issues.`,
+              options: questionType === 'matching' 
+                ? { "A": "Concept 1", "B": "Concept 2", "C": "Concept 3" }
+                : ["Option A (needs review)", "Option B (needs review)", "Option C (needs review)", "Option D (needs review)"],
+              correct_answer: questionType === 'matching' 
+                ? null 
+                : questionType === 'multiple' 
+                  ? [0, 1] 
+                  : questionType === 'ordering'
+                    ? [0, 1, 2, 3]
+                    : "{0}",
+              explanation: `[FALLBACK] This question was generated as a fallback due to JSON parsing issues. Please review and replace with appropriate content.`,
+              ...(questionType === 'matching' ? {
+                pairs: { left: ["Term 1", "Term 2", "Term 3"], right: ["Definition 1", "Definition 2", "Definition 3"] },
+                matches: { left: [0, 1, 2], right: [0, 1, 2] }
+              } : {})
+            };
+            
+            fallbackQuestions.push(fallbackQuestion);
+          }
+          
+          console.log(`Generated ${fallbackQuestions.length} fallback questions`);
+          questionsData = fallbackQuestions;
+          
+        } catch (fallbackError) {
+          throw new Error(`Complete generation failure. Original: ${parseError instanceof Error ? parseError.message : String(parseError)}. Recovery: ${recoveryError instanceof Error ? recoveryError.message : String(recoveryError)}. Fallback: ${fallbackError instanceof Error ? fallbackError.message : String(fallbackError)}`);
+        }
       }
     }
     
@@ -459,47 +572,47 @@ function generateVarietyInstructions(questionType: string, modules: any[]): stri
   const timestamp = Date.now();
   const randomSeed = Math.floor(Math.random() * 1000000);
   
-  // Dynamic variety approaches for each question type
+  // Dynamic variety approaches for each question type (COMPLEX scenarios only)
   const varietyApproaches = {
     matching: [
-      "Focus on service-to-feature relationships",
-      "Match technologies with their primary use cases", 
-      "Connect architectural patterns with their benefits",
-      "Pair tools with their specific capabilities",
-      "Link protocols with their functions",
-      "Associate metrics with what they measure",
-      "Match roles with their responsibilities",
-      "Connect components with their purposes"
+      "Match complex business scenarios to optimal architectural solutions with trade-off analysis",
+      "Connect multi-constraint problems to specific implementation strategies requiring expertise", 
+      "Pair disaster recovery scenarios with appropriate resilience patterns considering RTO/RPO",
+      "Match compliance requirements with technical implementation approaches and their limitations",
+      "Link performance bottleneck symptoms to root cause analysis and resolution strategies",
+      "Associate cost optimization scenarios with specific techniques considering business impact",
+      "Match security incident types to appropriate response strategies and preventive measures",
+      "Connect scalability challenges to architectural patterns considering team size and expertise"
     ],
     ordering: [
-      "Focus on deployment sequence steps",
-      "Order troubleshooting procedures", 
-      "Sequence configuration steps",
-      "Arrange lifecycle phases",
-      "Order data processing steps",
-      "Sequence security implementation",
-      "Order scaling procedures",
-      "Arrange integration steps"
+      "Sequence complex disaster recovery procedures with multiple failure scenarios and dependencies",
+      "Order multi-team coordination steps for critical system migrations with rollback considerations", 
+      "Arrange incident response procedures for cascading failures across multiple services",
+      "Sequence performance optimization phases considering business continuity and user impact",
+      "Order security breach containment steps with evidence preservation and communication protocols",
+      "Arrange complex deployment sequences with feature flags, canary releases, and rollback triggers",
+      "Sequence cost optimization initiatives balancing immediate savings with long-term architectural debt",
+      "Order compliance audit remediation steps considering regulatory deadlines and business operations"
     ],
     multiple: [
-      "Focus on multiple benefits of a service",
-      "Identify all valid configuration options",
-      "Select multiple correct implementation approaches",
-      "Choose all applicable security measures", 
-      "Identify multiple optimization strategies",
-      "Select all relevant monitoring metrics",
-      "Choose multiple deployment options",
-      "Identify all compliance requirements"
+      "Identify all factors that must be considered when migrating legacy systems with zero downtime",
+      "Select all architectural decisions required for handling unpredictable traffic spikes during critical events",
+      "Choose all security measures necessary for multi-tenant SaaS applications with enterprise clients", 
+      "Identify all optimization strategies that balance cost, performance, and reliability for startups scaling rapidly",
+      "Select all monitoring approaches required for detecting and preventing cascading failures in microservices",
+      "Choose all deployment strategies that minimize risk while maintaining continuous delivery for regulated industries",
+      "Identify all compliance requirements that affect technical architecture for global healthcare applications",
+      "Select all disaster recovery components necessary for achieving 99.99% uptime with geographic redundancy"
     ],
     mcq: [
-      "Focus on best practices and recommendations",
-      "Emphasize optimal configurations",
-      "Highlight most efficient solutions",
-      "Focus on primary use cases",
-      "Emphasize key differentiators",
-      "Focus on troubleshooting approaches",
-      "Highlight security best practices",
-      "Focus on cost optimization strategies"
+      "Analyze complex trade-offs between competing architectural decisions under strict constraints",
+      "Evaluate optimal approaches for handling edge cases that challenge conventional best practices",
+      "Determine most appropriate solutions when standard recommendations conflict with business requirements", 
+      "Assess critical decisions for systems experiencing unexpected scaling challenges beyond typical patterns",
+      "Choose optimal strategies for legacy system modernization while maintaining business continuity",
+      "Identify best approaches for cost optimization that don't compromise security or performance requirements",
+      "Evaluate most effective incident response strategies for complex distributed system failures",
+      "Determine optimal architectural patterns for handling compliance requirements in global multi-region deployments"
     ]
   };
 
@@ -524,56 +637,90 @@ function generateVarietyInstructions(questionType: string, modules: any[]): stri
   // Module-specific variety prompts
   const moduleTopics = modules.map(m => m.module_name).join(", ");
   
-  return `\n\n🎲 UNIQUENESS & VARIETY REQUIREMENTS (Seed: ${randomSeed}):
-MANDATORY: Generate completely UNIQUE questions every time - never repeat similar scenarios!
+  return `\n\n🚨 EXTREME UNIQUENESS & COMPLEXITY REQUIREMENTS (Seed: ${randomSeed}):
+🚫 ABSOLUTELY FORBIDDEN: Simple, straightforward, or obvious questions
+🚫 NEVER REPEAT: Similar scenarios, patterns, or question structures from any previous generation
 
-VARIETY APPROACH FOR THIS GENERATION: ${selectedApproach}
-PERSPECTIVE: ${selectedPerspective}
-MODULE CONTEXT: Focus on different aspects of: ${moduleTopics}
+🎯 MANDATORY APPROACH FOR THIS GENERATION: ${selectedApproach}
+🧠 REQUIRED PERSPECTIVE: ${selectedPerspective}
+📋 MODULE CONTEXT: Focus on different aspects of: ${moduleTopics}
+
+🔥 COMPLEXITY REQUIREMENTS:
+- Questions must require MULTI-STEP reasoning and deep understanding
+- NO straightforward "What is X?" or "Which service does Y?" questions
+- Create SCENARIO-BASED questions with real-world constraints and trade-offs
+- Include multiple variables that affect the decision-making process
+- Force candidates to analyze, compare, and synthesize information
 
 ${questionType === 'matching' ? `
-MATCHING VARIETY REQUIREMENTS:
-- Use DIFFERENT matching relationships than previous generations
-- Vary the types of items being matched (services vs features vs patterns vs tools)
-- Mix technical terms with business concepts
-- Rotate between different AWS service categories
-- Create unexpected but valid connections
-- Use diverse terminology and phrasing
+🔗 MATCHING COMPLEXITY REQUIREMENTS:
+- NO simple term-to-definition matches
+- Create COMPLEX scenario-based matching requiring deep understanding
+- Match CONSTRAINTS to SOLUTIONS, not basic concepts to descriptions
+- Include business context: "Given scenario X with constraints Y, match the optimal approach"
+- Example: Match "High-traffic e-commerce during Black Friday with 99.99% uptime requirement" → "Multi-AZ Auto Scaling with Reserved Capacity"
+- Use UNEXPECTED relationships that require professional judgment
+- Avoid obvious service-to-feature mappings
+- Create matches that involve TRADE-OFFS and decision-making
 ` : questionType === 'ordering' ? `
-ORDERING VARIETY REQUIREMENTS:
-- Create DIFFERENT sequences than previous generations  
-- Vary the context (deployment vs troubleshooting vs configuration)
-- Mix high-level processes with detailed technical steps
-- Use different starting points and endpoints
-- Include various complexity levels within the sequence
-- Focus on different workflow aspects
+📋 ORDERING COMPLEXITY REQUIREMENTS:
+- NO simple linear procedures or obvious sequences
+- Create CONDITIONAL sequences where order depends on specific constraints
+- Include BRANCHING scenarios: "If condition X, then steps A,B,C; if condition Y, then steps D,E,F"
+- Focus on TROUBLESHOOTING sequences with multiple possible failure points
+- Example: "Order these disaster recovery steps when primary region fails AND data consistency is critical"
+- Include PARALLEL processes that must be coordinated
+- Create sequences involving ROLLBACK considerations and risk assessment
+- Avoid straightforward deployment or configuration steps
 ` : questionType === 'multiple' ? `
-MULTIPLE SELECT VARIETY REQUIREMENTS:
-- Identify DIFFERENT combinations than previous generations
-- Vary the number of correct answers (2-3 different amounts)
-- Mix feature benefits with implementation approaches
-- Create diverse option sets with varying themes
-- Include different levels of technical detail
-- Focus on various aspects (security, performance, cost, etc.)
+✅ MULTIPLE SELECT COMPLEXITY REQUIREMENTS:
+- NO simple "select all features" questions
+- Create scenarios requiring ANALYSIS of multiple constraints simultaneously
+- Include questions with INTERDEPENDENT factors: "Given constraints A, B, C, which approaches satisfy ALL requirements?"
+- Focus on TRADE-OFF analysis: "Which options provide the OPTIMAL balance between cost, performance, and security?"
+- Example: "For a startup with limited budget, strict compliance needs, and rapid scaling requirements, select ALL viable approaches"
+- Include CONDITIONAL selections: "Which options are valid ONLY if certain prerequisites are met?"
+- Avoid obvious feature lists or benefit compilations
 ` : `
-MCQ VARIETY REQUIREMENTS:
-- Create DIFFERENT scenarios than previous generations
-- Vary question complexity and depth  
-- Mix conceptual and practical questions
-- Use different business contexts and use cases
-- Include various AWS services and features
-- Rotate between different problem-solving approaches
+🎯 MCQ COMPLEXITY REQUIREMENTS:
+- NO straightforward knowledge recall questions
+- Create ANALYTICAL scenarios requiring synthesis of multiple concepts
+- Include CONSTRAINT-BASED decision making with competing priorities
+- Focus on EDGE CASES and nuanced situations where best practices conflict
+- Example: "Given a legacy system with security vulnerabilities, budget constraints, and zero-downtime requirements, what is the MOST appropriate migration strategy?"
+- Include COMPARATIVE analysis between seemingly similar solutions
+- Create scenarios with HIDDEN complexity or non-obvious considerations
+- Avoid simple "which service" or "what feature" questions
 `}
 
-CRITICAL UNIQUENESS RULES:
-❌ NEVER generate similar questions to previous runs
-❌ AVOID repeating the same service combinations  
-❌ DON'T reuse identical phrasing or scenarios
-❌ PREVENT similar option patterns
-✅ CREATE fresh scenarios and contexts every time
-✅ USE diverse vocabulary and technical terminology  
-✅ GENERATE unexpected but valid question combinations
-✅ ENSURE each question has a unique angle or perspective
+🚨 CRITICAL UNIQUENESS & COMPLEXITY RULES:
+❌ ABSOLUTELY FORBIDDEN:
+  - Simple definition or explanation questions
+  - Straightforward "which service" or "what feature" questions  
+  - Basic concept matching without complex scenarios
+  - Linear procedures without conditional logic
+  - Obvious multiple choice answers
+  - Questions answerable without deep expertise
+
+❌ NEVER REPEAT:
+  - Similar business scenarios or industry contexts
+  - Identical technical service combinations
+  - Same phrasing patterns or question structures  
+  - Similar constraint or requirement combinations
+  - Comparable complexity levels or analytical approaches
+
+✅ MANDATORY REQUIREMENTS:
+  - Every question must require MULTI-STEP analytical thinking
+  - Include CONFLICTING requirements that need balancing
+  - Create scenarios with HIDDEN complexity or non-obvious considerations
+  - Force candidates to SYNTHESIZE knowledge from multiple domains
+  - Include REAL-WORLD constraints (budget, time, compliance, legacy systems)
+  - Require understanding of TRADE-OFFS and business impact
+  - Test PROFESSIONAL JUDGMENT, not just technical knowledge
+
+🎯 COMPLEXITY VALIDATION:
+Before finalizing each question, ask: "Would a junior developer easily guess this answer, or does it require senior-level analysis and decision-making skills?"
+If the answer suggests junior-level difficulty, COMPLETELY REWRITE the question.
 
 RANDOMIZATION DIRECTIVE: Use timestamp ${timestamp} and seed ${randomSeed} to ensure different generation patterns.`;
 }
@@ -594,41 +741,100 @@ function addQuestionPatterns(patternKey: string, questions: GeneratedQuestion[])
   const patterns = questionPatternCache.get(patternKey)!;
   
   questions.forEach(q => {
-    // Create pattern signatures to avoid similar questions
-    const textWords = q.text.toLowerCase().split(' ').slice(0, 5).join(' '); // First 5 words
-    const optionsSignature = Array.isArray(q.options) 
-      ? q.options.map(opt => opt.toLowerCase().split(' ')[0]).join('|')
-      : JSON.stringify(q.options).toLowerCase().substring(0, 50);
+    // Create multiple pattern signatures for comprehensive avoidance
+    const textLower = q.text.toLowerCase();
     
-    patterns.add(`${textWords}|${optionsSignature}`);
+    // 1. Opening phrase pattern (first 8 words)
+    const openingWords = textLower.split(' ').slice(0, 8).join(' ');
+    patterns.add(`opening:${openingWords}`);
+    
+    // 2. Key concept extraction (look for technical terms)
+    const techTerms = textLower.match(/\b(?:aws|lambda|api|gateway|s3|ec2|rds|vpc|iam|cloudformation|terraform|kubernetes|docker|microservices|serverless)\w*\b/g) || [];
+    const conceptSignature = techTerms.slice(0, 3).join('|');
+    if (conceptSignature) patterns.add(`concepts:${conceptSignature}`);
+    
+    // 3. Question structure pattern
+    const questionStructure = textLower.includes('which') ? 'which' :
+                            textLower.includes('what') ? 'what' :
+                            textLower.includes('how') ? 'how' :
+                            textLower.includes('when') ? 'when' :
+                            textLower.includes('match') ? 'match' :
+                            textLower.includes('order') ? 'order' : 'other';
+    patterns.add(`structure:${questionStructure}`);
+    
+    // 4. Options pattern for deeper comparison
+    if (Array.isArray(q.options)) {
+      const optionsWords = q.options.map(opt => 
+        opt.toLowerCase().split(' ').slice(0, 3).join(' ')
+      );
+      patterns.add(`options:${optionsWords.join('|')}`);
+    }
+    
+    // 5. Scenario complexity indicator
+    const complexityIndicators = [
+      'given', 'scenario', 'company', 'requirements', 'constraints', 'optimize',
+      'compliance', 'budget', 'performance', 'security', 'scalability'
+    ];
+    const foundIndicators = complexityIndicators.filter(indicator => textLower.includes(indicator));
+    if (foundIndicators.length > 0) {
+      patterns.add(`scenario:${foundIndicators.slice(0, 2).join('|')}`);
+    }
   });
   
-  // Keep only recent patterns (max 50 per pattern type)
-  if (patterns.size > 50) {
+  // Keep more patterns for stronger avoidance (max 100 per pattern type)
+  if (patterns.size > 100) {
     const patternsArray = Array.from(patterns);
     patterns.clear();
-    patternsArray.slice(-30).forEach(pattern => patterns.add(pattern)); // Keep last 30
+    patternsArray.slice(-70).forEach(pattern => patterns.add(pattern)); // Keep last 70
   }
 }
 
 function getAvoidanceInstructions(patternKey: string): string {
   const patterns = questionPatternCache.get(patternKey);
   if (!patterns || patterns.size === 0) {
-    return "\n🔄 FIRST GENERATION: Create diverse and unique questions.";
+    return "\n🔄 FIRST GENERATION: Create diverse, complex, scenario-based questions. NO simple definitions!";
   }
   
-  const recentPatterns = Array.from(patterns).slice(-10); // Last 10 patterns
-  const avoidanceTerms = recentPatterns
-    .map(pattern => pattern.split('|')[0]) // Extract text patterns
-    .filter(text => text.length > 10) // Only meaningful text
-    .slice(0, 5); // Max 5 examples
+  const recentPatterns = Array.from(patterns).slice(-20); // Last 20 patterns for better avoidance
   
-  if (avoidanceTerms.length === 0) {
-    return "\n🔄 GENERATE: Create completely different questions from previous sessions.";
+  // Categorize patterns for specific avoidance
+  const openingPatterns = recentPatterns.filter(p => p.startsWith('opening:')).map(p => p.substring(8));
+  const conceptPatterns = recentPatterns.filter(p => p.startsWith('concepts:')).map(p => p.substring(9));
+  const structurePatterns = recentPatterns.filter(p => p.startsWith('structure:')).map(p => p.substring(10));
+  const scenarioPatterns = recentPatterns.filter(p => p.startsWith('scenario:')).map(p => p.substring(9));
+  
+  let avoidanceInstructions = "\n🚨 CRITICAL AVOIDANCE REQUIREMENTS - DO NOT REPEAT THESE PATTERNS:";
+  
+  if (openingPatterns.length > 0) {
+    const uniqueOpenings = [...new Set(openingPatterns)].slice(0, 5);
+    avoidanceInstructions += `\n🚫 FORBIDDEN OPENING PHRASES: ${uniqueOpenings.map(p => `"${p}"`).join(', ')}`;
   }
   
-  return `\n🚫 AVOID REPETITION: DO NOT start questions with phrases like: ${avoidanceTerms.map(term => `"${term}"`).join(', ')}
-🔄 GENERATE: Completely different scenarios, contexts, and phrasing than previous generations.`;
+  if (conceptPatterns.length > 0) {
+    const uniqueConcepts = [...new Set(conceptPatterns.flatMap(p => p.split('|')))].slice(0, 8);
+    avoidanceInstructions += `\n🚫 OVERUSED CONCEPTS: Avoid focusing primarily on: ${uniqueConcepts.join(', ')}`;
+  }
+  
+  if (structurePatterns.length > 0) {
+    const uniqueStructures = [...new Set(structurePatterns)];
+    avoidanceInstructions += `\n🚫 OVERUSED QUESTION TYPES: Avoid starting with: ${uniqueStructures.join(', ')} questions`;
+  }
+  
+  if (scenarioPatterns.length > 0) {
+    const uniqueScenarios = [...new Set(scenarioPatterns.flatMap(p => p.split('|')))].slice(0, 6);
+    avoidanceInstructions += `\n🚫 OVERUSED SCENARIO ELEMENTS: Don't reuse: ${uniqueScenarios.join(', ')}`;
+  }
+  
+  avoidanceInstructions += `\n\n✅ MANDATORY ALTERNATIVES:
+- Use COMPLETELY different industries, company types, and business contexts
+- Create NOVEL technical scenarios not seen in previous generations  
+- Employ DIVERSE question structures and analytical approaches
+- Introduce FRESH constraints, requirements, and edge cases
+- Generate UNIQUE combinations of technologies and use cases
+- Apply DIFFERENT perspectives (cost vs performance vs security vs compliance)
+- Create UNPRECEDENTED complexity patterns that require deep thinking`;
+
+  return avoidanceInstructions;
 }
 
 
