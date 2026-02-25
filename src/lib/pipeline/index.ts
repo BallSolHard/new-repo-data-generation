@@ -3,6 +3,9 @@ import { ingest } from './ingest';
 import { generate } from './generate';
 import { validate } from './validate';
 import { buildSqlOutput } from './output';
+import { promises as fs } from 'fs';
+import path from 'path';
+import { computeContentHash } from '@/lib/engine/question-bank';
 
 /**
  * Main pipeline orchestrator.
@@ -55,12 +58,38 @@ export async function runGenerationPipeline(params: PipelineParams): Promise<Pip
 
   const rawQuestions = await generate(generationParams);
 
+  // ─── deduplicate against previously generated questions (hash file) ───
+  const hashFile = path.join(process.cwd(), 'generated_hashes.txt');
+  let seenHashes = new Set<string>();
+  try {
+    const contents = await fs.readFile(hashFile, 'utf-8');
+    contents.split('\n').forEach(h => { if (h.trim()) seenHashes.add(h.trim()); });
+  } catch (err) {
+    // file may not exist yet, that's fine
+  }
+
+  const unique: typeof rawQuestions = [];
+  for (const q of rawQuestions) {
+    const h = computeContentHash(q.text, q.options);
+    if (!seenHashes.has(h)) {
+      seenHashes.add(h);
+      unique.push(q);
+    } else {
+      console.log('[pipeline] dropping duplicate question hash', h);
+    }
+  }
+
+  // append new hashes to file (async, don't block generation output)
+  fs.appendFile(hashFile, Array.from(seenHashes).join('\n') + '\n').catch(() => {});
+
+  const dedupedQuestions = unique;
+
   // ─── Step 3: Validate (optional) ───
-  let finalQuestions = rawQuestions;
+  let finalQuestions = dedupedQuestions;
   let rejectedCount = 0;
 
   if (params.enableValidation !== false) {
-    const { validated, rejected } = await validate(rawQuestions, {
+    const { validated, rejected } = await validate(dedupedQuestions, {
       certificationName: params.certificationName,
       domainContext,
       rejectLowConfidence: true,

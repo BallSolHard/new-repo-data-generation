@@ -58,7 +58,19 @@ export function createV2GenerationPrompt(params: V2GenerationPromptParams): stri
   // 7. Answer bias rules
   const answerBiasRules = getAnswerBiasRules(totalQuestions);
 
-  // 8. Module context
+  // 8. Uniqueness/duplication instructions
+  const duplicationInstructions = `
+═══════════════════════════════════════════════════════
+UNIQUENESS REQUIREMENTS
+═══════════════════════════════════════════════════════
+Each question must test a different scenario.
+Do not reuse the same stem, the same set of distractors, or the same scenario twice.
+After you generate a question, mark it internally and never produce another with 6970% text overlap.
+If the model thinks of a concept it already used, invent a new constraint or service.
+═══════════════════════════════════════════════════════
+`;
+
+  // 9. Module context
   const moduleSection = modules
     .map((m, i) => {
       let entry = `Module ${i + 1}:\n  - ID: ${m.module_id}\n  - Name: ${m.module_name}`;
@@ -68,7 +80,7 @@ export function createV2GenerationPrompt(params: V2GenerationPromptParams): stri
     })
     .join('\n\n');
 
-  // 9. Question type formats
+  // 10. Question type formats
   const typeFormats = getQuestionTypeFormats(questionTypes);
 
   const questionsPerModule = Math.max(1, Math.ceil(totalQuestions / modules.length));
@@ -90,6 +102,8 @@ Generate ${questionsPerModule} question(s) per module.
 Question types to use: ${questionTypes.join(', ')}
 
 ${answerBiasRules}
+
+${duplicationInstructions}
 
 MODULES TO COVER:
 ${moduleSection}
