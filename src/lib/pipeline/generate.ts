@@ -48,7 +48,7 @@ export async function generate(params: QuestionGenerationParams): Promise<Genera
   const result = await model.generateContent(prompt);
   const responseText = result.response.text();
 
-  console.log(`[generate] Received response (${responseText.length} chars, first 200 chars): ${responseText.slice(0, 200)}`);
+  console.log(`[generate] Received response (${responseText.length} chars, first 3000 chars): ${responseText.slice(0, 3000)}`);
 
   let questions: GeneratedQuestion[];
   try {

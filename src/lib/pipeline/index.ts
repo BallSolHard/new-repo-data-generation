@@ -1,4 +1,4 @@
-import type { PipelineParams, PipelineResult, QuestionGenerationParams } from '@/lib/types/generation';
+import type { PipelineParams, PipelineResult, QuestionGenerationParams, GeneratedQuestion } from '@/lib/types/generation';
 import { ingest } from './ingest';
 import { generate } from './generate';
 import { validate } from './validate';
@@ -37,8 +37,7 @@ export async function runGenerationPipeline(params: PipelineParams): Promise<Pip
 
   // ─── Step 2: Generate ───
   const questionTypes = params.questionTypes || (params.questionType ? [params.questionType] : ['mcq']);
-  const questionsPerModule = params.questionsPerModule || 2;
-
+  const questionsPerModule = params.questionsPerModule || 30;
   const generationParams: QuestionGenerationParams = {
     modules: params.modules,
     topicName: params.topicName,
@@ -68,21 +67,47 @@ export async function runGenerationPipeline(params: PipelineParams): Promise<Pip
     // file may not exist yet, that's fine
   }
 
-  const unique: typeof rawQuestions = [];
-  for (const q of rawQuestions) {
-    const h = computeContentHash(q.text, q.options);
-    if (!seenHashes.has(h)) {
-      seenHashes.add(h);
-      unique.push(q);
-    } else {
-      console.log('[pipeline] dropping duplicate question hash', h);
+  const targetCount = params.modules.length * questionsPerModule;
+  let accumulated: typeof rawQuestions = [];
+  let remaining = targetCount;
+  let attempts = 0;
+  const maxAttempts = 5;
+
+  // helper to filter new questions
+  const filterNew = (batch: GeneratedQuestion[]) => {
+    const unique: typeof batch = [];
+    for (const q of batch) {
+      const h = computeContentHash(q.text, q.options);
+      if (!seenHashes.has(h)) {
+        seenHashes.add(h);
+        unique.push(q);
+      }
     }
+    return unique;
+  };
+
+  accumulated = filterNew(rawQuestions);
+  remaining = targetCount - accumulated.length;
+
+  // if we didn't get enough, run additional rounds
+  while (remaining > 0 && attempts < maxAttempts) {
+    attempts++;
+    console.log(`[pipeline] only generated ${accumulated.length}/${targetCount}, regenerating ${remaining} more`);
+    const extraParams = { ...generationParams, questionsPerModule: Math.ceil(remaining / params.modules.length) };
+    const extra = await generate(extraParams);
+    const deduped = filterNew(extra);
+    accumulated = accumulated.concat(deduped);
+    remaining = targetCount - accumulated.length;
+  }
+
+  if (remaining > 0) {
+    console.warn(`[pipeline] final question count ${accumulated.length} less than requested ${targetCount}`);
   }
 
   // append new hashes to file (async, don't block generation output)
   fs.appendFile(hashFile, Array.from(seenHashes).join('\n') + '\n').catch(() => {});
 
-  const dedupedQuestions = unique;
+  const dedupedQuestions = accumulated;
 
   // ─── Step 3: Validate (optional) ───
   let finalQuestions = dedupedQuestions;

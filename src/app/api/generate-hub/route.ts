@@ -21,7 +21,7 @@ export async function POST(request: NextRequest) {
       questionType = 'mcq',
       questionTypes,
       complexityLevel = 'intermediate',
-      questionsPerModule = 2,
+      questionsPerModule = 30,
       enableValidation = true,
       storeInBank = false,
       certTier,
