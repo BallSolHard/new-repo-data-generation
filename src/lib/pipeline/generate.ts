@@ -48,17 +48,31 @@ export async function generate(params: QuestionGenerationParams): Promise<Genera
   const result = await model.generateContent(prompt);
   const responseText = result.response.text();
 
+  console.log(`[generate] Received response (${responseText.length} chars, first 200 chars): ${responseText.slice(0, 200)}`);
+
   let questions: GeneratedQuestion[];
   try {
     questions = parseGeminiJson<GeneratedQuestion[]>(responseText);
   } catch (error) {
     console.error('[generate] Failed to parse Gemini response:', error);
-    console.error('[generate] Raw response (first 500 chars):', responseText.slice(0, 500));
-    throw new Error(`Question generation failed: could not parse LLM response as JSON`);
+    console.error('[generate] Raw response (first 1000 chars):', responseText.slice(0, 1000));
+    console.error('[generate] Raw response (last 500 chars):', responseText.slice(-500));
+    
+    // Provide more specific error information
+    if (responseText.length < 50) {
+      throw new Error(`Question generation failed: AI returned very short response (${responseText.length} chars). Response: "${responseText}"`);
+    }
+    
+    throw new Error(`Question generation failed: could not parse LLM response as JSON. Error: ${error instanceof Error ? error.message : String(error)}`);
   }
 
   if (!Array.isArray(questions)) {
+    console.error('[generate] Response was not an array:', typeof questions);
     throw new Error(`Question generation failed: expected JSON array, got ${typeof questions}`);
+  }
+
+  if (questions.length === 0) {
+    console.warn('[generate] Warning: AI returned empty question array');
   }
 
   // Tag each question with exam guide metadata

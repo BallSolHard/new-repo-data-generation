@@ -93,6 +93,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: result.success,
       sqlScript: result.sqlScript,
+      questions: result.questions,
       questionCount: result.questionCount,
       moduleCount: modules.length,
       examGuideVersion: result.examGuideVersion,

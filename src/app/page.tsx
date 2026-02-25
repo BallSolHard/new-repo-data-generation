@@ -180,6 +180,7 @@ export default function Home() {
   const [quizzesLoading, setQuizzesLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [generatedSQL, setGeneratedSQL] = useState<string>("");
+  const [generatedQuestions, setGeneratedQuestions] = useState<any[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
 
   // Fetch certifications from API on component mount
@@ -431,6 +432,7 @@ export default function Home() {
 
       const data = await response.json();
       setGeneratedSQL(data.sqlScript);
+      setGeneratedQuestions(data.questions || []);
       
     } catch (err) {
       console.error('Error generating hub questions:', err);
@@ -664,26 +666,197 @@ export default function Home() {
             </div>
           )}
 
-          {/* Generated SQL Script Display */}
-          {generatedSQL && (
-            <div className="bg-gray-900 rounded-lg shadow-lg p-6 text-green-400">
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-2xl font-semibold text-white">Generated SQL Script</h2>
-                <button
-                  onClick={() => navigator.clipboard.writeText(generatedSQL)}
-                  className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg font-semibold transition-colors"
-                >
-                  Copy to Clipboard
-                </button>
-              </div>
-              <div className="bg-black rounded-lg p-4 overflow-x-auto">
-                <pre className="text-sm font-mono whitespace-pre-wrap">{generatedSQL}</pre>
-              </div>
-              <div className="mt-4 text-sm text-gray-300">
-                <p>📝 Script includes 2 questions per module for the selected domain</p>
-                <p>🔗 Questions are automatically linked to the quiz</p>
-                <p>📊 Quiz question count is updated automatically</p>
-              </div>
+          {/* Generated Questions and SQL Display */}
+          {(generatedSQL || generatedQuestions.length > 0) && (
+            <div className="space-y-6">
+              {/* Questions Display */}
+              {generatedQuestions.length > 0 && (
+                <div className="bg-white rounded-lg shadow-lg p-6 border-l-4 border-blue-500">
+                  <h2 className="text-2xl font-semibold text-gray-800 mb-6">Generated Questions</h2>
+                  <div className="space-y-6">
+                    {generatedQuestions.map((question, index) => (
+                      <div key={index} className="bg-gray-50 rounded-lg p-5 border border-gray-200 hover:shadow-md transition-shadow">
+                        {/* Question Number and Type */}
+                        <div className="flex items-start justify-between mb-3">
+                          <span className="text-sm font-semibold text-blue-600 bg-blue-50 px-3 py-1 rounded-full">
+                            Question {index + 1}
+                          </span>
+                          {question.type && (
+                            <span className="text-xs font-medium text-purple-600 bg-purple-50 px-3 py-1 rounded-full">
+                              {question.type.toUpperCase()}
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Question Text */}
+                        <p className="text-gray-800 font-medium mb-4 text-base leading-relaxed">
+                          {question.text}
+                        </p>
+
+                        {/* Options Display */}
+                        {question.options && (
+                          <div className="bg-white rounded-lg p-4 mb-4 border border-gray-200">
+                            <p className="text-sm font-semibold text-gray-700 mb-3">Options:</p>
+                            <div className="space-y-2">
+                              {Array.isArray(question.options) ? (
+                                question.options.map((option: any, optIdx: number) => {
+                                  const optionLabel = String.fromCharCode(65 + optIdx);
+                                  
+                                  // Normalize the correct answer and option for comparison
+                                  const rawCorrect = question.correct_answer;
+                                  const optionText = String(option).trim();
+                                  // Remove curly braces: {0} -> 0, {1} -> 1, etc
+                                  const correctText = String(rawCorrect).trim().replace(/[{}]/g, '');
+                                  
+                                  // Try multiple matching strategies
+                                  let isCorrect = false;
+                                  
+                                  // Strategy 1: Direct match with option text
+                                  if (correctText === optionText) {
+                                    isCorrect = true;
+                                  }
+                                  // Strategy 2: Match with letter (A, B, C, D)
+                                  else if (correctText === optionLabel || correctText.toUpperCase() === optionLabel) {
+                                    isCorrect = true;
+                                  }
+                                  // Strategy 3: Match with index (0, 1, 2, 3)
+                                  else if (correctText === String(optIdx)) {
+                                    isCorrect = true;
+                                  }
+                                  // Strategy 4: Case-insensitive text match
+                                  else if (correctText.toUpperCase() === optionText.toUpperCase()) {
+                                    isCorrect = true;
+                                  }
+                                  // Strategy 5: Partial match (if correct answer contains the option or vice versa)
+                                  else if (correctText.includes(optionText) || optionText.includes(correctText)) {
+                                    isCorrect = true;
+                                  }
+                                  
+                                  // Debug log for first option
+                                  if (optIdx === 0) {
+                                    console.log('Correct answer found at index:', correctText);
+                                  }
+                                  
+                                  return (
+                                    <div
+                                      key={optIdx}
+                                      className={`p-3 rounded-lg border-2 transition-all ${
+                                        isCorrect
+                                          ? 'border-green-500 bg-green-50 shadow-md'
+                                          : 'border-gray-200 bg-gray-50'
+                                      }`}
+                                    >
+                                      <div className="flex items-start">
+                                        <span className={`font-bold mr-2 text-lg ${isCorrect ? 'text-green-600' : 'text-gray-600'}`}>
+                                          {optionLabel}.
+                                        </span>
+                                        <span className={isCorrect ? 'text-green-700 font-semibold' : 'text-gray-700'}>
+                                          {option}
+                                        </span>
+                                        {isCorrect && <span className="ml-auto text-green-600 text-sm font-bold bg-green-200 px-2 py-1 rounded">✓ CORRECT</span>}
+                                      </div>
+                                    </div>
+                                  );
+                                })
+                              ) : typeof question.options === 'object' ? (
+                                Object.entries(question.options).map(([key, value]: [string, any], optIdx: number) => {
+                                  // More robust matching logic for object options
+                                  let isCorrect = false;
+                                  const correctValue = question.correct_answer;
+                                  
+                                  if (correctValue !== null && correctValue !== undefined) {
+                                    const correctStr = String(correctValue).trim().toUpperCase();
+                                    const keyStr = String(key).trim().toUpperCase();
+                                    const valStr = String(value).trim().toUpperCase();
+                                    
+                                    isCorrect = 
+                                      correctStr === keyStr || // Key match
+                                      correctStr === valStr || // Value match
+                                      correctValue === key || // Raw key match
+                                      String(correctValue) === String(key); // String key match
+                                  }
+                                  
+                                  if (optIdx === 0) {
+                                    console.log('=== Object Question Debug ===');
+                                    console.log('correct_answer raw:', question.correct_answer);
+                                    console.log('First key:', key);
+                                    console.log('First value:', value);
+                                  }
+                                  
+                                  return (
+                                    <div
+                                      key={optIdx}
+                                      className={`p-3 rounded-lg border-2 transition-all ${
+                                        isCorrect
+                                          ? 'border-green-500 bg-green-50 shadow-md'
+                                          : 'border-gray-200 bg-gray-50'
+                                      }`}
+                                    >
+                                      <div className="flex items-start">
+                                        <span className={`font-bold mr-2 text-lg ${isCorrect ? 'text-green-600' : 'text-gray-600'}`}>
+                                          {key}:
+                                        </span>
+                                        <span className={isCorrect ? 'text-green-700 font-semibold' : 'text-gray-700'}>
+                                          {value as string}
+                                        </span>
+                                        {isCorrect && <span className="ml-auto text-green-600 text-sm font-bold bg-green-200 px-2 py-1 rounded">✓ CORRECT</span>}
+                                      </div>
+                                    </div>
+                                  );
+                                })
+                              ) : null}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Explanation */}
+                        {question.explanation && (
+                          <div className="bg-yellow-50 border-l-4 border-yellow-500 p-4 rounded">
+                            <p className="text-sm font-semibold text-yellow-800 mb-1">Explanation:</p>
+                            <p className="text-sm text-yellow-700">{question.explanation}</p>
+                          </div>
+                        )}
+
+                        {/* Validation Status */}
+                        {question.validation_status && (
+                          <div className="mt-3 text-xs">
+                            <span className={`inline-block px-2 py-1 rounded font-medium ${
+                              question.validation_status === 'correct'
+                                ? 'bg-green-100 text-green-800'
+                                : 'bg-red-100 text-red-800'
+                            }`}>
+                              {question.validation_status === 'correct' ? '✓ Validated' : '✗ Needs Review'}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Generated SQL Script Display */}
+              {generatedSQL && (
+                <div className="bg-gray-900 rounded-lg shadow-lg p-6 text-green-400">
+                  <div className="flex justify-between items-center mb-4">
+                    <h2 className="text-2xl font-semibold text-white">Generated SQL Script</h2>
+                    <button
+                      onClick={() => navigator.clipboard.writeText(generatedSQL)}
+                      className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg font-semibold transition-colors"
+                    >
+                      Copy to Clipboard
+                    </button>
+                  </div>
+                  <div className="bg-black rounded-lg p-4 overflow-x-auto">
+                    <pre className="text-sm font-mono whitespace-pre-wrap">{generatedSQL}</pre>
+                  </div>
+                  <div className="mt-4 text-sm text-gray-300">
+                    <p>📝 Script includes 2 questions per module for the selected domain</p>
+                    <p>🔗 Questions are automatically linked to the quiz</p>
+                    <p>📊 Quiz question count is updated automatically</p>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>
