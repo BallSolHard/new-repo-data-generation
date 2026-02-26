@@ -76,6 +76,20 @@ export function parseGeminiJson<T>(text: string): T {
   try {
     return JSON.parse(cleaned);
   } catch (primaryError) {
+    // attempt simple quote fix for unterminated string errors
+    if (/Unterminated string/.test(String(primaryError))) {
+      // add closing quote at end if missing
+      if (cleaned.trim().endsWith('"')) {
+        // already ends with quote, leave it
+      } else {
+        cleaned += '"';
+      }
+      try {
+        return JSON.parse(cleaned);
+      } catch {
+        // fall through to other strategies
+      }
+    }
     // Strategy 1: Try to extract and fix a JSON array
     const arrayMatch = cleaned.match(/\[[\s\S]*\]/);
     if (arrayMatch) {

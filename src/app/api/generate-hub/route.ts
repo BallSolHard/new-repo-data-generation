@@ -21,11 +21,11 @@ export async function POST(request: NextRequest) {
       questionType = 'mcq',
       questionTypes,
       complexityLevel = 'intermediate',
-      questionsPerModule = 30,
+      questionsPerModule = 2,
       enableValidation = true,
       storeInBank = false,
       certTier,
-      genMode,
+      genMode = 'drill',
     } = body;
 
     // Validate required parameters
@@ -50,6 +50,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // enforce minimum questions per module
+    const minPerModule = 2;
+    let qpm = Math.max(questionsPerModule, minPerModule);
+
     const pipelineParams: PipelineParams = {
       certificationCode: certification_code || '',
       certificationName: certification_name,
@@ -67,7 +71,7 @@ export async function POST(request: NextRequest) {
       questionType: questionType as QuestionType,
       questionTypes: questionTypes || [questionType],
       complexityLevel: complexityLevel as Difficulty,
-      questionsPerModule,
+      questionsPerModule: qpm,
       enableValidation,
       certTier: certTier as CertTier | undefined,
       genMode: genMode as GenMode | undefined,

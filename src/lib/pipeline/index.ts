@@ -37,7 +37,10 @@ export async function runGenerationPipeline(params: PipelineParams): Promise<Pip
 
   // ─── Step 2: Generate ───
   const questionTypes = params.questionTypes || (params.questionType ? [params.questionType] : ['mcq']);
-  const questionsPerModule = params.questionsPerModule || 30;
+  let questionsPerModule = params.questionsPerModule || 2;
+  // ensure at least 10 per module
+  const minPerModule = 2;
+  questionsPerModule = Math.max(questionsPerModule, minPerModule);
   const generationParams: QuestionGenerationParams = {
     modules: params.modules,
     topicName: params.topicName,

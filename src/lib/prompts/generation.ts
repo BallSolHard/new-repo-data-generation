@@ -173,10 +173,11 @@ RULE 3: ALL WRONG ANSWERS MUST BE PLAUSIBLE
 - Wrong answers should represent common misconceptions or suboptimal approaches
 
 RULE 4: EXPLANATIONS MUST BE COMPREHENSIVE
-- Explain WHY the correct answer is correct (cite specific service behaviors)
-- Explain WHY EACH wrong answer is wrong (not just "this is incorrect")
-- Reference specific AWS service limitations, pricing models, or architectural tradeoffs
-- Minimum 3 sentences for explanation
+ - Explain WHY the correct answer is correct (cite specific service behaviors)
+ - Explain WHY EACH wrong answer is wrong (not just "this is incorrect")
+ - Refer to the options by label/index (e.g. "Option A", "Option 2") when discussing them
+ - Reference specific AWS service limitations, pricing models, or architectural tradeoffs
+ - Minimum 3 sentences for explanation
 
 RULE 5: TECHNICAL ACCURACY
 - Use exact AWS service names (e.g., "Amazon S3" not "S3", "AWS Lambda" not "Lambda")
