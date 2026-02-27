@@ -27,7 +27,7 @@ type ModuleData = {
   module_description?: string;
   topic_id: number;
   ideal_completion_time?: string;
-  module_content?: string;
+
 };
 
 type QuizData = {
@@ -43,6 +43,20 @@ type QuizData = {
   certification_id: number;
   question_type: string;
   is_completed: boolean;
+};
+
+type MockTestData = {
+  id: string;
+  title: string;
+  created_at: string;
+  certification_id: number;
+  duration: number;
+  total_questions: number;
+  description: string;
+  validity_months: number;
+  passing_score: number;
+  recommended_experience_text: string;
+  exam_format: string[];
 };
 
 // Sample data structure for certifications (fallback)
@@ -168,19 +182,31 @@ export default function Home() {
   const [activeTab, setActiveTab] = useState<"hub" | "mock">("hub");
   const [selectedCertification, setSelectedCertification] = useState<string>("");
   const [selectedDomain, setSelectedDomain] = useState<string>("");
-  const [selectedModule, setSelectedModule] = useState<string>("");
+  const [selectedModules, setSelectedModules] = useState<string[]>([]);
+  const [selectedMockTest, setSelectedMockTest] = useState<string>("");
   const [certifications, setCertifications] = useState<CertificationFromAPI[]>([]);
   const [domains, setDomains] = useState<DomainData[]>([]);
   const [modules, setModules] = useState<ModuleData[]>([]);
   const [quizzes, setQuizzes] = useState<QuizData[]>([]);
+  const [mockTests, setMockTests] = useState<MockTestData[]>([]);
   const [fallbackCertifications] = useState<CertificationData>(fallbackCertificationData);
   const [loading, setLoading] = useState(true);
   const [domainsLoading, setDomainsLoading] = useState(false);
   const [modulesLoading, setModulesLoading] = useState(false);
   const [quizzesLoading, setQuizzesLoading] = useState(false);
+  const [mockTestsLoading, setMockTestsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [generatedSQL, setGeneratedSQL] = useState<string>("");
   const [isGenerating, setIsGenerating] = useState(false);
+  const [questionsPerModule, setQuestionsPerModule] = useState<number>(1);
+  const [isExecuting, setIsExecuting] = useState(false);
+  const [executionResult, setExecutionResult] = useState<string | null>(null);
+  const [isEditingSQL, setIsEditingSQL] = useState(false);
+  const [editableSQL, setEditableSQL] = useState<string>("");
+  const [validationResults, setValidationResults] = useState<any>(null);
+  const [questionType, setQuestionType] = useState<string>("mcq");
+  const [generateWithData, setGenerateWithData] = useState<boolean>(false);
+  const [inputText, setInputText] = useState<string>("");
 
   // Fetch certifications from API on component mount
   useEffect(() => {
@@ -241,25 +267,63 @@ export default function Home() {
     }
   }, [selectedCertification, certifications]);
 
-  // Fetch modules when domain is selected
+  // Fetch modules when domain is selected OR when generateWithData is enabled
   useEffect(() => {
     const fetchModules = async () => {
-      if (!selectedDomain) {
+      if (!selectedDomain && !generateWithData) {
         setModules([]);
         return;
       }
 
       try {
         setModulesLoading(true);
-        const selectedTopicData = domains.find(d => d.topic_name === selectedDomain);
         
-        if (selectedTopicData?.topic_id) {
-          const response = await fetch(`/api/modules?topic_id=${selectedTopicData.topic_id}`);
-          if (!response.ok) {
-            throw new Error('Failed to fetch modules');
+        if (generateWithData && domains.length > 0) {
+          // Fetch modules for all domains when using generateWithData
+          console.log('Fetching modules for all domains:', domains);
+          const allModules: ModuleData[] = [];
+          
+          for (const domain of domains) {
+            console.log(`Processing domain: ${domain.topic_name} (ID: ${domain.topic_id})`);
+            
+            if (domain.modules && domain.modules.length > 0) {
+              console.log(`Using embedded modules for ${domain.topic_name}:`, domain.modules.length);
+              allModules.push(...domain.modules);
+            } else if (domain.topic_id) {
+              console.log(`Fetching modules from API for ${domain.topic_name}`);
+              try {
+                const response = await fetch(`/api/modules?topic_id=${domain.topic_id}`);
+                if (response.ok) {
+                  const data = await response.json();
+                  console.log(`API response for ${domain.topic_name}:`, data.modules?.length || 0, 'modules');
+                  if (data.modules && data.modules.length > 0) {
+                    allModules.push(...data.modules);
+                  }
+                } else {
+                  console.error(`Failed to fetch modules for ${domain.topic_name}: ${response.status}`);
+                }
+              } catch (err) {
+                console.error(`Error fetching modules for domain ${domain.topic_name}:`, err);
+              }
+            } else {
+              console.warn(`Domain ${domain.topic_name} has no topic_id and no embedded modules`);
+            }
           }
-          const data = await response.json();
-          setModules(data.modules || []);
+          
+          console.log('Total modules collected:', allModules.length);
+          setModules(allModules);
+        } else if (selectedDomain) {
+          // Original behavior for single domain
+          const selectedTopicData = domains.find(d => d.topic_name === selectedDomain);
+          
+          if (selectedTopicData?.topic_id) {
+            const response = await fetch(`/api/modules?topic_id=${selectedTopicData.topic_id}`);
+            if (!response.ok) {
+              throw new Error('Failed to fetch modules');
+            }
+            const data = await response.json();
+            setModules(data.modules || []);
+          }
         }
       } catch (err) {
         console.error('Error fetching modules:', err);
@@ -270,19 +334,17 @@ export default function Home() {
       }
     };
 
-    if (selectedDomain && domains.length > 0) {
+    if ((selectedDomain && domains.length > 0) || (generateWithData && domains.length > 0)) {
       fetchModules();
     }
-  }, [selectedDomain, domains]);
+  }, [selectedDomain, domains, generateWithData]);
 
-  // Fetch quizzes when module is selected (for Mock Questions) or domain is selected (for Hub Questions)
+  // Fetch quizzes when module is selected (for both Hub and Mock Questions)
   useEffect(() => {
     const fetchQuizzes = async () => {
-      // For Hub Questions: fetch after domain selection
-      // For Mock Questions: fetch after module selection
+      // For both Hub and Mock Questions: fetch after module selection
       const shouldFetchQuizzes = 
-        (activeTab === "hub" && selectedDomain && selectedCertification) ||
-        (activeTab === "mock" && selectedModule && selectedDomain && selectedCertification);
+        selectedModules.length > 0 && selectedDomain && selectedCertification;
 
       if (!shouldFetchQuizzes) {
         setQuizzes([]);
@@ -313,23 +375,108 @@ export default function Home() {
     if (domains.length > 0 && certifications.length > 0) {
       fetchQuizzes();
     }
-  }, [selectedModule, selectedDomain, selectedCertification, domains, certifications, activeTab]);
+  }, [selectedModules, selectedDomain, selectedCertification, domains, certifications, activeTab]);
+
+  // Fetch mock tests when certification is selected and in mock mode
+  useEffect(() => {
+    const fetchMockTests = async () => {
+      if (activeTab !== "mock" || !selectedCertification) {
+        setMockTests([]);
+        return;
+      }
+
+      try {
+        setMockTestsLoading(true);
+        const selectedCertData = certifications.find(c => c.title === selectedCertification);
+        
+        if (selectedCertData?.id) {
+          const response = await fetch(`/api/mock-tests?certification_id=${selectedCertData.id}`);
+          if (!response.ok) {
+            throw new Error('Failed to fetch mock tests');
+          }
+          const data = await response.json();
+          setMockTests(data.mockTests || []);
+        }
+      } catch (err) {
+        console.error('Error fetching mock tests:', err);
+        setMockTests([]);
+      } finally {
+        setMockTestsLoading(false);
+      }
+    };
+
+    if (selectedCertification && certifications.length > 0 && activeTab === "mock") {
+      fetchMockTests();
+    }
+  }, [selectedCertification, certifications, activeTab]);
 
   const handleCertificationChange = (cert: string) => {
     setSelectedCertification(cert);
     setSelectedDomain("");
-    setSelectedModule("");
+    setSelectedModules([]);
+    setSelectedMockTest("");
   };
 
   const handleDomainChange = (domain: string) => {
     setSelectedDomain(domain);
-    setSelectedModule("");
+    setSelectedModules([]);
+    setSelectedMockTest("");
     setModules([]); // Clear modules when domain changes
+    // Clear generated results when domain changes
+    setGeneratedSQL("");
+    setEditableSQL("");
+    setValidationResults(null);
+    setExecutionResult(null);
+    setIsEditingSQL(false);
   };
 
-  const handleModuleChange = (module: string) => {
-    setSelectedModule(module);
-    setQuizzes([]); // Clear quizzes when module changes
+  const handleModuleToggle = (module: string) => {
+    setSelectedModules(prev => 
+      prev.includes(module) 
+        ? prev.filter(m => m !== module)
+        : [...prev, module]
+    );
+    setQuizzes([]); // Clear quizzes when module selection changes
+    // Clear generated results when module selection changes
+    setGeneratedSQL("");
+    setEditableSQL("");
+    setValidationResults(null);
+    setExecutionResult(null);
+    setIsEditingSQL(false);
+  };
+
+  const handleMockTestChange = (mockTestId: string) => {
+    setSelectedMockTest(mockTestId);
+  };
+
+  const handleCreateNewMockTest = () => {
+    // Generate a mock test ID with the format: aws_$certificationcode_$randomid
+    const certificationCode = selectedCertification
+      .toLowerCase()
+      .replace(/\s+/g, '_')
+      .replace(/[^a-z0-9_]/g, '');
+    
+    const randomId = Math.random().toString(36).substring(2, 8);
+    const newMockTestId = `${certificationCode}_${randomId}`;
+    
+    // Create a temporary mock test object
+    const newMockTest: MockTestData = {
+      id: newMockTestId,
+      title: `${selectedCertification} - Practice Test ${mockTests.length + 1}`,
+      created_at: new Date().toISOString(),
+      certification_id: certifications.find(c => c.title === selectedCertification)?.id || 0,
+      duration: 120, // Default 2 hours
+      total_questions: 65, // Default question count
+      description: `Practice test for ${selectedCertification} certification`,
+      validity_months: 12,
+      passing_score: 70,
+      recommended_experience_text: "6+ months of hands-on experience",
+      exam_format: ["mcq", "multiple"]
+    };
+    
+    // Add the new mock test to the existing list and select it
+    setMockTests(prevMockTests => [...prevMockTests, newMockTest]);
+    setSelectedMockTest(newMockTestId);
   };
 
   const handleTabChange = (tab: "hub" | "mock") => {
@@ -337,9 +484,19 @@ export default function Home() {
     // Reset selections when switching tabs
     setSelectedCertification("");
     setSelectedDomain("");
-    setSelectedModule("");
+    setSelectedModules([]);
+    setSelectedMockTest("");
+    setGeneratedSQL("");
+    setEditableSQL("");
+    setIsEditingSQL(false);
+    setValidationResults(null);
+    setQuestionType("mcq");
+    setQuestionsPerModule(1); // Reset questions per module
+    setGenerateWithData(false); // Reset generate with data option
+    setInputText(""); // Clear input text
     setModules([]); // Clear modules when switching tabs
     setQuizzes([]); // Clear quizzes when switching tabs
+    setMockTests([]); // Clear mock tests when switching tabs
   };
 
   const getCurrentDomains = () => {
@@ -388,9 +545,16 @@ export default function Home() {
     return Object.keys(fallbackCertifications);
   };
 
+  const getSelectedMockTest = () => {
+    return mockTests.find(test => test.id === selectedMockTest);
+  };
+
   const generateHubQuestions = async () => {
-    if (!selectedCertification || !selectedDomain) {
-      setError("Please select certification and domain first");
+    setGeneratedSQL("");
+    setExecutionResult(null);
+    setValidationResults(null);
+    if (!selectedCertification || !selectedDomain || selectedModules.length === 0) {
+      setError("Please select certification, domain, and at least one module first");
       return;
     }
 
@@ -409,14 +573,30 @@ export default function Home() {
         topic_name: selectedDomain,
         topic_description: selectedDomainData?.topic_description || `${selectedDomain} domain knowledge and best practices`,
         quiz_id: quizId,
-        modules: modules.length > 0 ? modules : getCurrentModules().map((name, index) => ({
-          module_id: `fallback_${index + 1}`,
-          module_name: name,
-          module_description: `Knowledge and skills related to ${name}`,
-          module_content: `Core concepts and practical applications of ${name} in ${selectedDomain}`
-        }))
+        questionsPerModule: questionsPerModule,
+        questionType: questionType,
+        modules: selectedModules.length > 0 ? (
+          modules.length > 0 
+            ? modules.filter(m => selectedModules.includes(m.module_name))
+            : selectedModules.map((moduleName, index) => ({
+                module_id: `selected_module_${moduleName.toLowerCase().replace(/\s+/g, '_')}`,
+                module_name: moduleName,
+                module_description: `Knowledge and skills related to ${moduleName}`,
+                topic_id: selectedDomainData?.topic_id,
+                topic_name: selectedDomain,
+                topic_description: selectedDomainData?.topic_description || `${selectedDomain} domain knowledge and best practices`
+              }))
+        ) : (
+          modules.length > 0 ? modules : getCurrentModules().map((name, index) => ({
+            module_id: `fallback_${index + 1}`,
+            module_name: name,
+            module_description: `Knowledge and skills related to ${name}`,
+            topic_id: selectedDomainData?.topic_id,
+            topic_name: selectedDomain,
+            topic_description: selectedDomainData?.topic_description || `${selectedDomain} domain knowledge and best practices`
+          }))
+        )
       };
-
       const response = await fetch('/api/generate-hub', {
         method: 'POST',
         headers: {
@@ -424,13 +604,17 @@ export default function Home() {
         },
         body: JSON.stringify(payload)
       });
-
+      
       if (!response.ok) {
         throw new Error('Failed to generate hub questions');
       }
 
       const data = await response.json();
-      setGeneratedSQL(data.sqlScript);
+      console.log("GENERATED DATA FOR SQL:", data);
+      setGeneratedSQL(data.script);
+      setEditableSQL(data.script);
+      setValidationResults(data);
+   
       
     } catch (err) {
       console.error('Error generating hub questions:', err);
@@ -440,6 +624,298 @@ export default function Home() {
     }
   };
 
+  const generateMockQuestions = async () => {
+    setGeneratedSQL("");
+    setExecutionResult(null);
+    setValidationResults(null);
+    
+    if (!selectedCertification || !selectedDomain || selectedModules.length === 0 || !selectedMockTest) {
+      setError("Please select certification, domain, at least one module, and mock test first");
+      return;
+    }
+
+    setIsGenerating(true);
+    setError(null);
+
+    try {
+      const selectedCertData = certifications.find(c => c.title === selectedCertification);
+      const selectedDomainData = domains.find(d => d.topic_name === selectedDomain);
+      const selectedMockTestData = getSelectedMockTest();
+
+      const payload = {
+        certification_id: selectedCertData?.id,
+        certification_name: selectedCertification,
+        mock_test_id: selectedMockTest,
+        title: selectedMockTestData?.title || `${selectedCertification} - Practice Test`,
+        description: selectedMockTestData?.description || `Practice test for ${selectedCertification} certification`,
+        duration: selectedMockTestData?.duration || 120,
+        total_questions: selectedMockTestData?.total_questions || (questionsPerModule * (selectedModules.length > 0 ? selectedModules.length : (modules.length || getCurrentModules().length))),
+        passing_score: selectedMockTestData?.passing_score || 70,
+        validity_months: selectedMockTestData?.validity_months || 12,
+        recommended_experience_text: selectedMockTestData?.recommended_experience_text || "6+ months of hands-on experience",
+        exam_format: selectedMockTestData?.exam_format || ["mcq", "multiple"],
+        topic_id: selectedDomainData?.topic_id,
+        topic_name: selectedDomain,
+        topic_description: selectedDomainData?.topic_description || `${selectedDomain} domain knowledge and best practices`,
+        questionsPerModule: questionsPerModule,
+        questionType: questionType,
+        modules: selectedModules.length > 0 ? (
+          modules.length > 0 
+            ? modules.filter(m => selectedModules.includes(m.module_name))
+            : selectedModules.map((moduleName, index) => ({
+                module_id: `selected_module_${moduleName.toLowerCase().replace(/\s+/g, '_')}`,
+                module_name: moduleName,
+                module_description: `Knowledge and skills related to ${moduleName}`,
+                topic_id: selectedDomainData?.topic_id,
+                topic_name: selectedDomain,
+                topic_description: selectedDomainData?.topic_description || `${selectedDomain} domain knowledge and best practices`
+              }))
+        ) : (
+          modules.length > 0 ? modules : getCurrentModules().map((name, index) => ({
+            module_id: `fallback_${index + 1}`,
+            module_name: name,
+            module_description: `Knowledge and skills related to ${name}`,
+            topic_id: selectedDomainData?.topic_id,
+            topic_name: selectedDomain,
+            topic_description: selectedDomainData?.topic_description || `${selectedDomain} domain knowledge and best practices`
+          }))
+        )
+      };
+      const response = await fetch('/api/generate-mock', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload)
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to generate mock questions');
+      }
+
+      const data = await response.json();
+      console.log("GENERATED MOCK DATA FOR SQL:", data);
+      setGeneratedSQL(data.script);
+      setEditableSQL(data.script);
+      setValidationResults(data);
+      
+    } catch (err) {
+      console.error('Error generating mock questions:', err);
+      setError('Failed to generate mock questions. Please try again.');
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const generateMockWithData = async () => {
+    setGeneratedSQL("");
+    setExecutionResult(null);
+    setValidationResults(null);
+    
+    if (!selectedCertification || !inputText.trim() || !selectedMockTest) {
+      setError("Please select certification, provide input text, and select a mock test");
+      return;
+    }
+
+    setIsGenerating(true);
+    setError(null);
+
+    try {
+      const selectedCertData = certifications.find(c => c.title === selectedCertification);
+      
+      // Get all domains and modules for the selected certification
+      const allDomains = domains.length > 0 ? domains : [];
+      
+      // Use the modules that are already loaded in state (by the useEffect)
+      // If modules are not loaded yet, we should wait or show an error
+      if (modules.length === 0) {
+        setError("Modules are still loading. Please wait a moment and try again.");
+        setIsGenerating(false);
+        return;
+      }
+      
+      const allModules = modules; // Use the pre-loaded modules
+
+      console.log('All domains:', allDomains);
+      console.log('All modules from state:', allModules);
+
+      const payload = {
+        certification_id: selectedCertData?.id,
+        certification_name: selectedCertification,
+        input_text: inputText,
+        questionsPerModule: questionsPerModule,
+        questionType: questionType,
+        domains: allDomains,
+        modules: allModules,
+        mock_test_id: selectedMockTest // Pass the selected mock test ID
+      };
+
+      const response = await fetch('/api/generate-mock-with-data', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload)
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to generate mock questions with data');
+      }
+
+      const data = await response.json();
+      console.log("GENERATED MOCK WITH DATA FOR SQL:", data);
+      setGeneratedSQL(data.script);
+      setEditableSQL(data.script);
+      setValidationResults(data);
+      
+    } catch (err) {
+      console.error('Error generating mock questions with data:', err);
+      setError('Failed to generate mock questions with data. Please try again.');
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const handleEditSQL = () => {
+    setIsEditingSQL(true);
+    setEditableSQL(generatedSQL);
+  };
+
+  const handleSaveSQL = () => {
+    setGeneratedSQL(editableSQL);
+    setIsEditingSQL(false);
+  };
+
+  const handleCancelEdit = () => {
+    setEditableSQL(generatedSQL);
+    setIsEditingSQL(false);
+  };
+
+  const executeSQL = async () => {
+    const sqlToExecute = isEditingSQL ? editableSQL : generatedSQL;
+    if (!sqlToExecute) {
+      setError("No SQL script to execute");
+      return;
+    }
+
+    // Show confirmation dialog
+    const confirmed = window.confirm(
+      "Are you sure you want to execute this SQL script? This will insert questions into the database."
+    );
+    
+    if (!confirmed) {
+      return; // User cancelled
+    }
+
+    setIsExecuting(true);
+    setExecutionResult(null);
+    setError(null);
+
+    try {
+      const response = await fetch('/api/execute-sql', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          sql: sqlToExecute,
+          operation: 'insert_questions'
+        })
+      });
+      
+      const data = await response.json();
+      
+      if (!response.ok || !data.success) {
+        // Handle detailed error information
+        console.error('SQL execution failed:', data);
+        
+        let errorMessage = data.error || 'Failed to execute SQL script';
+        
+        if (data.production || data.preprod) {
+          errorMessage += '\n\nDetailed Results:';
+          
+          if (data.production) {
+            errorMessage += `\n\nProduction Environment:`;
+            errorMessage += `\n- Success: ${data.production.success ? 'Yes' : 'No'}`;
+            errorMessage += `\n- Message: ${data.production.message}`;
+            errorMessage += `\n- Statements Processed: ${data.production.statements_processed || 0}`;
+            errorMessage += `\n- Statements Executed: ${data.production.statements_executed || 0}`;
+            if (data.production.failures > 0) {
+              errorMessage += `\n- Failed Statements: ${data.production.failures}`;
+            }
+            if (data.production.error_details) {
+              errorMessage += `\n- Error Details: ${JSON.stringify(data.production.error_details, null, 2)}`;
+            }
+            if (data.production.raw_response) {
+              errorMessage += `\n- Raw Response: ${JSON.stringify(data.production.raw_response, null, 2)}`;
+            }
+          }
+          
+          if (data.preprod) {
+            errorMessage += `\n\nPre-Production Environment:`;
+            errorMessage += `\n- Success: ${data.preprod.success ? 'Yes' : 'No'}`;
+            errorMessage += `\n- Message: ${data.preprod.message}`;
+            errorMessage += `\n- Statements Processed: ${data.preprod.statements_processed || 0}`;
+            errorMessage += `\n- Statements Executed: ${data.preprod.statements_executed || 0}`;
+            if (data.preprod.failures > 0) {
+              errorMessage += `\n- Failed Statements: ${data.preprod.failures}`;
+            }
+            if (data.preprod.error_details) {
+              errorMessage += `\n- Error Details: ${JSON.stringify(data.preprod.error_details, null, 2)}`;
+            }
+            if (data.preprod.raw_response) {
+              errorMessage += `\n- Raw Response: ${JSON.stringify(data.preprod.raw_response, null, 2)}`;
+            }
+          }
+        }
+        
+        if (data.troubleshooting) {
+          errorMessage += '\n\nTroubleshooting Guide:';
+          
+          if (data.troubleshooting.common_issues) {
+            errorMessage += '\n\nCommon Issues:';
+            data.troubleshooting.common_issues.forEach((issue: string, index: number) => {
+              errorMessage += `\n${index + 1}. ${issue}`;
+            });
+          }
+          
+          if (data.troubleshooting.recommendations) {
+            errorMessage += '\n\nRecommendations:';
+            data.troubleshooting.recommendations.forEach((rec: string, index: number) => {
+              errorMessage += `\n${index + 1}. ${rec}`;
+            });
+          }
+        }
+        
+        setError(errorMessage);
+        return;
+      }
+
+      // Success case
+      let successMessage = `Successfully executed! ${data.message || 'Questions inserted into database.'}`;
+      
+      if (data.production || data.preprod) {
+        successMessage += '\n\nExecution Summary:';
+        
+        if (data.production) {
+          successMessage += `\n\nProduction: ${data.production.statements_executed}/${data.production.statements_processed} statements executed`;
+        }
+        
+        if (data.preprod) {
+          successMessage += `\nPre-Production: ${data.preprod.statements_executed}/${data.preprod.statements_processed} statements executed`;
+        }
+      }
+      
+      setExecutionResult(successMessage);
+      
+    } catch (err) {
+      console.error('Error executing SQL:', err);
+      setError(`Failed to execute SQL script: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    } finally {
+      setIsExecuting(false);
+    }
+  };
+ 
   return (
     <>
       <TopBar />
@@ -483,12 +959,71 @@ export default function Home() {
           </div>
         </div>
 
+        {/* Generate with Data Option - Only show for Mock Questions */}
+        {activeTab === "mock" && (
+          <div className="max-w-6xl mx-auto mb-8">
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+              <div className="flex items-center space-x-3 mb-4">
+                <input
+                  type="checkbox"
+                  id="generateWithData"
+                  checked={generateWithData}
+                  onChange={(e) => {
+                    setGenerateWithData(e.target.checked);
+                    // Clear form when toggling
+                    if (!e.target.checked) {
+                      setInputText("");
+                      setGeneratedSQL("");
+                      setEditableSQL("");
+                      setValidationResults(null);
+                      setExecutionResult(null);
+                      setIsEditingSQL(false);
+                    }
+                  }}
+                  className="w-5 h-5 text-purple-600 bg-gray-100 border-gray-300 rounded focus:ring-purple-500 dark:focus:ring-purple-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                />
+                <label htmlFor="generateWithData" className="text-lg font-semibold text-gray-900 dark:text-white">
+                  Generate Mock with Data
+                </label>
+              </div>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                Enable this option to generate mock questions from your own text data instead of selecting specific domains and modules.
+              </p>
+              
+              {generateWithData && (
+                <div className="space-y-4 p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg border border-purple-200 dark:border-purple-800">
+                  <div className="flex items-center space-x-2">
+                    <div className="w-5 h-5 text-purple-500">
+                      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                      </svg>
+                    </div>
+                    <p className="text-purple-800 dark:text-purple-200 text-sm">
+                      <span className="font-semibold">Data Mode Enabled:</span> You'll parse questions from your input text and add them to the selected mock test. Make sure to select a mock test below after providing your input text.
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Selection Cards */}
         <div className="max-w-6xl mx-auto space-y-8">
           {/* Error Message */}
           {error && (
-            <div className="bg-yellow-50  dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
-              <p className="text-yellow-800 dark:text-yellow-200">{error}</p>
+            <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+              <div className="flex items-start space-x-3">
+                <div className="w-6 h-6 bg-red-500 rounded-full flex items-center justify-center flex-shrink-0 mt-1">
+                  <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path>
+                  </svg>
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-lg font-semibold text-red-800 dark:text-red-200 mb-2">Execution Failed</h3>
+                  <pre className="text-red-700 dark:text-red-300 text-sm whitespace-pre-wrap font-mono bg-red-100 dark:bg-red-900/40 p-3 rounded border overflow-x-auto">{error}</pre>
+                </div>
+              </div>
             </div>
           )}
 
@@ -507,27 +1042,63 @@ export default function Home() {
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {getCertificationsList().map((cert) => (
-                  <button
-                    key={cert}
-                    onClick={() => handleCertificationChange(cert)}
-                    className={`p-4 rounded-lg border-2 transition-all duration-200 ${
-                      selectedCertification === cert
-                        ? "border-purple-500 bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300"
-                        : "border-gray-200 dark:border-gray-600 hover:border-purple-300 dark:hover:border-purple-500"
-                    }`}
-                  >
-                    <div className="font-semibold cursor-pointer text-gray-900 dark:text-white">
-                      {cert}
-                    </div>
-                  </button>
-                ))}
+                {getCertificationsList().map((cert) => {
+                  const certData = certifications.find(c => c.title === cert);
+                  return (
+                    <button
+                      key={cert}
+                      onClick={() => handleCertificationChange(cert)}
+                      className={`p-4 rounded-lg border-2 transition-all duration-200 ${
+                        selectedCertification === cert
+                          ? "border-purple-500 bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300"
+                          : "border-gray-200 dark:border-gray-600 hover:border-purple-300 dark:hover:border-purple-500"
+                      }`}
+                    >
+                      <div className="font-semibold cursor-pointer text-gray-900 dark:text-white">
+                        {cert}
+                      </div>
+                      {certData && (
+                        <div className="mt-2">
+                          <code className="bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded text-xs text-gray-600 dark:text-gray-300">
+                            ID: {certData.id}
+                          </code>
+                        </div>
+                      )}
+                    </button>
+                  );
+                })}
               </div>
             )}
           </div>
 
+          {/* Input Text Area - Only show when Generate with Data is enabled */}
+          {activeTab === "mock" && generateWithData && selectedCertification && (
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+              <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-4">
+                Input Text Data
+              </h2>
+              <p className="text-gray-600 dark:text-gray-400 mb-4">
+                Paste your text content below. The system will analyze this content and generate questions covering all domains and modules for {selectedCertification}.
+              </p>
+              <textarea
+                value={inputText}
+                onChange={(e) => setInputText(e.target.value)}
+                placeholder="Paste your text content here... (e.g., study materials, documentation, course content, etc.)"
+                className="w-full h-64 p-4 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent dark:bg-gray-700 dark:text-white resize-none"
+              />
+              <div className="mt-2 flex justify-between items-center">
+                <span className="text-sm text-gray-500 dark:text-gray-400">
+                  {inputText.length} characters
+                </span>
+                <span className="text-sm text-gray-500 dark:text-gray-400">
+                  Minimum recommended: 500 characters
+                </span>
+              </div>
+            </div>
+          )}
+
           {/* Domain Selection */}
-          {selectedCertification && (
+          {selectedCertification && !generateWithData && (
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
               <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-4">
                 Select Domain
@@ -562,12 +1133,51 @@ export default function Home() {
             </div>
           )}
 
-          {/* Module/Task Selection - Only show for Mock Questions */}
-          {selectedDomain && activeTab === "mock" && (
+          {/* Module/Task Selection - Show for both Hub and Mock Questions */}
+          {selectedDomain && !generateWithData && (
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
-              <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-4">
-                Choose Module/Task
-              </h2>
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-2xl font-semibold text-gray-900 dark:text-white">
+                  Choose Modules/Tasks
+                </h2>
+                <div className="flex space-x-2">
+                  <button
+                    onClick={() => {
+                      setSelectedModules(getCurrentModules());
+                      // Clear generated results when selecting all modules
+                      setGeneratedSQL("");
+                      setEditableSQL("");
+                      setValidationResults(null);
+                      setExecutionResult(null);
+                      setIsEditingSQL(false);
+                    }}
+                    className="px-3 py-1 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded-lg text-sm hover:bg-purple-200 dark:hover:bg-purple-900/50 transition-colors"
+                  >
+                    Select All
+                  </button>
+                  <button
+                    onClick={() => {
+                      setSelectedModules([]);
+                      // Clear generated results when clearing all modules
+                      setGeneratedSQL("");
+                      setEditableSQL("");
+                      setValidationResults(null);
+                      setExecutionResult(null);
+                      setIsEditingSQL(false);
+                    }}
+                    className="px-3 py-1 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg text-sm hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                  >
+                    Clear All
+                  </button>
+                </div>
+              </div>
+              {selectedModules.length > 0 && (
+                <div className="mb-4 p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
+                  <p className="text-sm text-purple-700 dark:text-purple-300">
+                    <span className="font-semibold">{selectedModules.length} module{selectedModules.length !== 1 ? 's' : ''} selected:</span> {selectedModules.join(', ')}
+                  </p>
+                </div>
+              )}
               {modulesLoading ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {[1, 2, 3].map((i) => (
@@ -581,15 +1191,24 @@ export default function Home() {
                   {getCurrentModules().map((module: string) => (
                     <button
                       key={module}
-                      onClick={() => handleModuleChange(module)}
-                      className={`p-4 rounded-lg border-2 transition-all duration-200 text-left ${
-                        selectedModule === module
+                      onClick={() => handleModuleToggle(module)}
+                      className={`p-4 rounded-lg border-2 transition-all duration-200 text-left relative ${
+                        selectedModules.includes(module)
                           ? "border-purple-500 bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300"
                           : "border-gray-200 dark:border-gray-600 hover:border-purple-300 dark:hover:border-purple-500"
                       }`}
                     >
-                      <div className="font-semibold text-gray-900 dark:text-white">
-                        {module}
+                      <div className="flex items-center justify-between">
+                        <div className="font-semibold text-gray-900 dark:text-white">
+                          {module}
+                        </div>
+                        {selectedModules.includes(module) && (
+                          <div className="w-5 h-5 bg-purple-500 rounded-full flex items-center justify-center">
+                            <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
+                            </svg>
+                          </div>
+                        )}
                       </div>
                     </button>
                   ))}
@@ -598,12 +1217,161 @@ export default function Home() {
             </div>
           )}
 
+          {/* Mock Tests Display - Only show for Mock Questions after module selection or when using data mode */}
+          {activeTab === "mock" && ((selectedModules.length > 0 && !generateWithData) || (generateWithData && inputText.trim())) && (
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+              <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-4">
+                Available Mock Tests for {selectedCertification}
+              </h2>
+              {mockTestsLoading ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {[1, 2, 3].map((i) => (
+                    <div key={i} className="p-4 rounded-lg border-2 border-gray-200 dark:border-gray-600 animate-pulse">
+                      <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded mb-2"></div>
+                      <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded mb-2"></div>
+                      <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-3/4"></div>
+                    </div>
+                  ))}
+                </div>
+              ) : mockTests.length > 0 ? (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {mockTests.map((mockTest) => (
+                      <button
+                        key={mockTest.id}
+                        onClick={() => handleMockTestChange(mockTest.id)}
+                        className={`p-4 rounded-lg border-2 transition-all duration-200 text-left relative ${
+                          selectedMockTest === mockTest.id
+                            ? "border-purple-500 bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300"
+                            : "border-gray-200 dark:border-gray-600 hover:border-purple-300 dark:hover:border-purple-500"
+                        }`}
+                      >
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <h3 className="font-semibold text-gray-900 dark:text-white">
+                              {mockTest.title}
+                            </h3>
+                            {/* Show "NEW" badge for newly created mock tests */}
+                            {new Date(mockTest.created_at).toDateString() === new Date().toDateString() && (
+                              <span className="bg-green-500 text-white text-xs px-2 py-1 rounded-full font-bold">
+                                NEW
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-sm text-gray-600 dark:text-gray-400 space-y-1">
+                            <p><span className="font-medium">Questions:</span> {mockTest.total_questions}</p>
+                            <p><span className="font-medium">Duration:</span> {mockTest.duration} minutes</p>
+                            <p><span className="font-medium">Passing Score:</span> {mockTest.passing_score}%</p>
+                            <p><span className="font-medium">Validity:</span> {mockTest.validity_months} months</p>
+                          </div>
+                          {mockTest.description && (
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                              {mockTest.description.length > 100 ? `${mockTest.description.substring(0, 100)}...` : mockTest.description}
+                            </p>
+                          )}
+                          <div className="flex flex-wrap gap-1 mt-2">
+                            {mockTest.exam_format?.map((format, index) => (
+                              <span
+                                key={index}
+                                className="px-2 py-1 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded-full text-xs"
+                              >
+                                {format}
+                              </span>
+                            ))}
+                          </div>
+                          <div className="text-xs text-gray-400 dark:text-gray-500 mt-2">
+                            Created: {new Date(mockTest.created_at).toLocaleDateString()}
+                          </div>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                  
+                  {/* Always show Create New Mock Test option */}
+                  <div className="border-t border-gray-200 dark:border-gray-600 pt-4">
+                    <div className="text-center">
+                      <button
+                        onClick={handleCreateNewMockTest}
+                        className="bg-purple-500 hover:bg-purple-600 text-white px-6 py-3 rounded-lg font-semibold transition-colors inline-flex items-center space-x-2"
+                      >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                        </svg>
+                        <span>Create New Mock Test</span>
+                      </button>
+                      <p className="text-sm text-gray-500 dark:text-gray-500 mt-2">
+                        Create an additional mock test for more practice options.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <div className="w-16 h-16 mx-auto mb-4 text-gray-400">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                    </svg>
+                  </div>
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+                    No Mock Tests Available
+                  </h3>
+                  <p className="text-gray-600 dark:text-gray-400 mb-4">
+                    There are no mock tests created for {selectedCertification} yet.
+                  </p>
+                  <button
+                    onClick={handleCreateNewMockTest}
+                    className="bg-purple-500 hover:bg-purple-600 text-white px-6 py-3 rounded-lg font-semibold transition-colors inline-flex items-center space-x-2"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                    </svg>
+                    <span>Create New Mock Test</span>
+                  </button>
+                  <p className="text-sm text-gray-500 dark:text-gray-500 mt-3">
+                    This will create a new mock test entry and allow you to generate questions for it.
+                  </p>
+                </div>
+              )}
+              
+              {/* Selection hint for mock tests */}
+              {mockTests.length > 0 && !selectedMockTest && (
+                <div className="mt-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                  <div className="flex items-center space-x-2">
+                    <div className="w-5 h-5 text-blue-500">
+                      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                      </svg>
+                    </div>
+                    <p className="text-blue-800 dark:text-blue-200 text-sm">
+                      <span className="font-semibold">Select a mock test</span> from the cards above to continue with question generation{generateWithData ? " using your input text" : ""}.
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Module Loading Indicator for Generate with Data */}
+          {activeTab === "mock" && generateWithData && selectedCertification && inputText.trim() && modulesLoading && (
+            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+              <div className="flex items-center space-x-3">
+                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500"></div>
+                <div>
+                  <h3 className="text-lg font-semibold text-blue-800 dark:text-blue-200">Loading Modules</h3>
+                  <p className="text-blue-700 dark:text-blue-300">
+                    Fetching all modules for {selectedCertification}... This may take a moment.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Selected Summary */}
-          {((activeTab === "hub" && selectedDomain) || (activeTab === "mock" && selectedModule)) && (
+          {((activeTab === "hub" && selectedDomain && selectedModules.length > 0) || (activeTab === "mock" && !generateWithData && selectedModules.length > 0 && selectedMockTest) || (activeTab === "mock" && generateWithData && selectedCertification && inputText.trim() && selectedMockTest && !modulesLoading)) && (
             <div className="bg-gradient-to-r from-purple-500 to-purple-600 rounded-lg shadow-lg p-6 text-white">
               <h2 className="text-2xl font-semibold mb-4">Your Selection</h2>
               <div className="space-y-2">
-                <p><span className="font-semibold">Mode:</span> {activeTab === "hub" ? "Hub Questions" : "Mock Questions"}</p>
+                <p><span className="font-semibold">Mode:</span> {activeTab === "hub" ? "Hub Questions" : (generateWithData ? "Mock Questions (Data Mode)" : "Mock Questions")}</p>
                 <p>
                   <span className="font-semibold">Certification:</span> {selectedCertification}
                   {(() => {
@@ -611,78 +1379,303 @@ export default function Home() {
                     return selectedCertData ? <code className="bg-white/20 px-2 py-1 rounded text-sm ml-2">{selectedCertData.id}</code> : null;
                   })()}
                 </p>
+                {!generateWithData && (
+                  <p>
+                    <span className="font-semibold">Domain:</span> {selectedDomain}
+                    {(() => {
+                      const selectedDomainData = domains.find(d => d.topic_name === selectedDomain);
+                      return selectedDomainData ? <code className="bg-white/20 px-2 py-1 rounded text-sm ml-2">{selectedDomainData.topic_id}</code> : null;
+                    })()}
+                  </p>
+                )}
+                {generateWithData && (
+                  <div>
+                    <p>
+                      <span className="font-semibold">Input Text:</span> {inputText.length} characters
+                    </p>
+                    <p>
+                      <span className="font-semibold">Coverage:</span> {domains.length} domains, {modules.length} modules
+                      <span className="text-sm text-white/80 ml-2">(All available domains and modules)</span>
+                    </p>
+                  </div>
+                )}
+                {/* Show modules for question generation */}
+                {!generateWithData && selectedModules.length > 0 ? (
+                  <div>
+                    <p><span className="font-semibold">Modules for Questions ({selectedModules.length}):</span></p>
+                    <div className="ml-4 space-y-1">
+                      {selectedModules.map((moduleName, index) => {
+                        const moduleData = modules.find(m => m.module_name === moduleName);
+                        return (
+                          <p key={moduleName} className="text-sm">
+                            {index + 1}. {moduleName}
+                            {moduleData ? <code className="bg-white/20 px-2 py-1 rounded text-xs ml-2">{moduleData.module_id}</code> : <code className="bg-white/20 px-2 py-1 rounded text-xs ml-2">selected_module</code>}
+                          </p>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ) : !generateWithData ? (
+                  <>
+                    {/* Show all modules when none specifically selected */}
+                    {modules.length > 0 && (
+                      <div>
+                        <p><span className="font-semibold">Modules (All):</span></p>
+                        <div className="ml-4 space-y-1">
+                          {modules.map((module, index) => (
+                            <p key={module.module_id} className="text-sm">
+                              {index + 1}. {module.module_name}
+                              <code className="bg-white/20 px-2 py-1 rounded text-xs ml-2">{module.module_id}</code>
+                            </p>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {/* Fallback to current modules list if API modules not available */}
+                    {modules.length === 0 && getCurrentModules().length > 0 && (
+                      <div>
+                        <p><span className="font-semibold">Modules (All):</span></p>
+                        <div className="ml-4 space-y-1">
+                          {getCurrentModules().map((moduleName, index) => (
+                            <p key={moduleName} className="text-sm">
+                              {index + 1}. {moduleName}
+                              <code className="bg-white/20 px-2 py-1 rounded text-xs ml-2">fallback-{index + 1}</code>
+                            </p>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </>
+                ) : null}
                 <p>
-                  <span className="font-semibold">Domain:</span> {selectedDomain}
-                  {(() => {
-                    const selectedDomainData = domains.find(d => d.topic_name === selectedDomain);
-                    return selectedDomainData ? <code className="bg-white/20 px-2 py-1 rounded text-sm ml-2">{selectedDomainData.topic_id}</code> : null;
-                  })()}
+                  <span className="font-semibold">Question Type:</span> {questionType === "mcq" ? "Multiple Choice" : questionType === "multiple" ? "Multiple Select" : questionType === "ordering" ? "Ordering" : "Matching"}
+                  <code className="bg-white/20 px-2 py-1 rounded text-sm ml-2">{questionType}</code>
                 </p>
-                {/* Show all modules for the selected domain (for both Hub and Mock Questions) */}
-                {modules.length > 0 && (
-                  <div>
-                    <p><span className="font-semibold">Modules:</span></p>
-                    <div className="ml-4 space-y-1">
-                      {modules.map((module, index) => (
-                        <p key={module.module_id} className="text-sm">
-                          {index + 1}. {module.module_name}
-                          <code className="bg-white/20 px-2 py-1 rounded text-xs ml-2">{module.module_id}</code>
-                        </p>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                {/* Fallback to current modules list if API modules not available */}
-                {modules.length === 0 && getCurrentModules().length > 0 && (
-                  <div>
-                    <p><span className="font-semibold">Modules:</span></p>
-                    <div className="ml-4 space-y-1">
-                      {getCurrentModules().map((moduleName, index) => (
-                        <p key={moduleName} className="text-sm">
-                          {index + 1}. {moduleName}
-                          <code className="bg-white/20 px-2 py-1 rounded text-xs ml-2">fallback-{index + 1}</code>
-                        </p>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                {quizzesLoading ? (
-                  <p><span className="font-semibold">Quiz ID:</span> <span className="animate-pulse">Loading...</span></p>
-                ) : quizzes.length > 0 ? (
-                  <p><span className="font-semibold">Quiz ID:</span> <code className="bg-white/20 px-2 py-1 rounded text-sm">{quizzes[0].id}</code></p>
+                {activeTab === "hub" ? (
+                  quizzesLoading ? (
+                    <p><span className="font-semibold">Quiz ID:</span> <span className="animate-pulse">Loading...</span></p>
+                  ) : quizzes.length > 0 ? (
+                    <p><span className="font-semibold">Quiz ID:</span> <code className="bg-white/20 px-2 py-1 rounded text-sm">{quizzes[0].id}</code></p>
+                  ) : (
+                    <p><span className="font-semibold">Quiz ID:</span> <span className="text-gray-300">No quiz available</span></p>
+                  )
                 ) : (
-                  <p><span className="font-semibold">Quiz ID:</span> <span className="text-gray-300">No quiz available</span></p>
+                  selectedMockTest ? (
+                    <div>
+                      <p><span className="font-semibold">Selected Mock Test:</span> {getSelectedMockTest()?.title}</p>
+                      <p><span className="font-semibold">Mock Test ID:</span> <code className="bg-white/20 px-2 py-1 rounded text-sm">{selectedMockTest}</code></p>
+                    </div>
+                  ) : (
+                    <p><span className="font-semibold">Mock Test:</span> <span className="text-gray-300">No mock test selected</span></p>
+                  )
                 )}
               </div>
+              
+              {/* Configuration Options */}
+              <div className="mt-4 space-y-3">
+                {/* Questions per Module Selection */}
+                <div className="flex items-center space-x-4">
+                  <label htmlFor="questionsPerModule" className="font-semibold min-w-fit">
+                    Questions per Module:
+                  </label>
+                  <select
+                    id="questionsPerModule"
+                    value={questionsPerModule}
+                    onChange={(e) => setQuestionsPerModule(Number(e.target.value))}
+                    className="bg-white/20 border border-white/30 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-white/50 focus:border-white/50"
+                  >
+                    <option value={1} className="text-gray-900">1 Question</option>
+                    <option value={2} className="text-gray-900">2 Questions</option>
+                    <option value={3} className="text-gray-900">3 Questions</option>
+                    <option value={4} className="text-gray-900">4 Questions</option>
+                    <option value={5} className="text-gray-900">5 Questions</option>
+                  </select>
+                  <span className="text-sm text-white/80">
+                    Total: {questionsPerModule * (selectedModules.length > 0 ? selectedModules.length : (modules.length || getCurrentModules().length))} questions
+                  </span>
+                </div>
+
+                {/* Question Type Selection */}
+                <div className="flex items-center space-x-4">
+                  <label htmlFor="questionType" className="font-semibold min-w-fit">
+                    Question Type:
+                  </label>
+                  <select
+                    id="questionType"
+                    value={questionType}
+                    onChange={(e) => setQuestionType(e.target.value)}
+                    className="bg-white/20 border border-white/30 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-white/50 focus:border-white/50"
+                  >
+                    <option value="mcq" className="text-gray-900">Multiple Choice (MCQ)</option>
+                    <option value="multiple" className="text-gray-900">Multiple Select</option>
+                    <option value="ordering" className="text-gray-900">Ordering Questions</option>
+                    <option value="matching" className="text-gray-900">Matching Questions</option>
+                  </select>
+                  <span className="text-sm text-white/80">
+                    {questionType === "mcq" ? "Single correct answer" : 
+                     questionType === "multiple" ? "Multiple correct answers" : 
+                     questionType === "ordering" ? "Arrange options in correct sequence" :
+                     "Match terms with their descriptions"}
+                  </span>
+                </div>
+              </div>
+              
               <button 
                 className="mt-4 bg-white text-purple-600 px-6 py-2 rounded-lg font-semibold hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                onClick={activeTab === "hub" ? generateHubQuestions : undefined}
-                disabled={isGenerating}
+                onClick={activeTab === "hub" ? generateHubQuestions : (generateWithData ? generateMockWithData : generateMockQuestions)}
+                disabled={isGenerating || (generateWithData && modulesLoading)}
               >
-                {isGenerating ? "Generating..." : (activeTab === "hub" ? "Generate Hub Questions" : "Generate Mock Questions")}
+                {isGenerating ? "Generating..." : 
+                 modulesLoading && generateWithData ? "Loading Modules..." :
+                 (activeTab === "hub" ? "Generate Hub Questions" : (generateWithData ? "Generate Mock with Data" : "Generate Mock Questions"))}
               </button>
             </div>
           )}
 
+          {/* Validation Status Indicator */}
+          {validationResults && validationResults.questions && (
+            <div className={`rounded-lg shadow-lg p-4 ${
+              validationResults.questions.every((q: any) => q.confidence_score === 1)
+                ? "bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800"
+                : "bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800"
+            }`}>
+              <div className="flex items-center space-x-3">
+                {validationResults.questions.every((q: any) => q.confidence_score === 1) ? (
+                  <>
+                    <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center">
+                      <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
+                      </svg>
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-semibold text-green-800 dark:text-green-200">All Questions Validated ✓</h3>
+                      <p className="text-green-700 dark:text-green-300">
+                        All {validationResults.questions.length} questions passed validation with confidence score of 1.
+                      </p>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="w-8 h-8 bg-amber-500 rounded-full flex items-center justify-center">
+                      <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L5.232 15.5c-.77.833.192 2.5 1.732 2.5z"></path>
+                      </svg>
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="text-lg font-semibold text-amber-800 dark:text-amber-200">Validation Issues Detected ⚠️</h3>
+                      <p className="text-amber-700 dark:text-amber-300 mb-2">
+                        {validationResults.questions.filter((q: any) => q.confidence_score === 0).length} out of {validationResults.questions.length} questions need review.
+                      </p>
+                      <div className="space-y-2">
+                        {validationResults.questions
+                          .filter((q: any) => q.confidence_score === 0)
+                          .map((question: any, index: number) => (
+                            <div key={index} className="bg-amber-100 dark:bg-amber-900/30 rounded-lg p-3">
+                              <p className="font-semibold text-amber-800 dark:text-amber-200 text-sm">
+                                Question ID: {question.id}
+                              </p>
+                              <p className="text-amber-700 dark:text-amber-300 text-sm">
+                                Status: {question.validation_status}
+                              </p>
+                              {question.validation_notes && (
+                                <p className="text-amber-600 dark:text-amber-400 text-xs mt-1">
+                                  {question.validation_notes}
+                                </p>
+                              )}
+                              {question.new_correct_answer && (
+                                <p className="text-amber-600 dark:text-amber-400 text-xs mt-1">
+                                  Suggested answer: {question.new_correct_answer}
+                                </p>
+                              )}
+                            </div>
+                          ))
+                        }
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+          )}
+          {/* Execution Result Display */}
+          {executionResult && (
+            <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
+              <div className="flex items-start space-x-3">
+                <div className="w-6 h-6 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0 mt-1">
+                  <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
+                  </svg>
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-lg font-semibold text-green-800 dark:text-green-200 mb-2">Execution Successful</h3>
+                  <pre className="text-green-700 dark:text-green-300 text-sm whitespace-pre-wrap bg-green-100 dark:bg-green-900/40 p-3 rounded border">{executionResult}</pre>
+                </div>
+              </div>
+            </div>
+          )}
           {/* Generated SQL Script Display */}
           {generatedSQL && (
             <div className="bg-gray-900 rounded-lg shadow-lg p-6 text-green-400">
               <div className="flex justify-between items-center mb-4">
-                <h2 className="text-2xl font-semibold text-white">Generated SQL Script</h2>
-                <button
-                  onClick={() => navigator.clipboard.writeText(generatedSQL)}
-                  className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg font-semibold transition-colors"
-                >
-                  Copy to Clipboard
-                </button>
+                <h2 className="text-2xl font-semibold text-white">
+                  Generated SQL Script
+                  {isEditingSQL && <span className="text-yellow-400 text-lg ml-2">(Editing)</span>}
+                </h2>
+                <div className="flex space-x-3">
+                  {!isEditingSQL ? (
+                    <>
+                      <button
+                        onClick={handleEditSQL}
+                        className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-semibold transition-colors flex items-center space-x-2"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                        </svg>
+                        <span>Edit</span>
+                      </button>
+                      <button
+                        onClick={() => navigator.clipboard.writeText(generatedSQL)}
+                        className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg font-semibold transition-colors"
+                      >
+                        Copy to Clipboard
+                      </button>
+                      <button
+                        onClick={executeSQL}
+                        disabled={isExecuting}
+                        className="bg-green-600 hover:bg-green-700 disabled:bg-green-400 disabled:cursor-not-allowed text-white px-4 py-2 rounded-lg font-semibold transition-colors"
+                      >
+                        {isExecuting ? "Executing..." : "Execute SQL"}
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <button
+                        onClick={handleCancelEdit}
+                        className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg font-semibold transition-colors"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={handleSaveSQL}
+                        className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-semibold transition-colors"
+                      >
+                        Save Changes
+                      </button>
+                    </>
+                  )}
+                </div>
               </div>
               <div className="bg-black rounded-lg p-4 overflow-x-auto">
-                <pre className="text-sm font-mono whitespace-pre-wrap">{generatedSQL}</pre>
-              </div>
-              <div className="mt-4 text-sm text-gray-300">
-                <p>📝 Script includes 2 questions per module for the selected domain</p>
-                <p>🔗 Questions are automatically linked to the quiz</p>
-                <p>📊 Quiz question count is updated automatically</p>
+                {!isEditingSQL ? (
+                  <pre className="text-sm font-mono whitespace-pre-wrap">{generatedSQL}</pre>
+                ) : (
+                  <textarea
+                    value={editableSQL}
+                    onChange={(e) => setEditableSQL(e.target.value)}
+                    className="w-full h-96 bg-black text-green-400 font-mono text-sm p-4 rounded-lg border border-gray-600 focus:border-blue-500 focus:outline-none resize-none"
+                    placeholder="Edit your SQL script here..."
+                  />
+                )}
               </div>
             </div>
           )}
