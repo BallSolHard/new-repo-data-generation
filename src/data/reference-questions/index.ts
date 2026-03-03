@@ -23,7 +23,11 @@ export function getReferencesForDomain(
   questionType?: QuestionType,
   difficulty?: Difficulty
 ): ReferenceQuestion[] {
-  let questions = getReferencesForCert(certCode).filter(q => q.domainId === domainId);
+  // If domainId is empty, return all questions for the cert (fallback for missing domain)
+  let questions = getReferencesForCert(certCode);
+  if (domainId) {
+    questions = questions.filter(q => q.domainId === domainId);
+  }
 
   if (questionType) {
     questions = questions.filter(q => q.type === questionType);

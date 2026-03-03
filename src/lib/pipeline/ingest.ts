@@ -3,10 +3,10 @@ import type { ReferenceQuestion } from '@/lib/types/reference-question';
 import type { ModuleInput } from '@/lib/types/generation';
 import type { CertTier, GenMode } from '@/lib/types/tier';
 import { getCurrentGuide, resolveGuideFromCertName } from '@/data/exam-guides';
-import { selectFewShotExamples } from '@/data/reference-questions';
 import { selectFewShotExamplesV2 } from '@/data/reference-questions/db-backed';
 import type { QuestionType } from '@/lib/types/exam-guide';
 import type { Difficulty } from '@/lib/types/reference-question';
+import { fetchSerperContext } from '@/lib/serper';
 
 export interface IngestResult {
   examGuide: ExamGuide | undefined;
@@ -15,6 +15,8 @@ export interface IngestResult {
   examGuideVersion: string;
   certTier?: CertTier;
   genMode?: GenMode;
+  /** aggregated text returned by Serper searches for topic/modules */
+  serperContext?: string;
 }
 
 /**
@@ -61,24 +63,24 @@ export async function ingest(params: {
     console.warn(`[ingest] Could not match topic "${topicName}" to any domain in ${examGuide.certificationCode}`);
   }
 
-  // Select few-shot examples — v2 uses DB-backed selection with mode safety
-  const domainId = domainContext?.id || 'domain-1';
-  let fewShotExamples: ReferenceQuestion[];
+  // Select few-shot examples using db-backed selection
+  // If no domain context, use all available reference questions (pass empty string to match all)
+  const domainId = domainContext?.id || '';
+  const fewShotExamples = await selectFewShotExamplesV2(
+    examGuide.certificationCode,
+    domainId,
+    { certTier, genMode, questionType, count: 3 }
+  );
 
-  if (certTier || genMode) {
-    fewShotExamples = await selectFewShotExamplesV2(
-      examGuide.certificationCode,
-      domainId,
-      { certTier, genMode, questionType, count: 3 }
-    );
-  } else {
-    fewShotExamples = selectFewShotExamples(
-      examGuide.certificationCode,
-      domainId,
-      questionType,
-      complexityLevel,
-      3
-    );
+  // Fetch Serper context based on topic and modules
+  let serperContext: string | undefined;
+  try {
+    const moduleNames = params.modules.map(m => m.module_name).join(', ');
+    // combine topic and module names into a single query; serper will return
+    // whichever information it thinks is relevant
+    serperContext = await fetchSerperContext(`${topicName}${moduleNames ? `, ${moduleNames}` : ''}`);
+  } catch (e) {
+    console.error('[ingest] Failed to fetch Serper context:', e);
   }
 
   return {
@@ -88,6 +90,7 @@ export async function ingest(params: {
     examGuideVersion: examGuide.version,
     certTier,
     genMode,
+    serperContext,
   };
 }
 

@@ -1,11 +1,11 @@
-// V2 validation prompt builder — "Red Team" adversarial validator with tier compliance
+// Validation prompt builder — "Red Team" adversarial validator with tier compliance
 
 import type { GeneratedQuestion } from '@/lib/types/generation';
 import type { ExamDomain, ExamTask } from '@/lib/types/exam-guide';
 import type { CertTier } from '@/lib/types/tier';
 import { getTierProfile } from './tier-profiles';
 
-export interface V2ValidationPromptParams {
+export interface ValidationPromptParams {
   question: GeneratedQuestion;
   certificationName: string;
   certTier: CertTier;
@@ -14,11 +14,11 @@ export interface V2ValidationPromptParams {
 }
 
 /**
- * V2 validation response extends the standard response with tier compliance metadata.
+ * Validation response extends the standard response with tier compliance metadata.
  * IMPORTANT: tier_compliance is used internally by validate.ts for pass/fail decisions
  * and MUST be stripped before passing questions downstream.
  */
-export interface V2ValidationResponse {
+export interface ValidationResponse {
   is_correct: boolean;
   correct_answer_index: string | number[] | { left: number[]; right: number[] };
   confidence: 'high' | 'medium' | 'low';
@@ -32,21 +32,21 @@ export interface V2ValidationResponse {
   };
 }
 
-export function createV2ValidationPrompt(params: V2ValidationPromptParams): string {
+export function createValidationPrompt(params: ValidationPromptParams): string {
   const { question, certificationName, certTier, domainContext, targetTask } = params;
   const tierProfile = getTierProfile(certTier);
 
   const servicesContext = domainContext
-    ? `\nIN-SCOPE SERVICES: ${domainContext.inScopeServices.map(s => s.name).join(', ')}`
+    ? `\nIN-SCOPE SERVICES: ${domainContext.inScopeServices.map((s: any) => s.name).join(', ')}`
     : '';
 
   // Collect anti-patterns from domain or targeted task
   const antiPatterns = targetTask?.antiPatterns
-    || domainContext?.tasks.flatMap(t => t.antiPatterns || [])
+    || domainContext?.tasks.flatMap((t: any) => t.antiPatterns || [])
     || [];
 
   const antiPatternSection = antiPatterns.length > 0
-    ? `\nKNOWN ANTI-PATTERNS FOR THIS DOMAIN:\n${antiPatterns.map(ap => `- [${ap.id}] ${ap.misconception}: ${ap.whyWrong}`).join('\n')}`
+    ? `\nKNOWN ANTI-PATTERNS FOR THIS DOMAIN:\n${antiPatterns.map((ap: any) => `- [${ap.id}] ${ap.misconception}: ${ap.whyWrong}`).join('\n')}`
     : '';
 
   const typeSpecific = getTypeSpecificValidation(question);

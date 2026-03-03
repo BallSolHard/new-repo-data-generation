@@ -182,6 +182,10 @@ export default function Home() {
   const [generatedSQL, setGeneratedSQL] = useState<string>("");
   const [generatedQuestions, setGeneratedQuestions] = useState<any[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
+  // per-module difficulty counts (distribution)
+  const [easyCount, setEasyCount] = useState(1);
+  const [mediumCount, setMediumCount] = useState(1);
+  const [hardCount, setHardCount] = useState(1);
 
   // Fetch certifications from API on component mount
   useEffect(() => {
@@ -206,7 +210,7 @@ export default function Home() {
 
     fetchCertifications();
   }, []);
-
+  console.log("Modules are ", modules);
   // Fetch domains when certification is selected
   useEffect(() => {
     const fetchDomains = async () => {
@@ -403,20 +407,26 @@ export default function Home() {
       const selectedDomainData = domains.find(d => d.topic_name === selectedDomain);
       const quizId = quizzes.length > 0 ? quizzes[0].id : `quiz_domain${selectedDomainData?.topic_id}_generated`;
 
-      const payload = {
+      const payload: any = {
         certification_id: selectedCertData?.id,
         certification_name: selectedCertification,
         topic_id: selectedDomainData?.topic_id,
         topic_name: selectedDomain,
         topic_description: selectedDomainData?.topic_description || `${selectedDomain} domain knowledge and best practices`,
         quiz_id: quizId,
-        modules: modules.length > 0 ? modules : getCurrentModules().map((name, index) => ({
-          module_id: `fallback_${index + 1}`,
-          module_name: name,
-          module_description: `Knowledge and skills related to ${name}`,
-          module_content: `Core concepts and practical applications of ${name} in ${selectedDomain}`
-        }))
+        modules: modules
       };
+
+      // include difficulty distribution if any of the counts are non-zero
+      const distribution: Record<string, number> = {};
+      if (easyCount > 0) distribution.easy = easyCount;
+      if (mediumCount > 0) distribution.intermediate = mediumCount;
+      if (hardCount > 0) distribution.hard = hardCount;
+      if (Object.keys(distribution).length > 0) {
+        // also send questionsPerModule as total, route will compute itself
+        payload.questionsPerModule = Object.values(distribution).reduce((s, v) => s + v, 0);
+        payload.complexityLevelDistribution = distribution;
+      }
 
       const response = await fetch('/api/generate-hub', {
         method: 'POST',
@@ -655,6 +665,46 @@ export default function Home() {
                 ) : (
                   <p><span className="font-semibold">Quiz ID:</span> <span className="text-gray-300">No quiz available</span></p>
                 )}
+
+                {/* Difficulty distribution inputs (hub only) */}
+                {activeTab === "hub" && (
+                  <div className="mt-4">
+                    <p className="font-semibold mb-2">Questions per module by difficulty</p>
+                    <div className="flex space-x-4">
+                      <div className="flex flex-col">
+                        <label className="text-sm">Easy</label>
+                        <input
+                          type="number"
+                          min={0}
+                          value={easyCount}
+                          onChange={e => setEasyCount(Math.max(0, parseInt(e.target.value) || 0))}
+                          className="w-20 px-2 py-1 border rounded"
+                        />
+                      </div>
+                      <div className="flex flex-col">
+                        <label className="text-sm">Medium</label>
+                        <input
+                          type="number"
+                          min={0}
+                          value={mediumCount}
+                          onChange={e => setMediumCount(Math.max(0, parseInt(e.target.value) || 0))}
+                          className="w-20 px-2 py-1 border rounded"
+                        />
+                      </div>
+                      <div className="flex flex-col">
+                        <label className="text-sm">Hard</label>
+                        <input
+                          type="number"
+                          min={0}
+                          value={hardCount}
+                          onChange={e => setHardCount(Math.max(0, parseInt(e.target.value) || 0))}
+                          className="w-20 px-2 py-1 border rounded"
+                        />
+                      </div>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1">Leave values at 0 if you don't need that difficulty.</p>
+                  </div>
+                )}
               </div>
               <button 
                 className="mt-4 bg-white text-purple-600 px-6 py-2 rounded-lg font-semibold hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
@@ -681,11 +731,18 @@ export default function Home() {
                           <span className="text-sm font-semibold text-blue-600 bg-blue-50 px-3 py-1 rounded-full">
                             Question {index + 1}
                           </span>
-                          {question.type && (
-                            <span className="text-xs font-medium text-purple-600 bg-purple-50 px-3 py-1 rounded-full">
-                              {question.type.toUpperCase()}
-                            </span>
-                          )}
+                          <div className="flex space-x-2">
+                            {question.type && (
+                              <span className="text-xs font-medium text-purple-600 bg-purple-50 px-3 py-1 rounded-full">
+                                {question.type.toUpperCase()}
+                              </span>
+                            )}
+                            {question.difficulty && (
+                              <span className="text-xs font-medium text-green-600 bg-green-50 px-3 py-1 rounded-full">
+                                {question.difficulty.charAt(0).toUpperCase() + question.difficulty.slice(1)}
+                              </span>
+                            )}
+                          </div>
                         </div>
 
                         {/* Question Text */}

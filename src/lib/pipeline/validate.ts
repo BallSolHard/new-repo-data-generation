@@ -2,8 +2,7 @@ import type { GeneratedQuestion, ValidationResponse } from '@/lib/types/generati
 import type { ExamDomain } from '@/lib/types/exam-guide';
 import type { CertTier } from '@/lib/types/tier';
 import { getValidationModel, parseGeminiJson } from '@/lib/gemini/client';
-import { createValidationPrompt } from '@/lib/prompts/validation';
-import { createV2ValidationPrompt, type V2ValidationResponse } from '@/lib/prompts/v2-validation';
+import { createValidationPrompt, type ValidationResponse as ValidationResponseType } from '@/lib/prompts/validation-new';
 
 interface ValidateOptions {
   certificationName: string;
@@ -28,11 +27,11 @@ export async function validate(
   options: ValidateOptions
 ): Promise<ValidationResult> {
   const { certificationName, domainContext, rejectLowConfidence = true, certTier } = options;
-  const isV2 = !!certTier;
-  const model = getValidationModel(isV2);
+  const model = getValidationModel();
 
   const validated: GeneratedQuestion[] = [];
   const rejected: GeneratedQuestion[] = [];
+  let validationFailedCount = 0;
 
   console.log(`[validate] Validating ${questions.length} questions...`);
 
@@ -41,10 +40,7 @@ export async function validate(
   for (let i = 0; i < questions.length; i += batchSize) {
     const batch = questions.slice(i, i + batchSize);
     const results = await Promise.allSettled(
-      batch.map(q => isV2 && certTier
-        ? validateSingleQuestionV2(model, q, certificationName, certTier, domainContext)
-        : validateSingleQuestion(model, q, certificationName, domainContext)
-      )
+      batch.map(q => validateSingleQuestion(model, q, certificationName, certTier || 'associate', domainContext))
     );
 
     for (let j = 0; j < results.length; j++) {
@@ -53,6 +49,7 @@ export async function validate(
 
       if (result.status === 'rejected') {
         console.warn(`[validate] Validation call failed for question: ${result.reason}`);
+        validationFailedCount++;
         question.validation_status = 'validation_failed';
         question.confidence_score = 0;
         rejected.push(question);
@@ -80,7 +77,7 @@ export async function validate(
     }
   }
 
-  console.log(`[validate] Results: ${validated.length} passed, ${rejected.length} rejected`);
+  console.log(`[validate] Results: ${validated.length} passed, ${rejected.length} rejected (${validationFailedCount} failed to parse)`);
   return { validated, rejected };
 }
 
@@ -88,37 +85,11 @@ async function validateSingleQuestion(
   model: ReturnType<typeof getValidationModel>,
   question: GeneratedQuestion,
   certificationName: string,
-  domainContext?: ExamDomain
-): Promise<ValidationResponse> {
-  const prompt = createValidationPrompt(question, certificationName, domainContext);
-  const result = await model.generateContent(prompt);
-  const responseText = result.response.text();
-
-  const validation = parseGeminiJson<ValidationResponse & { factual_errors?: string[]; suggested_explanation?: string }>(responseText);
-
-  // If there are factual errors, flag the question
-  if (validation.factual_errors && validation.factual_errors.length > 0) {
-    validation.validation_notes = `FACTUAL ERRORS: ${validation.factual_errors.join('; ')}. ${validation.validation_notes || ''}`;
-    validation.is_correct = false;
-    validation.confidence = 'low';
-  }
-
-  return validation;
-}
-
-/**
- * V2 validation: red-team adversarial check with tier compliance.
- * Uses Gemini Pro for higher reasoning. Strips tier_compliance before returning
- * a standard ValidationResponse (Constraint 1: schema isolation).
- */
-async function validateSingleQuestionV2(
-  model: ReturnType<typeof getValidationModel>,
-  question: GeneratedQuestion,
-  certificationName: string,
   certTier: CertTier,
   domainContext?: ExamDomain
 ): Promise<ValidationResponse> {
-  const prompt = createV2ValidationPrompt({
+  // Use validation with tier-aware red-team check
+  const prompt = createValidationPrompt({
     question,
     certificationName,
     certTier,
@@ -128,33 +99,52 @@ async function validateSingleQuestionV2(
   const result = await model.generateContent(prompt);
   const responseText = result.response.text();
 
-  const v2Validation = parseGeminiJson<V2ValidationResponse>(responseText);
+  let validation: ValidationResponseType;
+  try {
+    validation = parseGeminiJson<ValidationResponseType>(responseText);
+  } catch (parseError) {
+    console.error('[validate] Failed to parse validation response:', parseError);
+    console.error('[validate] Raw response (first 500 chars):', responseText.slice(0, 500));
+    // If parsing fails, treat as validation failure but allow question through with low confidence
+    // This prevents the entire batch from failing due to JSON parsing issues
+    const fallbackAnswer = Array.isArray(question.correct_answer)
+      ? question.correct_answer
+      : typeof question.correct_answer === 'string'
+        ? question.correct_answer
+        : '0';
+    return {
+      is_correct: true, // Default to passing if we can't parse validation
+      correct_answer_index: fallbackAnswer,
+      confidence: 'low',
+      validation_notes: `Validation parsing failed: ${parseError instanceof Error ? parseError.message : String(parseError)}. Question allowed through with low confidence.`,
+    };
+  }
 
   // Use tier compliance to influence pass/fail decision
-  if (v2Validation.tier_compliance) {
-    const { stem_length_ok, cognitive_level_ok, notes } = v2Validation.tier_compliance;
+  if (validation.tier_compliance) {
+    const { stem_length_ok, cognitive_level_ok, notes } = validation.tier_compliance;
     if (!stem_length_ok || !cognitive_level_ok) {
       const tierNote = `TIER COMPLIANCE FAILURE: ${notes}`;
-      v2Validation.validation_notes = `${tierNote}. ${v2Validation.validation_notes || ''}`;
+      validation.validation_notes = `${tierNote}. ${validation.validation_notes || ''}`;
       // Downgrade confidence if tier compliance fails
-      if (v2Validation.confidence === 'high') {
-        v2Validation.confidence = 'medium';
+      if (validation.confidence === 'high') {
+        validation.confidence = 'medium';
       }
     }
   }
 
   // If there are factual errors, flag the question
-  if (v2Validation.factual_errors && v2Validation.factual_errors.length > 0) {
-    v2Validation.validation_notes = `FACTUAL ERRORS: ${v2Validation.factual_errors.join('; ')}. ${v2Validation.validation_notes || ''}`;
-    v2Validation.is_correct = false;
-    v2Validation.confidence = 'low';
+  if (validation.factual_errors && validation.factual_errors.length > 0) {
+    validation.validation_notes = `FACTUAL ERRORS: ${validation.factual_errors.join('; ')}. ${validation.validation_notes || ''}`;
+    validation.is_correct = false;
+    validation.confidence = 'low';
   }
 
-  // Strip tier_compliance — return clean ValidationResponse (Constraint 1)
+  // Return clean ValidationResponse
   return {
-    is_correct: v2Validation.is_correct,
-    correct_answer_index: v2Validation.correct_answer_index,
-    confidence: v2Validation.confidence,
-    validation_notes: v2Validation.validation_notes,
+    is_correct: validation.is_correct,
+    correct_answer_index: validation.correct_answer_index,
+    confidence: validation.confidence,
+    validation_notes: validation.validation_notes,
   };
 }

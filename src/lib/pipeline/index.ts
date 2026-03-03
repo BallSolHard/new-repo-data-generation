@@ -1,4 +1,5 @@
 import type { PipelineParams, PipelineResult, QuestionGenerationParams, GeneratedQuestion } from '@/lib/types/generation';
+import type { Difficulty } from '@/lib/types/reference-question';
 import { ingest } from './ingest';
 import { generate } from './generate';
 import { validate } from './validate';
@@ -22,7 +23,7 @@ export async function runGenerationPipeline(params: PipelineParams): Promise<Pip
   console.log(`[pipeline] Starting generation for ${params.certificationName}, topic: ${params.topicName}`);
 
   // ─── Step 1: Ingest ───
-  const { examGuide, domainContext, fewShotExamples, examGuideVersion, certTier, genMode } = await ingest({
+  const { examGuide, domainContext, fewShotExamples, examGuideVersion, certTier, genMode, serperContext } = await ingest({
     certificationName: params.certificationName,
     certificationCode: params.certificationCode,
     topicName: params.topicName,
@@ -38,27 +39,68 @@ export async function runGenerationPipeline(params: PipelineParams): Promise<Pip
   // ─── Step 2: Generate ───
   const questionTypes = params.questionTypes || (params.questionType ? [params.questionType] : ['mcq']);
   let questionsPerModule = params.questionsPerModule || 2;
-  // ensure at least 10 per module
-  const minPerModule = 2;
+  // ensure at least 1 per module
+  const minPerModule = 1;
   questionsPerModule = Math.max(questionsPerModule, minPerModule);
-  const generationParams: QuestionGenerationParams = {
-    modules: params.modules,
-    topicName: params.topicName,
-    topicDescription: params.topicDescription,
-    certificationName: params.certificationName,
-    questionsPerModule,
-    questionTypes,
-    questionType: params.questionType,
-    complexityLevel: params.complexityLevel || 'intermediate',
-    examGuide,
-    domainContext,
-    fewShotExamples,
-    examGuideVersion,
-    certTier,
-    genMode,
-  };
 
-  const rawQuestions = await generate(generationParams);
+  // Determine if a difficulty distribution was requested.
+  const distribution = params.complexityLevelDistribution;
+  let rawQuestions: GeneratedQuestion[] = [];
+  let targetCount = 0;
+
+  if (distribution && Object.keys(distribution).length > 0) {
+    // iterate through each difficulty level and generate the requested number
+    for (const level of ['easy', 'intermediate', 'hard'] as Difficulty[]) {
+      const count = distribution[level as Difficulty] || 0;
+      if (count <= 0) continue;
+      console.log(`[pipeline] Generating for difficulty="${level}": ${params.modules.length} modules × ${count} questions = ${params.modules.length * count} total`);
+      const subParams: QuestionGenerationParams = {
+        modules: params.modules,
+        topicName: params.topicName,
+        topicDescription: params.topicDescription,
+        certificationName: params.certificationName,
+        questionsPerModule: Math.max(count, minPerModule),
+        questionTypes,
+        questionType: params.questionType,
+        complexityLevel: level,
+        serperContext,
+        examGuide,
+        domainContext,
+        fewShotExamples,
+        examGuideVersion,
+        certTier,
+        genMode,
+      };
+      const batch = await generate(subParams);
+      // tag each question with the difficulty that was requested so the UI
+      // can display it later
+      rawQuestions = rawQuestions.concat(batch.map(q => ({ ...q, difficulty: level })));
+      targetCount += params.modules.length * count;
+    }
+  } else {
+    const generationParams: QuestionGenerationParams = {
+      modules: params.modules,
+      topicName: params.topicName,
+      topicDescription: params.topicDescription,
+      certificationName: params.certificationName,
+      questionsPerModule,
+      questionTypes,
+      questionType: params.questionType,
+      complexityLevel: params.complexityLevel || 'intermediate',
+      serperContext,
+      examGuide,
+      domainContext,
+      fewShotExamples,
+      examGuideVersion,
+      certTier,
+      genMode,
+    };
+    rawQuestions = (await generate(generationParams)).map(q => ({
+      ...q,
+      difficulty: generationParams.complexityLevel,
+    }));
+    targetCount = params.modules.length * questionsPerModule;
+  }
 
   // ─── deduplicate against previously generated questions (hash file) ───
   const hashFile = path.join(process.cwd(), 'generated_hashes.txt');
@@ -69,12 +111,6 @@ export async function runGenerationPipeline(params: PipelineParams): Promise<Pip
   } catch (err) {
     // file may not exist yet, that's fine
   }
-
-  const targetCount = params.modules.length * questionsPerModule;
-  let accumulated: typeof rawQuestions = [];
-  let remaining = targetCount;
-  let attempts = 0;
-  const maxAttempts = 5;
 
   // helper to filter new questions
   const filterNew = (batch: GeneratedQuestion[]) => {
@@ -89,14 +125,38 @@ export async function runGenerationPipeline(params: PipelineParams): Promise<Pip
     return unique;
   };
 
-  accumulated = filterNew(rawQuestions);
-  remaining = targetCount - accumulated.length;
+  let accumulated: typeof rawQuestions = filterNew(rawQuestions);
+  let remaining = targetCount - accumulated.length;
+  let attempts = 0;
+  const maxAttempts = 5;
 
-  // if we didn't get enough, run additional rounds
+  if (remaining > 0) {
+    console.log(`[pipeline] After deduplication: ${accumulated.length}/${targetCount} questions remain (${targetCount - accumulated.length} duplicates removed)`);
+  }
+
+  // if we didn't get enough, run additional rounds (single pass, not per-difficulty)
   while (remaining > 0 && attempts < maxAttempts) {
     attempts++;
     console.log(`[pipeline] only generated ${accumulated.length}/${targetCount}, regenerating ${remaining} more`);
-    const extraParams = { ...generationParams, questionsPerModule: Math.ceil(remaining / params.modules.length) };
+    // simply use the original parameters; if distribution was used, there is not
+    // a clean way to recalc per-difficulty remaining so we just request a
+    // roughly equivalent number of questions.
+    const extraParams: QuestionGenerationParams = {
+      modules: params.modules,
+      topicName: params.topicName,
+      topicDescription: params.topicDescription,
+      certificationName: params.certificationName,
+      questionsPerModule: Math.ceil(remaining / params.modules.length),
+      questionTypes,
+      questionType: params.questionType,
+      complexityLevel: params.complexityLevel || 'intermediate',
+      examGuide,
+      domainContext,
+      fewShotExamples,
+      examGuideVersion,
+      certTier,
+      genMode,
+    };
     const extra = await generate(extraParams);
     const deduped = filterNew(extra);
     accumulated = accumulated.concat(deduped);
@@ -135,6 +195,7 @@ export async function runGenerationPipeline(params: PipelineParams): Promise<Pip
     generationTimestamp,
     validatedCount: finalQuestions.length,
     rejectedCount,
+    startIndexByModule: params.startIndexByModule,
   });
 
   console.log(`[pipeline] Complete. ${finalQuestions.length} questions generated, ${rejectedCount} rejected.`);

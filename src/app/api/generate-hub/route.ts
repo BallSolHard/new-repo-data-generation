@@ -5,6 +5,7 @@ import type { PipelineParams } from '@/lib/types/generation';
 import type { QuestionType } from '@/lib/types/exam-guide';
 import type { Difficulty } from '@/lib/types/reference-question';
 import type { CertTier, GenMode } from '@/lib/types/tier';
+import { getSupabaseClient } from '../config';
 
 export async function POST(request: NextRequest) {
   try {
@@ -21,11 +22,12 @@ export async function POST(request: NextRequest) {
       questionType = 'mcq',
       questionTypes,
       complexityLevel = 'intermediate',
-      questionsPerModule = 2,
+      questionsPerModule = 10,
       enableValidation = true,
       storeInBank = false,
       certTier,
       genMode = 'drill',
+      complexityLevelDistribution,
     } = body;
 
     // Validate required parameters
@@ -51,8 +53,50 @@ export async function POST(request: NextRequest) {
     }
 
     // enforce minimum questions per module
-    const minPerModule = 2;
+    const minPerModule = 1;
     let qpm = Math.max(questionsPerModule, minPerModule);
+
+    // if a distribution is provided, ensure each entry is at least 1 and compute the
+    // sum for logging/validation. We still send `questionsPerModule` as the total
+    // so the pipeline can fall back if distribution is ignored.
+    const distribution = complexityLevelDistribution as Record<string, number> | undefined;
+    if (distribution && Object.keys(distribution).length > 0) {
+      for (const [level, count] of Object.entries(distribution)) {
+        if (typeof count !== 'number' || count < 1) {
+          return NextResponse.json({ error: `Invalid count for difficulty ${level}` }, { status: 400 });
+        }
+      }
+      const total = Object.values(distribution).reduce((s, v) => s + v, 0);
+      qpm = Math.max(total, minPerModule);
+    }
+
+    // ── Fetch last question index per module so new IDs continue correctly ──
+    const moduleIds: string[] = modules.map((m: any) => String(m.module_id));
+    const startIndexByModule: Record<string, number> = {};
+    try {
+      const supabase = await getSupabaseClient();
+      const topicIdStr = String(topic_id);
+      for (const moduleId of moduleIds) {
+        // IDs are in the format q_<topicId>_m_<moduleId>_<n>
+        const prefix = `q_${topicIdStr}_m_${moduleId}_`;
+        const { data } = await supabase
+          .from('question')
+          .select('id')
+          .like('id', `${prefix}%`)
+          .order('id', { ascending: false })
+          .limit(1);
+        if (data && data.length > 0) {
+          const lastId: string = data[0].id as string;
+          const parts = lastId.split('_');
+          const lastIndex = parseInt(parts[parts.length - 1], 10);
+          if (!isNaN(lastIndex)) {
+            startIndexByModule[moduleId] = lastIndex;
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('[generate-hub] Could not fetch last question index, starting from 1:', err);
+    }
 
     const pipelineParams: PipelineParams = {
       certificationCode: certification_code || '',
@@ -72,9 +116,11 @@ export async function POST(request: NextRequest) {
       questionTypes: questionTypes || [questionType],
       complexityLevel: complexityLevel as Difficulty,
       questionsPerModule: qpm,
+      complexityLevelDistribution: distribution,
       enableValidation,
       certTier: certTier as CertTier | undefined,
       genMode: genMode as GenMode | undefined,
+      startIndexByModule,
     };
 
     const result = await runGenerationPipeline(pipelineParams);

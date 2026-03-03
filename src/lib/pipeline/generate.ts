@@ -1,7 +1,6 @@
 import type { GeneratedQuestion, QuestionGenerationParams } from '@/lib/types/generation';
 import { getGenerationModel, parseGeminiJson } from '@/lib/gemini/client';
-import { createGenerationPrompt } from '@/lib/prompts/generation';
-import { createV2GenerationPrompt } from '@/lib/prompts/v2-generation';
+import { createGenerationPrompt } from '@/lib/prompts/generation-new';
 
 /**
  * Generate step: call Gemini to produce exam questions.
@@ -10,41 +9,22 @@ import { createV2GenerationPrompt } from '@/lib/prompts/v2-generation';
  * and few-shot examples, then parses the LLM's JSON response.
  */
 export async function generate(params: QuestionGenerationParams): Promise<GeneratedQuestion[]> {
-  const isV2 = !!params.certTier;
-  let prompt: string;
+  // Generate prompt using tier-aware, mode-specific approach
+  const prompt = createGenerationPrompt({
+    examGuide: params.examGuide!,
+    domainContext: params.domainContext!,
+    certTier: params.certTier || 'associate',
+    genMode: params.genMode || 'simulation',
+    modules: params.modules,
+    totalQuestions: params.modules.length * params.questionsPerModule,
+    questionTypes: params.questionTypes,
+    fewShotExamples: params.fewShotExamples,
+    serperContext: params.serperContext,
+  });
 
-  if (isV2 && params.examGuide && params.domainContext && params.certTier) {
-    // V2 path: tier-aware, mode-specific prompt
-    prompt = createV2GenerationPrompt({
-      examGuide: params.examGuide,
-      domainContext: params.domainContext,
-      certTier: params.certTier,
-      genMode: params.genMode || 'simulation',
-      modules: params.modules,
-      totalQuestions: params.modules.length * params.questionsPerModule,
-      questionTypes: params.questionTypes,
-      fewShotExamples: params.fewShotExamples,
-    });
-  } else {
-    // V1 path: existing behavior unchanged
-    prompt = createGenerationPrompt({
-      modules: params.modules,
-      topicName: params.topicName,
-      topicDescription: params.topicDescription,
-      certificationName: params.certificationName,
-      questionsPerModule: params.questionsPerModule,
-      questionTypes: params.questionTypes,
-      complexityLevel: params.complexityLevel || 'intermediate',
-      isProfessionalOrSpecialty: params.isProfessionalOrSpecialty,
-      examGuide: params.examGuide,
-      domainContext: params.domainContext,
-      fewShotExamples: params.fewShotExamples,
-    });
-  }
+  console.log(`[generate] Calling Gemini for ${params.modules.length} modules × ${params.questionsPerModule} questions`);
 
-  console.log(`[generate] Calling Gemini (${isV2 ? 'v2' : 'v1'}) for ${params.modules.length} modules × ${params.questionsPerModule} questions`);
-
-  const model = getGenerationModel(isV2);
+  const model = getGenerationModel();
   const result = await model.generateContent(prompt);
   const responseText = result.response.text();
 

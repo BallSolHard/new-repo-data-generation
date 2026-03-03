@@ -68,7 +68,7 @@ export async function selectFewShotExamplesV2(
 
 /**
  * Select in-code references that match the requested genMode.
- * Returns empty array if no mode-matching references exist (Constraint 2).
+ * Falls back to standard v1 selection if no mode-matching references exist.
  */
 function selectModeMatchingInCode(
   certCode: string,
@@ -85,14 +85,17 @@ function selectModeMatchingInCode(
     candidates = candidates.filter(q => !excludeIds.includes(q.id));
   }
 
-  // If genMode is specified, filter by matching mode (Constraint 2: mode safety)
+  // If genMode is specified, try to filter by matching mode
   if (genMode) {
     const modeMatched = candidates.filter(q => q.genMode === genMode);
     if (modeMatched.length > 0) {
       return modeMatched.slice(0, count);
     }
-    // No mode-matching in-code refs — return zero-shot rather than conflicting examples
-    return [];
+    // No mode-matching in-code refs — fall back to standard v1 selection (don't return empty)
+    console.warn(
+      `[selectModeMatchingInCode] No mode-matching refs for genMode='${genMode}', falling back to standard selection`
+    );
+    return selectFewShotExamples(certCode, domainId, questionType, undefined, count);
   }
 
   // No mode specified — use standard v1 selection
@@ -117,8 +120,12 @@ async function queryReferenceQuestionsFromDB(
   let query = supabase
     .from('reference_question')
     .select('*')
-    .eq('certification_code', certCode)
-    .eq('domain_id', domainId);
+    .eq('certification_code', certCode);
+
+  // Only filter by domain if domainId is provided
+  if (domainId) {
+    query = query.eq('domain_id', domainId);
+  }
 
   if (certTier) {
     query = query.eq('cert_tier', certTier);
@@ -132,6 +139,16 @@ async function queryReferenceQuestionsFromDB(
   const { data, error } = await query;
 
   if (error) {
+    // If the table simply doesn't exist yet, that's not fatal; return empty
+    // instead of spamming the log.  The warning earlier you saw comes from this
+    // branch.
+    if (error.message && error.message.includes('does not exist')) {
+      console.warn(
+        '[queryReferenceQuestionsFromDB] reference_question table missing, returning empty list'
+      );
+      return [];
+    }
+
     console.warn('[queryReferenceQuestionsFromDB] Query error:', error.message);
     return [];
   }

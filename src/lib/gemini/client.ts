@@ -2,32 +2,18 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 
-// ─── V1 Model Configs (default, unchanged) ───
+// ─── Generation Model Config ───
 
-const V1_GENERATION_CONFIG = {
-  temperature: 0.9,
-  topP: 0.8,
-  topK: 40,
-  maxOutputTokens: 16384, // Doubled to prevent truncation
-};
-
-const V1_VALIDATION_CONFIG = {
-  temperature: 0.3,
-  topP: 0.6,
-  topK: 20,
-  maxOutputTokens: 2048,
-};
-
-// ─── V2 Model Configs (tier-aware, lower temperature) ───
-
-const V2_GENERATION_CONFIG = {
+const GENERATION_CONFIG = {
   temperature: 0.45,
   topP: 0.8,
   topK: 40,
-  maxOutputTokens: 16384, // Doubled to prevent truncation
+  maxOutputTokens: 16384,
 };
 
-const V2_VALIDATION_CONFIG = {
+// ─── Validation Model Config ───
+
+const VALIDATION_CONFIG = {
   temperature: 0.15,
   topP: 0.6,
   topK: 20,
@@ -35,26 +21,22 @@ const V2_VALIDATION_CONFIG = {
 };
 
 /**
- * Generation model.
- * V1 (default): gemini-2.5-flash, temp 0.9 — high creativity for diverse output.
- * V2 (v2=true): gemini-2.5-flash, temp 0.45 — controlled creativity, fewer hallucinations.
+ * Generation model: gemini-2.5-flash with controlled creativity.
  */
-export function getGenerationModel(v2?: boolean) {
+export function getGenerationModel() {
   return genAI.getGenerativeModel({
     model: 'gemini-2.5-flash',
-    generationConfig: v2 ? V2_GENERATION_CONFIG : V1_GENERATION_CONFIG,
+    generationConfig: GENERATION_CONFIG,
   });
 }
 
 /**
- * Validation model.
- * V1 (default): gemini-2.5-flash, temp 0.3 — conservative factual checking.
- * V2 (v2=true): gemini-2.5-pro, temp 0.15 — higher reasoning, stricter fact-checking.
+ * Validation model: gemini-2.5-pro for higher reasoning and strict fact-checking.
  */
-export function getValidationModel(v2?: boolean) {
+export function getValidationModel() {
   return genAI.getGenerativeModel({
-    model: v2 ? 'gemini-2.5-pro' : 'gemini-2.5-flash',
-    generationConfig: v2 ? V2_VALIDATION_CONFIG : V1_VALIDATION_CONFIG,
+    model: 'gemini-2.5-pro',
+    generationConfig: VALIDATION_CONFIG,
   });
 }
 

@@ -11,7 +11,7 @@ import { getTierProfile, getModeProfile } from './tier-profiles';
 
 export interface V2GenerationPromptParams {
   examGuide: ExamGuide;
-  domainContext: ExamDomain;
+  domainContext?: ExamDomain;  // Optional — may be undefined if domain lookup fails
   targetTask?: ExamTask;        // for drill mode: narrow to one task
   certTier: CertTier;
   genMode: GenMode;
@@ -19,9 +19,10 @@ export interface V2GenerationPromptParams {
   totalQuestions: number;
   questionTypes: QuestionType[];
   fewShotExamples?: ReferenceQuestion[];
+  serperContext?: string;
 }
 
-export function createV2GenerationPrompt(params: V2GenerationPromptParams): string {
+export function createGenerationPrompt(params: V2GenerationPromptParams): string {
   const {
     examGuide,
     domainContext,
@@ -32,6 +33,7 @@ export function createV2GenerationPrompt(params: V2GenerationPromptParams): stri
     totalQuestions,
     questionTypes,
     fewShotExamples,
+    serperContext,
   } = params;
 
   const tierProfile = getTierProfile(certTier);
@@ -93,7 +95,12 @@ ${modeBlock}
 
 ${examGuideSection}
 
-${antiPatternInstructions}
+${serperContext ? `═══════════════════════════════════════════════════════
+EXTERNAL WEB/SEARCH CONTEXT — results from Serper API
+═══════════════════════════════════════════════════════
+${serperContext}
+
+` : ''}${antiPatternInstructions}
 
 ${fewShotSection}
 
@@ -148,10 +155,23 @@ ${mode.questionBehavior}
 
 function buildExamGuideSection(
   examGuide: ExamGuide,
-  domainContext: ExamDomain,
+  domainContext: ExamDomain | undefined,
   targetTask: ExamTask | undefined,
   genMode: GenMode,
 ): string {
+  // If no domain context, return minimal exam guide info
+  if (!domainContext) {
+    return `
+═══════════════════════════════════════════════════════
+EXAM GUIDE CONTEXT
+═══════════════════════════════════════════════════════
+Certification: ${examGuide.certificationName}
+Version: ${examGuide.version}
+
+NOTE: Domain context unavailable. Generate questions based on the modules and certification level provided.
+`;
+  }
+
   const tasks = genMode === 'drill' && targetTask
     ? [targetTask]
     : domainContext.tasks;
@@ -192,9 +212,11 @@ ${examGuide.outOfScopeTopics?.length ? `OUT-OF-SCOPE (do NOT ask about): ${examG
 }
 
 function buildAntiPatternInstructions(
-  domainContext: ExamDomain,
+  domainContext: ExamDomain | undefined,
   targetTask?: ExamTask,
 ): string {
+  if (!domainContext) return '';
+
   const tasks = targetTask ? [targetTask] : domainContext.tasks;
   const hasAntiPatterns = tasks.some(t => t.antiPatterns && t.antiPatterns.length > 0);
 

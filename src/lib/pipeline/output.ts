@@ -7,6 +7,8 @@ interface OutputParams {
   generationTimestamp: string;
   validatedCount: number;
   rejectedCount: number;
+  /** Per-module starting index so new IDs continue from the last existing question. Key = moduleId */
+  startIndexByModule?: Record<string, number>;
 }
 
 /**
@@ -19,7 +21,7 @@ export function buildSqlOutput(
   questions: GeneratedQuestion[],
   params: OutputParams
 ): string {
-  const { topicId, quizId, examGuideVersion, generationTimestamp, validatedCount, rejectedCount } = params;
+  const { topicId, quizId, examGuideVersion, generationTimestamp, validatedCount, rejectedCount, startIndexByModule = {} } = params;
 
   let sql = `-- ═══════════════════════════════════════════════════════\n`;
   sql += `-- Generated Hub Questions — AI Pipeline Output\n`;
@@ -47,14 +49,30 @@ export function buildSqlOutput(
     sql += `-- Module: ${moduleId}\n`;
     sql += `-- ─────────────────────────────────────────\n\n`;
 
+    // Continue from the last existing question index for this module
+    const moduleStartIndex = (startIndexByModule[moduleId] ?? 0) + 1;
+
     for (let i = 0; i < moduleQuestions.length; i++) {
       const q = moduleQuestions[i];
-      const questionId = `q_${topicId}_m_${moduleId}_${examGuideVersion}_${i + 1}`;
+      const moduleLocalIndex = moduleStartIndex + i;
+      // Format: q_<topicId>_m_<moduleId>_<index>
+      const questionId = `q_${topicId}_m_${moduleId}_${moduleLocalIndex}`;
 
       const escapedText = escapeSql(q.text);
       const escapedExplanation = escapeSql(q.explanation);
       const optionsJson = JSON.stringify(q.options);
-      const type = q.type || 'mcq';
+
+      // Auto-detect 'multiple' type when there are multiple correct answers
+      const isMultipleAnswer = Array.isArray(q.correct_answer) && q.correct_answer.length > 1;
+      const type = isMultipleAnswer ? 'multiple' : (q.type || 'mcq');
+
+      // Map difficulty to the DB column value (default to 'medium')
+      const difficultyMap: Record<string, string> = {
+        easy: 'easy',
+        intermediate: 'medium',
+        hard: 'hard',
+      };
+      const difficulty = difficultyMap[q.difficulty ?? ''] ?? 'medium';
 
       // Handle correct_answer format
       const correctAnswer = formatCorrectAnswer(q.correct_answer);
@@ -63,7 +81,7 @@ export function buildSqlOutput(
       const pairsVal = q.pairs ? `'${escapeSql(JSON.stringify(q.pairs))}'::json` : 'NULL';
       const matchesVal = q.matches ? `'${escapeSql(JSON.stringify(q.matches))}'::json` : 'NULL';
 
-      sql += `INSERT INTO public.question (id, text, type, options, correct_answer, explanation, created_at, quiz_id, modified_at, index, pairs, matches, module_id)\n`;
+      sql += `INSERT INTO public.question (id, text, type, options, correct_answer, explanation, created_at, quiz_id, modified_at, index, pairs, matches, module_id, difficulty)\n`;
       sql += `VALUES (\n`;
       sql += `  '${escapeSql(questionId)}',\n`;
       sql += `  '${escapedText}',\n`;
@@ -77,7 +95,8 @@ export function buildSqlOutput(
       sql += `  ${questionIndex},\n`;
       sql += `  ${pairsVal},\n`;
       sql += `  ${matchesVal},\n`;
-      sql += `  '${escapeSql(moduleId)}'\n`;
+      sql += `  '${escapeSql(moduleId)}',\n`;
+      sql += `  '${difficulty}'\n`;
       sql += `) ON CONFLICT (id) DO NOTHING;\n\n`;
 
       quizQuestionLinks.push(`(NOW(), '${escapeSql(quizId)}', '${escapeSql(questionId)}')`);

@@ -10,6 +10,7 @@ export interface GeneratedQuestion {
   correct_answer: string | number[] | null;
   explanation: string;
   type?: QuestionType;
+  difficulty?: Difficulty;
   module_id?: string;
   topic_id?: string;
   question_number?: number;
@@ -41,6 +42,11 @@ export interface QuestionGenerationParams {
   questionType?: QuestionType;
   complexityLevel?: Difficulty;
   isProfessionalOrSpecialty?: boolean;
+  /**
+   * Optional text gathered from an external web search (Serper API) that can
+   * be injected into the prompt to provide additional topic/module context.
+   */
+  serperContext?: string;
   // Exam guide context
   examGuide?: ExamGuide;
   domainContext?: ExamDomain;
@@ -91,9 +97,20 @@ export interface PipelineParams {
   questionTypes?: QuestionType[];
   complexityLevel?: Difficulty;
   questionsPerModule?: number;
+  /**
+   * Optional breakdown of how many questions to generate per module for
+   * each difficulty level. If provided the pipeline will perform separate
+   * generation passes for each key and merge the results. Keys should be
+   * one of the `Difficulty` values ('easy','intermediate','hard').
+   */
+  complexityLevelDistribution?: Partial<Record<Difficulty, number>>;
+  /** passed through from the client, but ultimately is filled by ingest */
+  serperContext?: string;
   enableValidation?: boolean;
+  /** Per-module last question index so new IDs continue from where the DB left off. Key = moduleId */
+  startIndexByModule?: Record<string, number>;
   // V2 tier/mode
-  certTier?: CertTier;
+  certTier?: CertTier; // foundational, associate, professional, specialty
   genMode?: GenMode;
 }
 

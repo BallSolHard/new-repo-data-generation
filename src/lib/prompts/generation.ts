@@ -16,6 +16,7 @@ interface GenerationPromptParams {
   examGuide?: ExamGuide;
   domainContext?: ExamDomain;
   fewShotExamples?: ReferenceQuestion[];
+  serperContext?: string;
 }
 
 export function createGenerationPrompt(params: GenerationPromptParams): string {
@@ -31,6 +32,7 @@ export function createGenerationPrompt(params: GenerationPromptParams): string {
     examGuide,
     domainContext,
     fewShotExamples,
+    serperContext,
   } = params;
 
   const totalQuestions = modules.length * questionsPerModule;
@@ -102,6 +104,12 @@ ${examGuide.outOfScopeTopics?.length ? `OUT-OF-SCOPE (do NOT ask about): ${examG
 ${examGuideSection}
 ${fewShotSection}
 
+${serperContext ? `═══════════════════════════════════════════════════════
+EXTERNAL WEB/SEARCH CONTEXT — results from Serper API
+═══════════════════════════════════════════════════════
+${serperContext}
+
+` : ''}
 TASK: Generate exactly ${totalQuestions} ${certificationName} exam questions as a valid JSON array.
 Generate ${questionsPerModule} question(s) per module.
 Question types to use: ${questionTypes.join(', ')}
