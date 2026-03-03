@@ -56,7 +56,7 @@ export function buildSqlOutput(
       const q = moduleQuestions[i];
       const moduleLocalIndex = moduleStartIndex + i;
       // Format: q_<topicId>_m_<moduleId>_<index>
-      const questionId = `q_${topicId}_m_${moduleId}_${moduleLocalIndex}`;
+      const questionId = `q_${topicId}_${moduleId}_${moduleLocalIndex}`;
 
       const escapedText = escapeSql(q.text);
       const escapedExplanation = escapeSql(q.explanation);

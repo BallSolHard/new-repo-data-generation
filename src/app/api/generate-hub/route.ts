@@ -72,30 +72,28 @@ export async function POST(request: NextRequest) {
 
     // ── Fetch last question index per module so new IDs continue correctly ──
     const moduleIds: string[] = modules.map((m: any) => String(m.module_id));
+    console.log(`[generate-hub] ${moduleIds}}`);
     const startIndexByModule: Record<string, number> = {};
     try {
       const supabase = await getSupabaseClient();
       const topicIdStr = String(topic_id);
       for (const moduleId of moduleIds) {
-        // IDs are in the format q_<topicId>_m_<moduleId>_<n>
-        const prefix = `q_${topicIdStr}_m_${moduleId}_`;
-        const { data } = await supabase
+        const prefix = `q_${topicIdStr}_${moduleId}_`;
+        console.log(`[generate-hub] Prefix ${prefix}`);
+        // Count all questions matching this prefix pattern
+        const { count } = await supabase
           .from('question')
-          .select('id')
-          .like('id', `${prefix}%`)
-          .order('id', { ascending: false })
-          .limit(1);
-        if (data && data.length > 0) {
-          const lastId: string = data[0].id as string;
-          const parts = lastId.split('_');
-          const lastIndex = parseInt(parts[parts.length - 1], 10);
-          if (!isNaN(lastIndex)) {
-            startIndexByModule[moduleId] = lastIndex;
-          }
+          .select('id', { count: 'exact' })
+          .like('id', `${prefix}%`);
+
+        if (count !== null && count > 0) {
+          // Next index should be count + 1
+          startIndexByModule[moduleId] = count;
         }
+        // If count is 0 or null, startIndexByModule[moduleId] is not set, defaulting to 0
       }
     } catch (err) {
-      console.warn('[generate-hub] Could not fetch last question index, starting from 1:', err);
+      console.warn('[generate-hub] Could not fetch question count, starting from 0:', err);
     }
 
     const pipelineParams: PipelineParams = {
