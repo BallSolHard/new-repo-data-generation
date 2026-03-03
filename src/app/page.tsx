@@ -45,124 +45,7 @@ type QuizData = {
   is_completed: boolean;
 };
 
-// Sample data structure for certifications (fallback)
-type CertificationData = {
-  [certName: string]: {
-    domains: {
-      [domainName: string]: {
-        modules: string[];
-      };
-    };
-  };
-};
 
-const fallbackCertificationData: CertificationData = {
-  "AWS Solutions Architect": {
-    domains: {
-      "Design Secure Architectures": {
-        modules: [
-          "Identity and Access Management",
-          "Network Security",
-          "Data Protection",
-          "Monitoring and Logging"
-        ]
-      },
-      "Design Resilient Architectures": {
-        modules: [
-          "Multi-tier Architecture",
-          "High Availability",
-          "Disaster Recovery",
-          "Scalability"
-        ]
-      },
-      "Design High-Performing Architectures": {
-        modules: [
-          "Compute Services",
-          "Storage Solutions",
-          "Database Services",
-          "Networking"
-        ]
-      },
-      "Design Cost-Optimized Architectures": {
-        modules: [
-          "Cost Management",
-          "Resource Optimization",
-          "Pricing Models",
-          "Monitoring Costs"
-        ]
-      }
-    }
-  },
-  "Azure Fundamentals": {
-    domains: {
-      "Cloud Concepts": {
-        modules: [
-          "Cloud Benefits",
-          "Cloud Service Types",
-          "Cloud Deployment Models"
-        ]
-      },
-      "Azure Services": {
-        modules: [
-          "Compute Services",
-          "Networking Services",
-          "Storage Services",
-          "Database Services"
-        ]
-      },
-      "Security and Compliance": {
-        modules: [
-          "Azure Security",
-          "Governance and Compliance",
-          "Privacy and Trust"
-        ]
-      },
-      "Pricing and Support": {
-        modules: [
-          "Azure Subscriptions",
-          "Planning and Management",
-          "Support Options"
-        ]
-      }
-    }
-  },
-  "Google Cloud Associate": {
-    domains: {
-      "Cloud Infrastructure": {
-        modules: [
-          "Compute Engine",
-          "Kubernetes Engine",
-          "App Engine",
-          "Cloud Functions"
-        ]
-      },
-      "Data Services": {
-        modules: [
-          "Cloud Storage",
-          "Cloud SQL",
-          "BigQuery",
-          "Datastore"
-        ]
-      },
-      "Networking": {
-        modules: [
-          "VPC Networks",
-          "Load Balancing",
-          "Cloud CDN",
-          "Cloud DNS"
-        ]
-      },
-      "Security and Identity": {
-        modules: [
-          "IAM",
-          "Cloud Security",
-          "Encryption",
-          "Monitoring"
-        ]
-      }
-    }
-  }
-};
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState<"hub" | "mock">("hub");
@@ -173,7 +56,6 @@ export default function Home() {
   const [domains, setDomains] = useState<DomainData[]>([]);
   const [modules, setModules] = useState<ModuleData[]>([]);
   const [quizzes, setQuizzes] = useState<QuizData[]>([]);
-  const [fallbackCertifications] = useState<CertificationData>(fallbackCertificationData);
   const [loading, setLoading] = useState(true);
   const [domainsLoading, setDomainsLoading] = useState(false);
   const [modulesLoading, setModulesLoading] = useState(false);
@@ -361,8 +243,7 @@ export default function Home() {
       return cert?.domains?.map(d => d.topic_name) || [];
     }
     
-    // Fallback to static data
-    return Object.keys(fallbackCertifications[selectedCertification as keyof typeof fallbackCertifications]?.domains || {});
+    return [];
   };
 
   const getCurrentModules = () => {
@@ -380,17 +261,11 @@ export default function Home() {
       return domain?.modules?.map(m => m.module_name) || [];
     }
     
-    // Fallback to static data
-    const cert = fallbackCertifications[selectedCertification as keyof typeof fallbackCertifications];
-    return cert?.domains[selectedDomain as keyof typeof cert.domains]?.modules || [];
+    return [];
   };
 
   const getCertificationsList = () => {
-    // Use API data if available, otherwise use fallback
-    if (certifications.length > 0) {
-      return certifications.map(cert => cert.title);
-    }
-    return Object.keys(fallbackCertifications);
+    return certifications.map(cert => cert.title);
   };
 
   const generateHubQuestions = async () => {

@@ -70,6 +70,7 @@ export async function validate(
 
       // Reject low-confidence or incorrect questions
       if (rejectLowConfidence && (validation.confidence === 'low' || !validation.is_correct)) {
+        console.log(`[validate] Rejecting question (Q${j + 1}): confidence=${validation.confidence}, is_correct=${validation.is_correct}, notes=${validation.validation_notes?.slice(0, 100)}`);
         rejected.push(question);
       } else {
         validated.push(question);
@@ -95,6 +96,8 @@ async function validateSingleQuestion(
     certTier,
     domainContext,
   });
+
+  //console.log(`[PROMPT TEMPLATE] Full validation prompt:\n${prompt}`);
 
   const result = await model.generateContent(prompt);
   const responseText = result.response.text();

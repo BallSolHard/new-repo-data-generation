@@ -21,7 +21,7 @@ export async function generate(params: QuestionGenerationParams): Promise<Genera
     fewShotExamples: params.fewShotExamples,
     serperContext: params.serperContext,
   });
-
+  console.log(`[generate] GENERATE PROMPT ${prompt}`)
   console.log(`[generate] Calling Gemini for ${params.modules.length} modules × ${params.questionsPerModule} questions`);
 
   const model = getGenerationModel();

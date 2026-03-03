@@ -76,9 +76,15 @@ export async function ingest(params: {
   let serperContext: string | undefined;
   try {
     const moduleNames = params.modules.map(m => m.module_name).join(', ');
+    const query = `${topicName}${moduleNames ? `, ${moduleNames}` : ''}`;
+    console.log(`[ingest] Fetching Serper context for query: "${query}"`);
     // combine topic and module names into a single query; serper will return
     // whichever information it thinks is relevant
-    serperContext = await fetchSerperContext(`${topicName}${moduleNames ? `, ${moduleNames}` : ''}`);
+    serperContext = await fetchSerperContext(query);
+    console.log(`[ingest] Serper context received: ${serperContext?.length || 0} characters`);
+    if (!serperContext) {
+      console.warn('[ingest] Warning: Serper returned empty context. Check SERPER_API_KEY or network.');
+    }
   } catch (e) {
     console.error('[ingest] Failed to fetch Serper context:', e);
   }
