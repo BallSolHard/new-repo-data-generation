@@ -10,18 +10,18 @@ import { createGenerationPrompt } from '@/lib/prompts/generation-new';
  */
 export async function generate(params: QuestionGenerationParams): Promise<GeneratedQuestion[]> {
   // Generate prompt using tier-aware, mode-specific approach
+  
   const prompt = createGenerationPrompt({
     examGuide: params.examGuide!,
     domainContext: params.domainContext!,
     certTier: params.certTier || 'associate',
-    genMode: params.genMode || 'simulation',
+    genMode: 'drill',
     modules: params.modules,
     totalQuestions: params.modules.length * params.questionsPerModule,
     questionTypes: params.questionTypes,
     fewShotExamples: params.fewShotExamples,
     serperContext: params.serperContext,
   });
-  console.log(`[generate] GENERATE PROMPT ${prompt}`)
   console.log(`[generate] Calling Gemini for ${params.modules.length} modules × ${params.questionsPerModule} questions`);
 
   const model = getGenerationModel();

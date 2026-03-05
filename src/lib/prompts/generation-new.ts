@@ -110,6 +110,59 @@ Question types to use: ${questionTypes.join(', ')}
 
 ${answerBiasRules}
 
+═══════════════════════════════════════════════════════
+QUESTION QUALITY STANDARDS (Certification Exam Level)
+═══════════════════════════════════════════════════════
+
+STEM LENGTH & WORD COUNT:
+- Must meet the Associate tier word count requirement (60-120 words for detailed context)
+- Use clear, concise business language
+- Provide sufficient context so the question tests understanding, not guesswork
+- Do NOT include technical jargon or service names in the stem
+- Do NOT describe the solution in the question
+
+COGNITIVE LEVEL (Application/Analysis - Not just Recall):
+- RECALL/COMPREHENSION (❌ too easy): Simple facts, definitions, "what is X"
+- APPLICATION (✓ better): Applying knowledge to new scenarios, "which service would..."
+- ANALYSIS (✓ best): Comparing options, trade-offs, "which is most appropriate given..."
+- SYNTHESIS (✓ expert level): Combining multiple concepts
+
+QUESTION TYPE (SCENARIO-BASED):
+Describe the BUSINESS PROBLEM the company faces, not the AWS service
+❌ WRONG: "Company wants to use AWS Budgets to monitor costs. Which feature..."
+✅ RIGHT: "Company needs to prevent overspending and get early warnings. What service..."
+
+NO HINTS IN STEM:
+❌ WRONG: "They need proactive alerts when costs approach threshold. Which alerting service..."
+✅ RIGHT: "They need to monitor costs and prevent overspending. Which service..."
+
+Do NOT include: "alert", "monitor", "track", "receive notifications", "threshold", "proactive", "implement", "configure", "enable" — these are solution hints.
+
+DISTRACTOR QUALITY:
+- All 4 options must be AWS services that COULD plausibly fit the scenario
+- Distractors should be tempting to someone with partial knowledge
+- Do NOT use obviously wrong services (e.g., "S3 for cost monitoring")
+- Use anti-patterns from the exam guide where applicable
+
+REALISTIC SCENARIOS:
+- Scenarios must reflect real-world AWS usage patterns
+- Include realistic constraints: budget, performance, compliance, scalability
+- Avoid contrived situations
+- Base scenarios on common migration or deployment challenges
+
+WORD COUNT EXAMPLES:
+
+TOO SHORT (11 words - REJECT):
+"A company needs cloud services. Which AWS service is best?"
+
+BETTER (32 words - Acceptable):
+"A company is migrating its on-premises database to AWS. They need high availability with automatic failover, read replicas for reporting, and cost efficiency. Which RDS feature best meets these requirements?"
+
+BEST (56+ words - Use this as minimum):
+"An enterprise is moving its e-commerce platform from on-premises to AWS. Currently, their database handles 10,000 transactions per second with strict latency requirements. They need to ensure the database can scale horizontally, handle unexpected traffic spikes, and maintain ACID compliance. Which AWS database service best addresses these requirements while minimizing operational overhead?"
+
+═══════════════════════════════════════════════════════
+
 ${duplicationInstructions}
 
 MODULES TO COVER:
