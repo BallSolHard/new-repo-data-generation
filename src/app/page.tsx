@@ -814,6 +814,72 @@ export default function Home() {
                           </div>
                         )}
 
+                        {/* Matching Questions Display (Left-Right Layout) */}
+                        {question.type === 'matching' && question.pairs && (
+                          <div className="bg-white rounded-lg p-4 mb-4 border border-gray-200">
+                            <p className="text-sm font-semibold text-gray-700 mb-3">Matching Pairs:</p>
+                            <div className="grid grid-cols-2 gap-6">
+                              {/* Left Column */}
+                              <div className="space-y-2">
+                                <h4 className="font-semibold text-gray-700 text-sm mb-2">Items to Match:</h4>
+                                {question.pairs.left && Array.isArray(question.pairs.left) && (
+                                  question.pairs.left.map((leftItem: string, leftIdx: number) => (
+                                    <div
+                                      key={`left-${leftIdx}`}
+                                      className="p-3 rounded-lg border-2 border-blue-300 bg-blue-50"
+                                    >
+                                      <span className="font-semibold text-blue-700 mr-2">{leftIdx}.</span>
+                                      <span className="text-gray-800">{leftItem}</span>
+                                    </div>
+                                  ))
+                                )}
+                              </div>
+
+                              {/* Right Column */}
+                              <div className="space-y-2">
+                                <h4 className="font-semibold text-gray-700 text-sm mb-2">Matches:</h4>
+                                {question.pairs.right && Array.isArray(question.pairs.right) && (
+                                  question.pairs.right.map((rightItem: string, rightIdx: number) => (
+                                    <div
+                                      key={`right-${rightIdx}`}
+                                      className="p-3 rounded-lg border-2 border-green-300 bg-green-50"
+                                    >
+                                      <span className="font-semibold text-green-700 mr-2">{rightIdx}.</span>
+                                      <span className="text-gray-800">{rightItem}</span>
+                                    </div>
+                                  ))
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Show Correct Answer Mapping */}
+                            {question.correct_answer && typeof question.correct_answer === 'object' && (
+                              <div className="mt-4 p-3 bg-yellow-50 border-l-4 border-yellow-400 rounded">
+                                <p className="text-sm font-semibold text-yellow-800 mb-2">Correct Mapping:</p>
+                                <div className="space-y-1">
+                                  {question.pairs.left && Array.isArray(question.pairs.left) && (
+                                    question.pairs.left.map((leftItem: string, leftIdx: number) => {
+                                      const correctAnswerObj = question.correct_answer;
+                                      const rightMapping = correctAnswerObj?.right?.[leftIdx];
+                                      return (
+                                        <div key={`mapping-${leftIdx}`} className="text-sm text-yellow-700">
+                                          <span className="font-semibold">{leftIdx}. {leftItem}</span>
+                                          <span className="text-yellow-600"> → </span>
+                                          <span>
+                                            {rightMapping !== undefined && rightMapping !== null
+                                              ? `${rightMapping}. ${question.pairs.right?.[rightMapping]}`
+                                              : 'No mapping'}
+                                          </span>
+                                        </div>
+                                      );
+                                    })
+                                  )}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
+
                         {/* Explanation */}
                         {question.explanation && (
                           <div className="bg-yellow-50 border-l-4 border-yellow-500 p-4 rounded">
