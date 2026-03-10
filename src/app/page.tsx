@@ -679,10 +679,21 @@ export default function Home() {
                                   
                                   // Determine if this option is correct
                                   let isCorrect = false;
+                                  let sequenceNumber: number | null = null; // For ordering questions
                                   const rawCorrect = question.correct_answer;
                                   
+                                  // Handle ORDERING: correct_answer is an array like [2, 0, 3, 1]
+                                  // Index in array = position in correct order, Value = option index
+                                  if (question.type === 'ordering' && Array.isArray(rawCorrect)) {
+                                    // Find position of current option index in the correct sequence
+                                    const position = rawCorrect.indexOf(optIdx);
+                                    if (position !== -1) {
+                                      isCorrect = true;
+                                      sequenceNumber = position + 1; // Convert to 1-based numbering
+                                    }
+                                  }
                                   // Handle MULTIPLE SELECT: correct_answer is an array [0, 2] or [1, 3]
-                                  if (Array.isArray(rawCorrect)) {
+                                  else if (Array.isArray(rawCorrect)) {
                                     // For multiple select: check if current index is in the array
                                     isCorrect = rawCorrect.includes(optIdx);
                                   } 
@@ -738,7 +749,16 @@ export default function Home() {
                                         <span className={isCorrect ? 'text-green-800 font-semibold' : 'text-gray-700'}>
                                           {option}
                                         </span>
-                                        {isCorrect && <span className="ml-auto text-white text-sm font-bold bg-green-600 px-2 py-1 rounded">✓ CORRECT</span>}
+                                        {/* Show sequence number for ordering questions */}
+                                        {isCorrect && question.type === 'ordering' && sequenceNumber !== null && (
+                                          <span className="ml-auto text-white text-sm font-bold bg-blue-600 px-3 py-1 rounded">
+                                            #{sequenceNumber}
+                                          </span>
+                                        )}
+                                        {/* Show checkmark for non-ordering correct answers */}
+                                        {isCorrect && question.type !== 'ordering' && (
+                                          <span className="ml-auto text-white text-sm font-bold bg-green-600 px-2 py-1 rounded">✓ CORRECT</span>
+                                        )}
                                       </div>
                                     </div>
                                   );
