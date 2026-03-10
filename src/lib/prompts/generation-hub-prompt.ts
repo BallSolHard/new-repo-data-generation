@@ -72,13 +72,206 @@ ${serperContext}
 
 ${fewShotSection}
 
+═══════════════════════════════════════════════════════
+🚨🚨🚨 CRITICAL: QUESTION TYPE REQUIREMENTS 🚨🚨🚨
+═══════════════════════════════════════════════════════
+
+SELECTED QUESTION TYPES: ${selectedQuestionTypes.join(', ').toUpperCase()}
+
+THIS IS BINDING. DO NOT GENERATE ANY OTHER TYPE.
+
+${selectedQuestionTypes.length === 1 && selectedQuestionTypes.includes('multiple') ? `
+⚠️ 🔴🔴🔴 CRITICAL FOR MULTIPLE QUESTIONS 🔴🔴🔴
+
+YOU ARE GENERATING: MULTIPLE QUESTIONS ONLY
+
+EVERY SINGLE QUESTION MUST FOLLOW THIS EXACT PATTERN:
+{
+  "text": "Which of these services provide encryption at rest? (Select TWO.)",
+  "type": "multiple",
+  "options": ["Amazon S3", "Amazon RDS", "AWS Lambda", "Amazon CloudWatch", "AWS KMS"],
+  "correct_answer": [0, 1],
+  "explanation": "..."
+}
+
+🔴 CRITICAL RULES FOR correct_answer FIELD:
+  1️⃣  correct_answer MUST BE AN ARRAY: [0, 1] or [0, 2] or [1, 3]
+  2️⃣  correct_answer MUST HAVE 2-3 ELEMENTS (never 1, never 4+)
+  3️⃣  correct_answer MUST USE INDICES: array of numbers, NOT strings
+  
+  ❌❌❌ DO NOT USE THESE FORMATS ❌❌❌
+    ❌ correct_answer: 2 (single number - WRONG!)
+    ❌ correct_answer: "0" (string - WRONG!)
+    ❌ correct_answer: [0] (single element array - WRONG!)
+    ❌ correct_answer: ["0", "1"] (string array - WRONG!)
+    ❌ correct_answer: "0,1" (string - WRONG!)
+    ❌ correct_answer: {"left": [0, 1], "right": [0, 1]} (object - WRONG!)
+
+  ✅✅✅ ONLY USE THESE FORMATS ✅✅✅
+    ✅ correct_answer: [0, 1] (array of 2 numbers)
+    ✅ correct_answer: [0, 2] (array of 2 numbers)
+    ✅ correct_answer: [1, 3] (array of 2 numbers)
+    ✅ correct_answer: [0, 1, 2] (array of 3 numbers)
+    ✅ correct_answer: [0, 2, 4] (array of 3 numbers)
+
+ADDITIONAL REQUIREMENTS:
+  • Question text MUST include "(Select TWO.)" or "(Select THREE.)"
+  • Must have exactly 2-3 correct answers (not 1, not 4+)
+  • Must have exactly 5 options total
+  • Indices in correct_answer must be valid (0-4 for 5 options)
+
+INSTANT REJECTION IF ANY OF THESE:
+  ❌ correct_answer is a single number (2, 0, 1, etc.)
+  ❌ correct_answer is a string ("0", "1", "0,1", etc.)
+  ❌ correct_answer has only 1 element ([0], [1], etc.)
+  ❌ correct_answer has 4+ elements ([0, 1, 2, 3], etc.)
+  ❌ Question text missing "(Select TWO.)" or "(Select THREE.)"
+` : ''}
+
 TASK: Generate exactly ${totalQuestions} ${examGuide.certificationName} exam questions as a valid JSON array.
 Generate ${questionsPerModule} question(s) per module.
-Question types to use: ${selectedQuestionTypes.join(', ')}
 
 ${typeDistributionInstructions}
 
 ${complexityContext}
+
+${selectedQuestionTypes.length === 1 && selectedQuestionTypes.includes('mcq') ? `
+MCQ QUESTIONS (type: "mcq"):
+  ✅ correct_answer MUST be a STRING with single option: "0", "1", "2", or "3"
+  ✅ ONLY ONE correct answer per MCQ question
+  ❌ NEVER use arrays for MCQ: ❌ [0], ❌ [0, 1], ❌ {"0"}, ❌ {"0": true}
+  ❌ NEVER use objects: ❌ {"left": [0], "right": [0]}, ❌ {left: [...], right: [...]}
+  
+  CORRECT MCQ FORMAT:
+  {
+    "text": "Which service provides object storage?",
+    "type": "mcq",
+    "options": ["Amazon S3", "Amazon RDS", "AWS Lambda", "Amazon EC2"],
+    "correct_answer": "0",
+    "explanation": "..."
+  }
+` : ''}
+${selectedQuestionTypes.length === 1 && selectedQuestionTypes.includes('multiple') ? `
+🔴 MULTIPLE QUESTIONS (type: "multiple") — 🚨 MOST IMPORTANT RULE 🚨:
+
+THE correct_answer FIELD MUST BE AN ARRAY OF 2-3 NUMBERS, NEVER A SINGLE NUMBER.
+
+CORRECT FORMAT EXAMPLES:
+{
+  "text": "Which of these services provide encryption at rest? (Select TWO.)",
+  "type": "multiple",
+  "options": ["Amazon S3", "Amazon RDS", "AWS Lambda", "Amazon CloudWatch", "AWS KMS"],
+  "correct_answer": [0, 1],
+  "explanation": "Amazon S3 and Amazon RDS both provide encryption at rest..."
+}
+
+{
+  "text": "Which services support real-time processing? (Select THREE.)",
+  "type": "multiple",
+  "options": ["Amazon Kinesis", "AWS Lambda", "Amazon SQS", "Amazon SNS", "Amazon EventBridge"],
+  "correct_answer": [0, 1, 2],
+  "explanation": "Amazon Kinesis, AWS Lambda, and Amazon SQS all support real-time processing..."
+}
+
+🚨 MANDATORY RULES FOR EVERY MULTIPLE QUESTION:
+  1. correct_answer MUST be an array: [0, 1], [0, 2], [1, 3], [0, 1, 2], [0, 2, 4], etc.
+  2. correct_answer MUST have EXACTLY 2 or 3 elements (never 1, never 4+, never 0)
+  3. Each element must be a NUMBER (not a string): [0, 1] NOT ["0", "1"]
+  4. Question text MUST say "(Select TWO.)" or "(Select THREE.)"
+  5. Must have exactly 5 options (2-3 correct + 2-3 wrong)
+  6. All indices must be valid (0-4 for 5 options)
+
+❌ THESE WILL BE REJECTED:
+  ❌ "correct_answer": 2 (WRONG: single number, not array)
+  ❌ "correct_answer": [0] (WRONG: only 1 element)
+  ❌ "correct_answer": "0" (WRONG: string, not array)
+  ❌ "correct_answer": ["0", "1"] (WRONG: strings, not numbers)
+  ❌ "correct_answer": [0, 1, 2, 3] (WRONG: 4 elements)
+  ❌ "correct_answer": {"left": [0, 1], "right": [0, 1]} (WRONG: object format for matching)
+
+✅ THESE ARE CORRECT:
+  ✅ "correct_answer": [0, 1]
+  ✅ "correct_answer": [0, 2]
+  ✅ "correct_answer": [1, 3]
+  ✅ "correct_answer": [0, 1, 2]
+  ✅ "correct_answer": [0, 2, 4]
+  ✅ "correct_answer": [1, 2, 3]
+` : ''}
+${selectedQuestionTypes.length === 1 && selectedQuestionTypes.includes('ordering') ? `
+ORDERING QUESTIONS (type: "ordering"):
+  ✅ correct_answer MUST be an ARRAY showing the correct sequence: [2, 0, 3, 1]
+  ✅ Array length = number of options to order
+  ✅ Each element is the index (0-based) of the option in correct order
+  
+  CORRECT ORDERING FORMAT:
+  {
+    "text": "Order these steps to create and secure a VPC",
+    "type": "ordering",
+    "options": ["Create network ACLs", "Create subnets", "Create the VPC", "Configure route tables"],
+    "correct_answer": [2, 1, 3, 0],
+    "explanation": "..."
+  }
+` : ''}
+${selectedQuestionTypes.length === 1 && selectedQuestionTypes.includes('matching') ? `
+MATCHING QUESTIONS (type: "matching"):
+  ✅ correct_answer MUST be an OBJECT: {"left": [0, 1, 2], "right": [0, 1, 2]}
+  ✅ Maps left items to right items by index
+  ❌ NEVER use strings or arrays alone
+  
+  CORRECT MATCHING FORMAT:
+  {
+    "text": "Match each AWS service to its use case.",
+    "type": "matching",
+    "pairs": {
+      "left": ["Amazon S3", "Amazon RDS", "AWS Lambda"],
+      "right": ["Object storage", "Relational database", "Serverless compute"]
+    },
+    "correct_answer": {"left": [0, 1, 2], "right": [0, 1, 2]},
+    "explanation": "..."
+  }
+` : ''}
+${selectedQuestionTypes.length > 1 ? `
+═══════════════════════════════════════════════════════
+MULTI-TYPE GENERATION MODE — MULTIPLE QUESTION FORMATS
+═══════════════════════════════════════════════════════
+
+You are generating questions with MULTIPLE different types. Each question MUST be ONE of the selected types below.
+Distribute your questions evenly across the types according to the instructions from the distribution section above.
+
+⚠️ TYPE-SPECIFIC FORMAT REQUIREMENTS FOR MULTI-TYPE MODE:
+
+${selectedQuestionTypes.includes('mcq') ? `
+MCQ (type: "mcq") — Single correct answer
+  • "type": "mcq"
+  • "correct_answer": Single STRING value "0", "1", "2", or "3" (NOT array)
+  • Exactly one correct option
+` : ''}
+
+${selectedQuestionTypes.includes('multiple') ? `
+MULTIPLE (type: "multiple") — Multiple correct answers (2-3)
+  • "type": "multiple"
+  • "correct_answer": ARRAY with 2-3 elements: [0, 1], [0, 2], [1, 3], etc.
+  • Question text MUST include "(Select TWO.)" or "(Select THREE.)"
+  • 2-3 correct options that all make sense
+` : ''}
+
+${selectedQuestionTypes.includes('ordering') ? `
+ORDERING (type: "ordering") — Sequence of steps
+  • "type": "ordering"
+  • "correct_answer": ARRAY showing sequence [2, 0, 3, 1]
+  • Each element is the index of an option in the correct order
+` : ''}
+
+${selectedQuestionTypes.includes('matching') ? `
+MATCHING (type: "matching") — Pair left and right items
+  • "type": "matching"
+  • "correct_answer": OBJECT {"left": [0, 1, 2], "right": [0, 1, 2]}
+  • Use "pairs" field with "left" and "right" arrays
+` : ''}
+
+═══════════════════════════════════════════════════════
+` : ''}
+═══════════════════════════════════════════════════════
 
 ⚠️ CRITICAL REQUIREMENT: Question Mix Distribution (60% Definition/Straightforward Focus)
    You MUST generate AT LEAST ${definitionQuestionCount} DEFINITION/STRAIGHTFORWARD questions (60% of total).
@@ -142,14 +335,17 @@ DEFINITION QUESTION TEMPLATES (Use these patterns):
 FACTUAL ACCURACY — CRITICAL:
   - The correct_answer index MUST match the option your explanation defends
   - Verify AWS service capabilities before claiming them (e.g., Comprehend analyzes TEXT not AUDIO)
-  - Count the index from 0: first option = {0}, second = {1}, third = {2}, fourth = {3}
+  - Use alphabetical option names: first option = Option A, second = Option B, third = Option C, fourth = Option D
+  - When referencing options in explanation, use: "Option A", "Option B", "Option C", "Option D" (NOT index numbers 0, 1, 2, 3)
   - Double-check before outputting — INDEX MISMATCHES cause instant rejection
 
 DISTRACTORS:
   - All 4 options must be real AWS services that sound plausible
   - For DEFINITION questions: Use services from similar categories (e.g., all storage services)
-  - For SCENARIO questions: Use anti-patterns to create realistic wrong answers
+  - For SCENARIO questions: Use realistic alternative approaches or common misunderstandings
   - Each explanation must reference why wrong options fail
+  - DO NOT include anti-pattern identifiers (like "ap-1.2-003") in explanations
+  - DO NOT label wrong answers as "anti-pattern" — simply explain why they're incorrect
 
 UNIQUENESS REQUIREMENTS:
   Each question must test a different scenario/concept.
@@ -164,9 +360,9 @@ SELECTED TYPES FOR THIS BATCH: ${selectedQuestionTypes.join(', ').toUpperCase()}
 
 🔴 YOU ARE GENERATING ONLY: ${selectedQuestionTypes.join(', ').toUpperCase()} QUESTIONS
 🔴 YOU WILL NOT GENERATE: MCQ ONLY (unless it's the selected type)
-🔴 YOU WILL NOT GENERATE: Multiple Select ONLY (unless it's the selected type)
-🔴 YOU WILL NOT GENERATE: Ordering ONLY (unless it's the selected type)
-🔴 YOU WILL NOT GENERATE: Matching ONLY (unless it's the selected type)
+🔴 YOU WILL NOT GENERATE: MULTIPLE ONLY (unless it's the selected type)
+🔴 YOU WILL NOT GENERATE: ORDERING ONLY (unless it's the selected type)
+🔴 YOU WILL NOT GENERATE: MATCHING ONLY (unless it's the selected type)
 
 BEFORE YOU START GENERATING:
   ✓ Read the selected types above
@@ -178,7 +374,7 @@ BEFORE YOU START GENERATING:
 QUESTION TYPE GUIDELINES FOR HUB MODE
 ═══════════════════════════════════════════════════════
 
-⚠️ CRITICAL DISTINCTION: MCQ vs MULTIPLE SELECT
+⚠️ CRITICAL DISTINCTION: MCQ vs MULTIPLE
 ═══════════════════════════════════════════════════════
 
 ❌ DO NOT CONFUSE THESE TWO:
@@ -191,7 +387,7 @@ MCQ (type: "mcq"):
     * "What does Lambda do?" → Answer: Serverless compute (ONE option)
   - Use when there is ONE best/correct choice
 
-MULTIPLE SELECT (type: "multiple"):
+MULTIPLE (type: "multiple"):
   - TWO or MORE correct answers (typically 2-3)
   - correct_answer is an ARRAY: [0, 2] or [1, 3] — NEVER a single value
   - Question text MUST include: "(Select TWO.)" or "(Select THREE.)"
@@ -223,7 +419,7 @@ MULTIPLE (when selected):
   → Must have 2-3 correct answers (NEVER just one)
   → Must have 5 options total (so 2 wrong answers)
   
-  EXAMPLES OF CORRECT MULTIPLE SELECT QUESTIONS:
+  EXAMPLES OF CORRECT MULTIPLE QUESTIONS:
     ✅ "Which of these services provide encryption at rest? (Select TWO.)"
        Options: [Amazon S3, Amazon RDS, AWS Lambda, Amazon CloudWatch, AWS KMS]
        Correct answers: S3 + RDS = [0, 1] ← TWO answers
@@ -236,7 +432,7 @@ MULTIPLE (when selected):
        Options: [AWS Lambda, Amazon Fargate, Amazon EC2, AWS App Runner, Amazon ECS]
        Correct answers: Lambda + App Runner = [0, 3] ← TWO answers
   
-  EXAMPLES OF WRONG MULTIPLE SELECT QUESTIONS (DO NOT GENERATE):
+  EXAMPLES OF WRONG MULTIPLE  QUESTIONS (DO NOT GENERATE):
     ❌ "Which service stores objects?" (Select TWO.) 
        → WRONG: Only ONE answer exists (S3), cannot select two
     
@@ -256,17 +452,70 @@ MULTIPLE (when selected):
          "AWS KMS"
        ],
        "correct_answer": [0, 1],
-       "explanation": "Amazon S3 and Amazon RDS both provide encryption at rest. AWS Lambda (Option C) is serverless compute, not storage...",
+       "explanation": "Amazon S3 (Option A) and Amazon RDS (Option B) both provide encryption at rest. AWS Lambda (Option C) is serverless compute, not storage. Amazon CloudWatch (Option D) is monitoring, not storage. AWS KMS (Option E) is key management, not storage itself...",
        "module_id": "the_module_id"
      }
   
-  🔴 STRICT RULES FOR MULTIPLE SELECT:
+  🔴 STRICT RULES FOR MULTIPLE :
     1. correct_answer MUST be an array: [0, 1], [0, 2], [1, 3], etc.
     2. correct_answer MUST have 2-3 elements (never 1, never 4+)
     3. Question text MUST say "(Select TWO.)" or "(Select THREE.)"
     4. 5 options total: 2-3 correct + 2-3 wrong
     5. Explanation MUST address each option and why it's correct or wrong
+
+═══════════════════════════════════════════════════════
+EXPLANATION FORMAT REQUIREMENTS — ALL QUESTION TYPES
+═══════════════════════════════════════════════════════
+
+OPTION NAMING IN EXPLANATIONS:
+  ✅ CORRECT:
+     "Option A provides X service..."
+     "Option B is used for Y..."
+     "Option C (incorrect) does not..."
+     "Option D and Option E are not related..."
   
+  ❌ INCORRECT:
+     "Option 0 provides X service..."
+     "Option {0} is used for Y..."
+     "0. This service..." (using index numbers)
+
+ANTI-PATTERN IDENTIFIERS — MUST REMOVE:
+  ❌ DO NOT INCLUDE:
+     "Option 3 is anti-pattern ap-1.2-003"
+     "This violates anti-pattern reference api-2.5-001"
+     "(anti-pattern: wrong-approach)"
+     "Anti-pattern identifier: ap-1.2-xxx"
+  
+  ✅ DO INSTEAD:
+     "Option C is incorrect because it doesn't follow AWS best practices for security"
+     "Option D is not a valid approach because it requires manual intervention"
+     "Option E would increase operational overhead significantly"
+
+EXPLANATION STRUCTURE FOR MCQ & MULTIPLE :
+  
+  For CORRECT answers:
+    Format: "Option A (correct) provides [service name] which [key capability]..."
+    Include: Why this is the best choice, key features, use cases
+  
+  For WRONG answers:
+    Format: "Option C (incorrect) would [issue] because [technical reason]..."
+    Include: What's wrong with this approach, why it fails the requirement, common misconception
+  
+  Example:
+    "The AWS Well-Architected Framework consists of six pillars. Option A (Operational Excellence), Option B (Security), and Option C (Reliability) are three of these pillars. Option D (Global Infrastructure Optimization) is a benefit of AWS but not a pillar. Option E (Legacy System Integration) is a migration challenge but not part of the framework."
+
+KEEP IT CLEAN:
+  ✅ Focus on technical correctness
+  ✅ Explain each option's relevance or irrelevance
+  ✅ Use standard AWS terminology
+  ✅ Reference AWS documentation when applicable
+  
+  ❌ Don't use code-style identifiers
+  ❌ Don't reference internal anti-pattern databases
+  ❌ Don't use numbered indices (0, 1, 2, 3)
+  ❌ Don't add metadata or tags to answers
+
+═══════════════════════════════════════════════════════
 ORDERING (when selected):
   → Test understanding of SEQUENCE and DEPENDENCIES
   → Create logical progressions: deployment steps, configuration order, setup sequence
@@ -338,18 +587,62 @@ VERIFICATION CHECKLIST (DO THIS BEFORE SUBMITTING):
   4. Verify distribution (if ${selectedQuestionTypes.length} types: roughly ${Math.ceil(totalQuestions / selectedQuestionTypes.length)} questions per type)
   5. Check JSON format is correct for each type
   6. Verify "correct_answer" format matches type:
-     - MCQ: "{N}" format (single value, never array)
-     - Multiple: [0, 2] format (ALWAYS array with 2-3 elements, NEVER single element)
+     - MCQ: "{N}" format (single STRING value "0", "1", "2", "3", NEVER array)
+     - Multiple: [0, 2] format (ALWAYS ARRAY with 2-3 elements, NEVER single element [0], NEVER string "0")
      - Ordering: [2, 0, 3, 1] format (array with all indices)
      - Matching: {"left": [0, 1, 2], "right": [0, 1, 2]} format (object mapping)
   
-  7. 🔴 MULTIPLE SELECT ONLY - EXTRA CHECKS:
-     - If type = "multiple": does question text have "(Select TWO.)" or "(Select THREE.)"?
-     - If type = "multiple": is correct_answer an array with 2-3 elements? [0, 1], [1, 3], etc.
-     - If type = "multiple": does correct_answer NEVER have just 1 element like [0]?
-     - If type = "multiple": do all correct answers make sense in the explanation?
+  7. � IF 'MULTIPLE' IS SELECTED — MANDATORY EXTRA CHECKS:
+     BEFORE YOU OUTPUT, CHECK EVERY SINGLE MULTIPLE QUESTION:
+     
+     ❌ FAILURE REASONS (will cause instant rejection):
+        - correct_answer is a STRING like "0" or "1" (must be ARRAY: [0, 1])
+        - correct_answer is a single-element array [0] (must be 2-3 elements: [0, 1] or [0, 2])
+        - correct_answer is an object like {"left": [...], "right": [...]} (ONLY for matching type)
+        - Question text does NOT have "(Select TWO.)" or "(Select THREE.)"
+        - Only ONE correct option makes sense (this should be MCQ, not MULTIPLE)
+        - correct_answer has 4+ elements [0, 1, 2, 3] (must be 2-3 max)
+     
+     ✅ FOR EVERY MULTIPLE QUESTION, VERIFY:
+        1. "type": "multiple" ✓
+        2. Question text includes "(Select TWO.)" or "(Select THREE.)" ✓
+        3. correct_answer is an ARRAY with 2-3 elements: [0, 1] or [0, 2] or [1, 3], etc. ✓
+        4. All correct_answer indices are valid (0-4 for 5 options) ✓
+        5. Multiple distinct correct options actually exist in the question ✓
+        6. Explanation addresses EACH option (why correct ones are right, why wrong ones are wrong) ✓
 
 If ANY question fails these checks, your output WILL BE REJECTED.
+
+═══════════════════════════════════════════════════════
+🚨🚨🚨 FINAL CRITICAL INSTRUCTION FOR MULTIPLE QUESTIONS 🚨🚨🚨
+═══════════════════════════════════════════════════════
+
+IF YOU GENERATED ANY QUESTIONS WITH type: "multiple":
+
+BEFORE YOU SUBMIT, DO THIS FINAL CHECK:
+
+For EVERY "multiple" question in your output, verify:
+  1. "correct_answer": [?, ?] OR [?, ?, ?] (ARRAY with 2 or 3 NUMBERS)
+  
+  NOT: "correct_answer": 0 (single number)
+  NOT: "correct_answer": 1 (single number)
+  NOT: "correct_answer": 2 (single number)
+  NOT: "correct_answer": [0] (single element array)
+  NOT: "correct_answer": "0" (string)
+  NOT: "correct_answer": "1" (string)
+
+  YES: "correct_answer": [0, 1]
+  YES: "correct_answer": [0, 2]
+  YES: "correct_answer": [1, 3]
+  YES: "correct_answer": [0, 1, 2]
+  YES: "correct_answer": [0, 2, 4]
+
+IF EVEN ONE MULTIPLE QUESTION HAS:
+  ❌ A SINGLE NUMBER like 0, 1, 2, 3, 4
+  ❌ A SINGLE-ELEMENT ARRAY like [0], [1], [2]
+  ❌ A STRING like "0", "1", "0,1"
+  
+YOUR ENTIRE OUTPUT WILL BE REJECTED AND REGENERATED.
 
 ═══════════════════════════════════════════════════════
 
@@ -500,4 +793,5 @@ If any question is missing a type, has wrong type, or wrong structure, OUTPUT FA
 
 ═══════════════════════════════════════════════════════`;
 }
+
 

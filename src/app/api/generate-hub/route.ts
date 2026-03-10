@@ -97,6 +97,15 @@ export async function POST(request: NextRequest) {
   try {
     const body: RequestBody = await request.json();
 
+    // Debug logging
+    console.log('[generate-hub] Received request body:', {
+      certification_name: body.certification_name,
+      topic_name: body.topic_name,
+      questionTypes: body.questionTypes,
+      questionType: body.questionType,
+      modules_count: body.modules?.length
+    });
+
     // Apply defaults
     body.questionType ??= 'mcq';
     body.complexityLevel ??= 'intermediate';

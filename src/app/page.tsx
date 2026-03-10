@@ -71,6 +71,11 @@ export default function Home() {
   // question types
   const [selectedQuestionTypes, setSelectedQuestionTypes] = useState<string[]>(['mcq']);
 
+  // Debug: log question types changes
+  useEffect(() => {
+    console.log('[UI] selectedQuestionTypes changed:', selectedQuestionTypes);
+  }, [selectedQuestionTypes]);
+
   // Fetch certifications from API on component mount
   useEffect(() => {
     const fetchCertifications = async () => {
@@ -294,6 +299,8 @@ export default function Home() {
         modules: modules,
         questionTypes: selectedQuestionTypes  // Add selected question types
       };
+
+      console.log('[generateHubQuestions] Payload questionTypes:', payload.questionTypes);
 
       // include difficulty distribution if any of the counts are non-zero
       const distribution: Record<string, number> = {};

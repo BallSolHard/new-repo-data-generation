@@ -113,45 +113,6 @@ If the model thinks of a concept it already used, invent a new constraint or ser
 
   const questionsPerModule = Math.max(1, Math.ceil(totalQuestions / modules.length));
 
-  return `${systemPrompt}
-
-${tierBlock}
-
-${modeBlock}
-
-${examGuideSection}
-
-${serperContext ? `═══════════════════════════════════════════════════════
-EXTERNAL WEB/SEARCH CONTEXT — results from Serper API
-═══════════════════════════════════════════════════════
-${serperContext}
-
-` : ''}${antiPatternInstructions}
-
-${fewShotSection}
-
-TASK: Generate exactly ${totalQuestions} ${examGuide.certificationName} exam questions as a valid JSON array.
-Generate ${questionsPerModule} question(s) per module.
-Question types to use: ${questionTypes.join(', ')}
-
-${generationContext === 'hub' ? `
-⚠️ CRITICAL: Of the ${totalQuestions} questions, you MUST generate AT LEAST ${Math.ceil(totalQuestions * 0.4)} DEFINITION questions (40% minimum).
-   Definition questions are 10-30 words and ask "What is...", "Which service...", "What does... do?"
-   Generate definition questions FIRST, then fill remaining quota with application/analysis questions.
-` : ''}
-${answerBiasRules}
-
-${qualityStandards}
-
-${duplicationInstructions}
-
-MODULES TO COVER:
-${moduleSection}
-
-${typeFormats}
-
-RESPOND WITH ONLY A VALID JSON ARRAY. No markdown, no explanation, no preamble. Just the JSON array.`;
-
   // Use separate prompt templates based on generation context
   const hubPromptParams = {
     examGuide,

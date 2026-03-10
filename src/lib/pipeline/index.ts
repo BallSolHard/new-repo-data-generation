@@ -38,6 +38,12 @@ export async function runGenerationPipeline(params: PipelineParams): Promise<Pip
 
   // ─── Step 2: Generate ───
   const questionTypes = params.questionTypes || (params.questionType ? [params.questionType] : ['mcq']);
+  
+  console.log('[pipeline] Question types resolution:', {
+    params_questionTypes: params.questionTypes,
+    params_questionType: params.questionType,
+    resolved_questionTypes: questionTypes
+  });
   let questionsPerModule = params.questionsPerModule || 2;
   // ensure at least 1 per module
   const minPerModule = 1;

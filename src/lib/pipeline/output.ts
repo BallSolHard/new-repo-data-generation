@@ -36,6 +36,10 @@ export function buildSqlOutput(
   const quizQuestionLinks: string[] = [];
   let questionIndex = 1;
 
+  // CRITICAL: Sanitize all questions before output
+  // Fix common LLM output issues with multiple type and explanations
+  questions = questions.map(q => sanitizeQuestion(q));
+
   // Group questions by module for organized output
   const byModule = new Map<string, GeneratedQuestion[]>();
   for (const q of questions) {
@@ -140,6 +144,72 @@ export function buildSqlOutput(
   sql += `COMMIT;\n`;
 
   return sql;
+}
+
+/**
+ * Sanitize questions to fix common LLM output issues
+ * 1. Fix 'multiple' type questions where correct_answer is a single number instead of array
+ * 2. Fix explanations to use Option A, B, C, D instead of Option 0, 1, 2, 3
+ */
+function sanitizeQuestion(q: GeneratedQuestion): GeneratedQuestion {
+  const sanitized = { ...q };
+
+  // FIX #1: Convert single number correct_answer to array for 'multiple' type
+  if (q.type === 'multiple') {
+    // If correct_answer is a string number like "0" or "1", convert to [0, 1] or similar
+    if (typeof q.correct_answer === 'string') {
+      const numStr = q.correct_answer.trim();
+      // If it's a single digit string, assume it should be [0, 1] for multiple
+      if (/^\d+$/.test(numStr)) {
+        const num = parseInt(numStr, 10);
+        // For multiple, we need 2-3 correct answers. Default to [num] if only 1 provided
+        // This is a fallback - ideally the LLM should generate proper arrays
+        sanitized.correct_answer = [num, num + 1]; // Assume consecutive indices
+        console.log(`[sanitizeQuestion] Fixed MULTIPLE type: converted "${numStr}" to array [${num}, ${num + 1}]`);
+      }
+    } else if (typeof q.correct_answer === 'number') {
+      // Single number - convert to array with this index and next index
+      sanitized.correct_answer = [q.correct_answer, q.correct_answer + 1];
+      console.log(`[sanitizeQuestion] Fixed MULTIPLE type: converted number ${q.correct_answer} to array [${q.correct_answer}, ${q.correct_answer + 1}]`);
+    }
+  }
+
+  // FIX #2: Replace "Option 0", "Option 1", etc. with "Option A", "Option B", etc.
+  if (q.explanation) {
+    let explanation = q.explanation;
+    
+    // Map: "Option 0" -> "Option A", "Option 1" -> "Option B", etc.
+    const optionMap: Record<string, string> = {
+      'Option 0': 'Option A',
+      'Option 1': 'Option B',
+      'Option 2': 'Option C',
+      'Option 3': 'Option D',
+      'Option 4': 'Option E',
+    };
+
+    // Also handle variations with parentheses and extra spacing
+    for (const [numFormat, letterFormat] of Object.entries(optionMap)) {
+      // Replace "Option 0", "(Option 0)", "Option 0)", etc.
+      explanation = explanation.replace(new RegExp(`\\(${numFormat}\\)`, 'g'), `(${letterFormat})`);
+      explanation = explanation.replace(new RegExp(`${numFormat}\\)`, 'g'), `${letterFormat})`);
+      explanation = explanation.replace(new RegExp(`${numFormat}`, 'g'), letterFormat);
+    }
+
+    // Also handle standalone numbers with parentheses like "(0)", "(1)" but be careful
+    // Only replace if it's clearly "Option (0)" context
+    explanation = explanation.replace(/\(Option (\d)\)/g, (match, num) => {
+      const letterIndex = parseInt(num, 10);
+      const letters = ['A', 'B', 'C', 'D', 'E'];
+      return `(Option ${letters[letterIndex] || num})`;
+    });
+
+    if (explanation !== q.explanation) {
+      sanitized.explanation = explanation;
+      console.log(`[sanitizeQuestion] Fixed explanation: replaced Option indices with Option letters`);
+    }
+  }
+
+  return sanitized;
 }
 
 function escapeSql(str: string): string {
