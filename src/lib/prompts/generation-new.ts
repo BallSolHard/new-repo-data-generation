@@ -3,7 +3,7 @@
 import type { ExamGuide, ExamDomain, ExamTask, QuestionType } from '@/lib/types/exam-guide';
 import type { CertTier, GenMode } from '@/lib/types/tier';
 import type { ModuleInput } from '@/lib/types/generation';
-import type { ReferenceQuestion } from '@/lib/types/reference-question';
+import type { ReferenceQuestion, Difficulty } from '@/lib/types/reference-question';
 import { getSystemInstruction } from './system-instructions';
 import { buildFewShotSection } from './few-shot';
 import { getAnswerBiasRules, getQuestionTypeFormats } from './generation';
@@ -36,6 +36,10 @@ export interface V2GenerationPromptParams {
   serperContext?: string;
   /** Controls how strictly quality standards are enforced. Defaults to 'hub'. */
   generationContext?: GenerationContext;
+  /** Complexity distribution across difficulty levels (for context in prompt) */
+  complexityLevelDistribution?: Partial<Record<Difficulty, number>>;
+  /** Current difficulty level being generated for */
+  currentDifficulty?: Difficulty;
 }
 
 export function createGenerationPrompt(params: V2GenerationPromptParams): string {
@@ -51,6 +55,8 @@ export function createGenerationPrompt(params: V2GenerationPromptParams): string
     fewShotExamples,
     serperContext,
     generationContext = 'hub',
+    complexityLevelDistribution,
+    currentDifficulty,
   } = params;
 
   const tierProfile = getTierProfile(certTier);
@@ -163,6 +169,8 @@ RESPOND WITH ONLY A VALID JSON ARRAY. No markdown, no explanation, no preamble. 
     fewShotSection,
     serperContext,
     selectedQuestionTypes: questionTypes,
+    complexityLevelDistribution,
+    currentDifficulty,
   };
 
   const mockPromptParams = {

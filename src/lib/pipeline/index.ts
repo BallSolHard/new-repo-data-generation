@@ -63,6 +63,7 @@ export async function runGenerationPipeline(params: PipelineParams): Promise<Pip
         questionTypes,
         questionType: params.questionType,
         complexityLevel: level,
+        complexityLevelDistribution: distribution,
         serperContext,
         examGuide,
         domainContext,

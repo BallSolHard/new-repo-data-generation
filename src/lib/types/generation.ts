@@ -41,6 +41,7 @@ export interface QuestionGenerationParams {
   questionTypes: QuestionType[];
   questionType?: QuestionType;
   complexityLevel?: Difficulty;
+  complexityLevelDistribution?: Partial<Record<Difficulty, number>>;
   isProfessionalOrSpecialty?: boolean;
   /**
    * Optional text gathered from an external web search (Serper API) that can

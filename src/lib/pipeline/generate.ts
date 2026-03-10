@@ -23,6 +23,8 @@ export async function generate(params: QuestionGenerationParams, generationConte
     fewShotExamples: params.fewShotExamples,
     serperContext: params.serperContext,
     generationContext,
+    complexityLevelDistribution: params.complexityLevelDistribution,
+    currentDifficulty: params.complexityLevel,
   });
   console.log(`[generate] Calling Gemini for ${params.modules.length} modules × ${params.questionsPerModule} questions`);
 
