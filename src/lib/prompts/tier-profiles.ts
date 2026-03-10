@@ -1,12 +1,13 @@
 // Tier & Mode profile data — static lookup maps consumed by v2 prompt builders
 
 import type { CertTier, GenMode, TierProfile, ModeProfile } from '@/lib/types/tier';
-
+const stemWordMin = 10;
+const stemWordMax = 100;
 export const TIER_PROFILES: Record<CertTier, TierProfile> = {
   foundational: {
     tier: 'foundational',
-    stemLength: '1-2 sentences',
-    stemWordRange: [15, 40],
+    stemLength: '1-3 sentences',
+    stemWordRange: [stemWordMin, stemWordMax],
     cognitiveLevel: 'recognition and definition',
     serviceInteraction: 'single service per question',
     constraintProfile: 'no constraints — direct concept identification',
@@ -17,8 +18,8 @@ export const TIER_PROFILES: Record<CertTier, TierProfile> = {
   },
   associate: {
     tier: 'associate',
-    stemLength: '3-4 sentences',
-    stemWordRange: [60, 120],
+    stemLength: '1-5 sentences',
+    stemWordRange: [stemWordMin, stemWordMax],
     cognitiveLevel: 'application and analysis',
     serviceInteraction: '2-3 services interacting in a scenario',
     constraintProfile: 'one business constraint (e.g., "LEAST operational overhead", "MOST cost-effective")',
@@ -29,8 +30,8 @@ export const TIER_PROFILES: Record<CertTier, TierProfile> = {
   },
   professional: {
     tier: 'professional',
-    stemLength: '5-8 sentences',
-    stemWordRange: [100, 200],
+    stemLength: '1-8 sentences',
+    stemWordRange: [stemWordMin, stemWordMax],
     cognitiveLevel: 'evaluation and synthesis',
     serviceInteraction: 'multi-account, multi-region, 4+ services',
     constraintProfile: 'conflicting constraints requiring tradeoff analysis (e.g., cost vs. performance vs. compliance)',
@@ -41,8 +42,8 @@ export const TIER_PROFILES: Record<CertTier, TierProfile> = {
   },
   specialty: {
     tier: 'specialty',
-    stemLength: '2-4 sentences',
-    stemWordRange: [40, 100],
+    stemLength: '1-5 sentences',
+    stemWordRange: [stemWordMin, stemWordMax],
     cognitiveLevel: 'deep technical recall and precision',
     serviceInteraction: 'single service, deep API/config level',
     constraintProfile: 'specific technical constraint (API parameter, config syntax, protocol detail)',

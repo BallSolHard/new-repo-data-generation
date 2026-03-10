@@ -70,7 +70,7 @@ export async function validate(
 
       // Reject low-confidence or incorrect questions
       if (rejectLowConfidence && (validation.confidence === 'low' || !validation.is_correct)) {
-        console.log(`[validate] Rejecting question (Q${j + 1}): confidence=${validation.confidence}, is_correct=${validation.is_correct}, notes=${validation.validation_notes?.slice(0, 100)}`);
+        console.log(`[validate] Rejecting question (Q${j + 1}): confidence=${validation.confidence}, is_correct=${validation.is_correct}, notes=${validation.validation_notes}`);
         rejected.push(question);
       } else {
         validated.push(question);
@@ -121,19 +121,6 @@ async function validateSingleQuestion(
       confidence: 'low',
       validation_notes: `Validation parsing failed: ${parseError instanceof Error ? parseError.message : String(parseError)}. Question allowed through with low confidence.`,
     };
-  }
-
-  // Use tier compliance to influence pass/fail decision
-  if (validation.tier_compliance) {
-    const { stem_length_ok, cognitive_level_ok, notes } = validation.tier_compliance;
-    if (!stem_length_ok || !cognitive_level_ok) {
-      const tierNote = `TIER COMPLIANCE FAILURE: ${notes}`;
-      validation.validation_notes = `${tierNote}. ${validation.validation_notes || ''}`;
-      // Downgrade confidence if tier compliance fails
-      if (validation.confidence === 'high') {
-        validation.confidence = 'medium';
-      }
-    }
   }
 
   // If there are factual errors, flag the question

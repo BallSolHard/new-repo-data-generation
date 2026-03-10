@@ -14,9 +14,8 @@ export interface ValidationPromptParams {
 }
 
 /**
- * Validation response extends the standard response with tier compliance metadata.
- * IMPORTANT: tier_compliance is used internally by validate.ts for pass/fail decisions
- * and MUST be stripped before passing questions downstream.
+ * Validation response for questions.
+ * Focuses on: 1) Factual correctness 2) Explanation quality
  */
 export interface ValidationResponse {
   is_correct: boolean;
@@ -25,43 +24,13 @@ export interface ValidationResponse {
   validation_notes: string;
   factual_errors?: string[];
   suggested_explanation?: string;
-  tier_compliance: {
-    stem_length_ok: boolean;
-    cognitive_level_ok: boolean;
-    notes: string;
-  };
 }
 
 export function createValidationPrompt(params: ValidationPromptParams): string {
-  const { question, certificationName, certTier, domainContext, targetTask } = params;
-  const tierProfile = getTierProfile(certTier);
-
-  const servicesContext = domainContext
-    ? `\nIN-SCOPE SERVICES: ${domainContext.inScopeServices.map((s: any) => s.name).join(', ')}`
-    : '';
-
-  // Collect anti-patterns from domain or targeted task
-  const antiPatterns = targetTask?.antiPatterns
-    || domainContext?.tasks.flatMap((t: any) => t.antiPatterns || [])
-    || [];
-
-  const antiPatternSection = antiPatterns.length > 0
-    ? `\nKNOWN ANTI-PATTERNS FOR THIS DOMAIN:\n${antiPatterns.map((ap: any) => `- [${ap.id}] ${ap.misconception}: ${ap.whyWrong}`).join('\n')}`
-    : '';
-
+  const { question, certificationName, certTier } = params;
   const typeSpecific = getTypeSpecificValidation(question);
 
-  return `You are a HOSTILE adversarial reviewer performing red-team quality assurance on a ${certificationName} exam question. Assume the question is WRONG until you prove otherwise. Your job is to find every possible flaw.
-
-CERTIFICATION: ${certificationName}
-TIER: ${certTier.toUpperCase()}${servicesContext}
-${antiPatternSection}
-
-TIER COMPLIANCE REQUIREMENTS:
-- Stem length must be ${tierProfile.stemLength} (${tierProfile.stemWordRange[0]}-${tierProfile.stemWordRange[1]} words)
-- Cognitive level must be: ${tierProfile.cognitiveLevel}
-- Service interaction: ${tierProfile.serviceInteraction}
-- Distractor strategy: ${tierProfile.distractorStrategy}
+  return `You are a validator reviewing a ${certificationName} exam question. Focus ONLY on these two critical aspects:
 
 QUESTION TO VALIDATE:
 Text: ${question.text}
@@ -72,37 +41,28 @@ Explanation: ${question.explanation}
 
 ${typeSpecific}
 
-RED-TEAM VALIDATION CHECKLIST — be aggressive on every item:
+VALIDATION CHECKLIST — check ONLY these two things:
 
-1. FACTUAL ACCURACY: Is EVERY fact stated in the question, options, and explanation technically correct according to CURRENT AWS documentation? Flag ANY claim you cannot verify with certainty.
+1. FACTUAL CORRECTNESS:
+   - Is the question stem factually correct according to AWS documentation?
+   - Is the claimed correct answer actually correct?
+   - Are all options real and plausible?
+   - Flag any technical inaccuracies, wrong service capabilities, or incorrect behaviors.
 
-2. CORRECT ANSWER: Is the claimed correct answer actually the BEST answer? Actively try to argue for each wrong answer — if you can construct a reasonable argument for any distractor, the question is ambiguous.
-
-3. DISTRACTOR QUALITY: Are all wrong answers plausible but clearly incorrect? Do any distractors embody the known anti-patterns listed above? If distractors are too easy to eliminate, flag this.
-
-4. ANTI-PATTERN ALIGNMENT: Do the distractors represent realistic misconceptions? A good question should have at least one distractor that matches a known anti-pattern for this domain.
-
-5. EXPLANATION ACCURACY: Does the explanation correctly describe why the answer is right AND why each wrong answer is wrong? Is anything misleading or incomplete?
-
-6. SERVICE NAMES: Are all AWS service names exact and current? (e.g., "Amazon S3" not "AWS S3")
-
-7. SERVICE BEHAVIOR: Are all described service behaviors, limits, and characteristics accurate as of the current AWS documentation?
-
-8. TIER COMPLIANCE: Does the stem length fall within ${tierProfile.stemWordRange[0]}-${tierProfile.stemWordRange[1]} words? Is the cognitive level appropriate for ${certTier} (${tierProfile.cognitiveLevel})? Does the scenario complexity match the tier?
+2. EXPLANATION QUALITY:
+   - Does the explanation clearly state WHY the correct option is right?
+   - Does the explanation explain WHY each incorrect option is wrong?
+   - Is the explanation clear, complete, and accurate?
+   - No ambiguity or missing reasoning.
 
 RESPOND WITH ONLY THIS JSON (no markdown, no other text):
 {
   "is_correct": true/false,
   "correct_answer_index": ${getAnswerFormat(question)},
   "confidence": "high" | "medium" | "low",
-  "validation_notes": "Detailed explanation of your assessment. If incorrect, explain what the real answer should be and why.",
-  "factual_errors": ["List any factual errors found, or empty array if none"],
-  "suggested_explanation": "Only include if the original explanation has errors — provide corrected explanation",
-  "tier_compliance": {
-    "stem_length_ok": true/false,
-    "cognitive_level_ok": true/false,
-    "notes": "Brief assessment of tier compliance — does this question match the ${certTier} tier profile?"
-  }
+  "validation_notes": "Brief assessment. If incorrect, explain what is wrong.",
+  "factual_errors": ["List any factual errors, or empty array if none"],
+  "suggested_explanation": "Only if explanation needs improvement — provide corrected version"
 }`;
 }
 

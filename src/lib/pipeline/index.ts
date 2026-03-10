@@ -71,7 +71,7 @@ export async function runGenerationPipeline(params: PipelineParams): Promise<Pip
         certTier,
         genMode,
       };
-      const batch = await generate(subParams);
+      const batch = await generate(subParams, params.generationContext ?? 'hub');
       // tag each question with the difficulty that was requested so the UI
       // can display it later
       rawQuestions = rawQuestions.concat(batch.map(q => ({ ...q, difficulty: level })));
@@ -95,7 +95,7 @@ export async function runGenerationPipeline(params: PipelineParams): Promise<Pip
       certTier,
       genMode,
     };
-    rawQuestions = (await generate(generationParams)).map(q => ({
+    rawQuestions = (await generate(generationParams, params.generationContext ?? 'hub')).map(q => ({
       ...q,
       difficulty: generationParams.complexityLevel,
     }));
@@ -157,7 +157,7 @@ export async function runGenerationPipeline(params: PipelineParams): Promise<Pip
       certTier,
       genMode,
     };
-    const extra = await generate(extraParams);
+    const extra = await generate(extraParams, params.generationContext ?? 'hub');
     const deduped = filterNew(extra);
     accumulated = accumulated.concat(deduped);
     remaining = targetCount - accumulated.length;

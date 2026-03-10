@@ -112,6 +112,8 @@ export interface PipelineParams {
   // V2 tier/mode
   certTier?: CertTier; // foundational, associate, professional, specialty
   genMode?: GenMode;
+  /** Controls how strictly quality standards are enforced in the prompt. Defaults to 'hub'. */
+  generationContext?: import('@/lib/prompts/generation-new').GenerationContext;
 }
 
 export interface MockPipelineParams {

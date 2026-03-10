@@ -1,6 +1,7 @@
 import type { GeneratedQuestion, QuestionGenerationParams } from '@/lib/types/generation';
 import { getGenerationModel, parseGeminiJson } from '@/lib/gemini/client';
 import { createGenerationPrompt } from '@/lib/prompts/generation-new';
+import type { GenerationContext } from '@/lib/prompts/generation-new';
 
 /**
  * Generate step: call Gemini to produce exam questions.
@@ -8,9 +9,9 @@ import { createGenerationPrompt } from '@/lib/prompts/generation-new';
  * Builds a fully-contextualized prompt from the exam guide, modules,
  * and few-shot examples, then parses the LLM's JSON response.
  */
-export async function generate(params: QuestionGenerationParams): Promise<GeneratedQuestion[]> {
+export async function generate(params: QuestionGenerationParams, generationContext: GenerationContext = 'hub'): Promise<GeneratedQuestion[]> {
   // Generate prompt using tier-aware, mode-specific approach
-  
+  console.log('PARAMS ', params)
   const prompt = createGenerationPrompt({
     examGuide: params.examGuide!,
     domainContext: params.domainContext!,
@@ -21,6 +22,7 @@ export async function generate(params: QuestionGenerationParams): Promise<Genera
     questionTypes: params.questionTypes,
     fewShotExamples: params.fewShotExamples,
     serperContext: params.serperContext,
+    generationContext,
   });
   console.log(`[generate] Calling Gemini for ${params.modules.length} modules × ${params.questionsPerModule} questions`);
 

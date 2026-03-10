@@ -7,133 +7,163 @@ import type { Difficulty } from '@/lib/types/reference-question';
 import type { CertTier, GenMode } from '@/lib/types/tier';
 import { getSupabaseClient } from '../config';
 
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+interface RequestBody {
+  certification_id: string;
+  certification_code?: string;
+  certification_name: string;
+  topic_id: string;
+  topic_name?: string;
+  topic_description?: string;
+  quiz_id: string;
+  modules: Array<{ module_id: string; module_name: string; module_description?: string; module_content?: string }>;
+  questionType?: QuestionType;
+  questionTypes?: QuestionType[];
+  complexityLevel?: Difficulty;
+  questionsPerModule?: number;
+  enableValidation?: boolean;
+  storeInBank?: boolean;
+  certTier?: CertTier;
+  genMode?: GenMode;
+  complexityLevelDistribution?: Record<string, number>;
+}
+
+// ─── Validation ───────────────────────────────────────────────────────────────
+
+function validateRequest(body: RequestBody): string | null {
+  if (!body.certification_id || !body.topic_id || !body.quiz_id) {
+    return 'Missing required parameters: certification_id, topic_id, quiz_id';
+  }
+  if (!body.certification_name) {
+    return 'Missing required parameter: certification_name';
+  }
+  if (!body.modules || body.modules.length === 0) {
+    return 'No modules provided';
+  }
+  return null;
+}
+
+// ─── Questions Per Module Resolution ──────────────────────────────────────────
+
+function resolveQuestionsPerModule(
+  questionsPerModule: number,
+  distribution?: Record<string, number>
+): { qpm: number; error?: string } {
+  let qpm = Math.max(questionsPerModule, 1);
+
+  if (distribution && Object.keys(distribution).length > 0) {
+    for (const [level, count] of Object.entries(distribution)) {
+      if (typeof count !== 'number' || count < 1) {
+        return { qpm, error: `Invalid count for difficulty ${level}` };
+      }
+    }
+    const total = Object.values(distribution).reduce((sum, v) => sum + v, 0);
+    qpm = Math.max(total, 1);
+  }
+
+  return { qpm };
+}
+
+// ─── Start Index Lookup ───────────────────────────────────────────────────────
+
+async function getStartIndexByModule(
+  topicId: string,
+  moduleIds: string[]
+): Promise<Record<string, number>> {
+  const startIndexByModule: Record<string, number> = {};
+  try {
+    const supabase = await getSupabaseClient();
+    for (const moduleId of moduleIds) {
+      const prefix = `q_${topicId}_${moduleId}_`;
+      const { count } = await supabase
+        .from('question')
+        .select('id', { count: 'exact' })
+        .like('id', `${prefix}%`);
+
+      if (count !== null && count > 0) {
+        startIndexByModule[moduleId] = count;
+      }
+    }
+  } catch (err) {
+    console.warn('[generate-hub] Could not fetch question count, starting from 0:', err);
+  }
+  return startIndexByModule;
+}
+
+// ─── Route Handler ────────────────────────────────────────────────────────────
+
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
-    const {
-      certification_id,
-      certification_code,
-      certification_name,
-      topic_id,
-      topic_name,
-      topic_description,
-      quiz_id,
-      modules = [],
-      questionType = 'mcq',
-      questionTypes,
-      complexityLevel = 'intermediate',
-      questionsPerModule = 10,
-      enableValidation = true,
-      storeInBank = false,
-      certTier,
-      genMode = 'drill',
-      complexityLevelDistribution,
-    } = body;
+    const body: RequestBody = await request.json();
 
-    // Validate required parameters
-    if (!certification_id || !topic_id || !quiz_id) {
-      return NextResponse.json(
-        { error: 'Missing required parameters: certification_id, topic_id, quiz_id' },
-        { status: 400 }
-      );
+    // Apply defaults
+    body.questionType ??= 'mcq';
+    body.complexityLevel ??= 'intermediate';
+    body.questionsPerModule ??= 10;
+    body.enableValidation ??= true;
+    body.storeInBank ??= false;
+    body.genMode ??= 'drill';
+    body.modules ??= [];
+
+    // Validate
+    const validationError = validateRequest(body);
+    if (validationError) {
+      return NextResponse.json({ error: validationError }, { status: 400 });
     }
 
-    if (!modules || modules.length === 0) {
-      return NextResponse.json(
-        { error: 'No modules provided' },
-        { status: 400 }
-      );
+    // Resolve questions per module (with optional difficulty distribution)
+    const { qpm, error: distributionError } = resolveQuestionsPerModule(
+      body.questionsPerModule,
+      body.complexityLevelDistribution
+    );
+    if (distributionError) {
+      return NextResponse.json({ error: distributionError }, { status: 400 });
     }
 
-    if (!certification_name) {
-      return NextResponse.json(
-        { error: 'Missing required parameter: certification_name' },
-        { status: 400 }
-      );
-    }
+    // Fetch start index per module for sequential question IDs
+    const moduleIds = body.modules.map(m => String(m.module_id));
+    const startIndexByModule = await getStartIndexByModule(String(body.topic_id), moduleIds);
 
-    // enforce minimum questions per module
-    const minPerModule = 1;
-    let qpm = Math.max(questionsPerModule, minPerModule);
-
-    // if a distribution is provided, ensure each entry is at least 1 and compute the
-    // sum for logging/validation. We still send `questionsPerModule` as the total
-    // so the pipeline can fall back if distribution is ignored.
-    const distribution = complexityLevelDistribution as Record<string, number> | undefined;
-    if (distribution && Object.keys(distribution).length > 0) {
-      for (const [level, count] of Object.entries(distribution)) {
-        if (typeof count !== 'number' || count < 1) {
-          return NextResponse.json({ error: `Invalid count for difficulty ${level}` }, { status: 400 });
-        }
-      }
-      const total = Object.values(distribution).reduce((s, v) => s + v, 0);
-      qpm = Math.max(total, minPerModule);
-    }
-
-    // ── Fetch last question index per module so new IDs continue correctly ──
-    const moduleIds: string[] = modules.map((m: any) => String(m.module_id));
-    console.log(`[generate-hub] ${moduleIds}}`);
-    const startIndexByModule: Record<string, number> = {};
-    try {
-      const supabase = await getSupabaseClient();
-      const topicIdStr = String(topic_id);
-      for (const moduleId of moduleIds) {
-        const prefix = `q_${topicIdStr}_${moduleId}_`;
-        console.log(`[generate-hub] Prefix ${prefix}`);
-        // Count all questions matching this prefix pattern
-        const { count } = await supabase
-          .from('question')
-          .select('id', { count: 'exact' })
-          .like('id', `${prefix}%`);
-
-        if (count !== null && count > 0) {
-          // Next index should be count + 1
-          startIndexByModule[moduleId] = count;
-        }
-        // If count is 0 or null, startIndexByModule[moduleId] is not set, defaulting to 0
-      }
-    } catch (err) {
-      console.warn('[generate-hub] Could not fetch question count, starting from 0:', err);
-    }
-
+    // Build pipeline params
     const pipelineParams: PipelineParams = {
-      certificationCode: certification_code || '',
-      certificationName: certification_name,
-      certificationId: certification_id,
-      topicId: String(topic_id),
-      topicName: topic_name || '',
-      topicDescription: topic_description,
-      quizId: quiz_id,
-      modules: modules.map((m: any) => ({
+      certificationCode: body.certification_code || '',
+      certificationName: body.certification_name,
+      certificationId: Number(body.certification_id),
+      topicId: String(body.topic_id),
+      topicName: body.topic_name || '',
+      topicDescription: body.topic_description,
+      quizId: body.quiz_id,
+      modules: body.modules.map(m => ({
         module_id: m.module_id,
         module_name: m.module_name,
         module_description: m.module_description,
         module_content: m.module_content,
       })),
-      questionType: questionType as QuestionType,
-      questionTypes: questionTypes || [questionType],
-      complexityLevel: complexityLevel as Difficulty,
+      questionType: body.questionType,
+      questionTypes: body.questionTypes || [body.questionType],
+      complexityLevel: body.complexityLevel,
       questionsPerModule: qpm,
-      complexityLevelDistribution: distribution,
-      enableValidation,
-      certTier: certTier as CertTier | undefined,
-      genMode: genMode as GenMode | undefined,
+      complexityLevelDistribution: body.complexityLevelDistribution,
+      enableValidation: body.enableValidation,
+      certTier: body.certTier,
+      genMode: body.genMode,
       startIndexByModule,
     };
 
     const result = await runGenerationPipeline(pipelineParams);
 
-    // Optionally store in question bank
+    // Optionally store generated questions in the question bank
     let bankResult: { stored: number; duplicates: number } | undefined;
-    if (storeInBank && result.questions.length > 0) {
+    if (body.storeInBank && result.questions.length > 0) {
       const bankQuestions = toBankQuestions(result.questions, {
-        certificationCode: certification_code || certification_name,
+        certificationCode: body.certification_code || body.certification_name,
         examGuideVersion: result.examGuideVersion,
-        domainId: result.domainContext?.id || String(topic_id),
+        domainId: result.domainContext?.id || String(body.topic_id),
         domainContext: result.domainContext,
-        defaultDifficulty: complexityLevel as Difficulty,
-        certTier: certTier as CertTier | undefined,
-        genMode: genMode as GenMode | undefined,
+        defaultDifficulty: body.complexityLevel,
+        certTier: body.certTier,
+        genMode: body.genMode,
       });
       bankResult = await storeQuestions(bankQuestions);
     }
@@ -143,7 +173,7 @@ export async function POST(request: NextRequest) {
       sqlScript: result.sqlScript,
       questions: result.questions,
       questionCount: result.questionCount,
-      moduleCount: modules.length,
+      moduleCount: body.modules.length,
       examGuideVersion: result.examGuideVersion,
       validatedCount: result.validatedCount,
       rejectedCount: result.rejectedCount,
@@ -151,11 +181,8 @@ export async function POST(request: NextRequest) {
       ...(bankResult && { questionBank: bankResult }),
     });
   } catch (error) {
-    console.error('Error generating hub questions:', error);
+    console.error('[generate-hub] Unexpected error:', error);
     const message = error instanceof Error ? error.message : 'Failed to generate hub questions';
-    return NextResponse.json(
-      { error: message },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
