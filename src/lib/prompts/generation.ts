@@ -246,17 +246,15 @@ MATCHING (pair terms to definitions):
 {
   "text": "Match each AWS service to its primary use case.",
   "type": "matching",
-  "options": {"A": "Amazon S3", "B": "Amazon RDS", "C": "AWS Lambda"},
   "pairs": {
     "left": ["Amazon S3", "Amazon RDS", "AWS Lambda"],
     "right": ["Object storage", "Relational database", "Serverless compute"]
   },
-  "matches": {"left": [0, 1, 2], "right": [0, 1, 2]},
-  "correct_answer": null,
+  "correct_answer": {"left": [0, 1, 2], "right": [0, 1, 2]},
   "explanation": "Detailed explanation...",
   "module_id": "the_module_id"
 }
-Note: left items max 5 words, right items max 12 words. The matches object maps left[i] to right[j].`);
+Note: left items max 5 words, right items max 12 words. correct_answer maps left[i] to right[j].`);
   }
 
   return formats.join('\n');

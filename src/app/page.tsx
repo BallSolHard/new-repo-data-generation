@@ -68,6 +68,8 @@ export default function Home() {
   const [easyCount, setEasyCount] = useState(1);
   const [mediumCount, setMediumCount] = useState(1);
   const [hardCount, setHardCount] = useState(1);
+  // question types
+  const [selectedQuestionTypes, setSelectedQuestionTypes] = useState<string[]>(['mcq']);
 
   // Fetch certifications from API on component mount
   useEffect(() => {
@@ -289,7 +291,8 @@ export default function Home() {
         topic_name: selectedDomain,
         topic_description: selectedDomainData?.topic_description || `${selectedDomain} domain knowledge and best practices`,
         quiz_id: quizId,
-        modules: modules
+        modules: modules,
+        questionTypes: selectedQuestionTypes  // Add selected question types
       };
 
       // include difficulty distribution if any of the counts are non-zero
@@ -580,6 +583,39 @@ export default function Home() {
                     <p className="text-xs text-gray-500 mt-1">Leave values at 0 if you don't need that difficulty.</p>
                   </div>
                 )}
+
+                {/* Question Type Selection */}
+                <div className="mt-6">
+                  <p className="font-semibold mb-3">Question Types</p>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    {[
+                      { id: 'mcq', label: 'Multiple Choice (MCQ)', description: 'Single correct answer' },
+                      { id: 'multiple', label: 'Multiple Select', description: 'Multiple correct answers' },
+                      { id: 'ordering', label: 'Ordering', description: 'Sequence questions' },
+                      { id: 'matching', label: 'Matching', description: 'Match pairs' }
+                    ].map(type => (
+                      <label key={type.id} className="flex items-center space-x-2 p-3 border rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition">
+                        <input
+                          type="checkbox"
+                          checked={selectedQuestionTypes.includes(type.id)}
+                          onChange={e => {
+                            if (e.target.checked) {
+                              setSelectedQuestionTypes([...selectedQuestionTypes, type.id]);
+                            } else {
+                              setSelectedQuestionTypes(selectedQuestionTypes.filter(t => t !== type.id));
+                            }
+                          }}
+                          className="w-4 h-4 rounded"
+                        />
+                        <div>
+                          <p className="font-medium text-sm">{type.label}</p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">{type.description}</p>
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">Select at least one question type</p>
+                </div>
               </div>
               <button 
                 className="mt-4 bg-white text-purple-600 px-6 py-2 rounded-lg font-semibold hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"

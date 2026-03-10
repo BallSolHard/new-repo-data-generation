@@ -62,9 +62,8 @@ export function buildSqlOutput(
       const escapedExplanation = escapeSql(q.explanation);
       const optionsJson = JSON.stringify(q.options);
 
-      // Auto-detect 'multiple' type when there are multiple correct answers
-      const isMultipleAnswer = Array.isArray(q.correct_answer) && q.correct_answer.length > 1;
-      const type = isMultipleAnswer ? 'multiple' : (q.type || 'mcq');
+      // Use the question type from Gemini (mcq, multiple, ordering, matching)
+      const type = q.type || 'mcq';
 
       // Map difficulty to the DB column value (default to 'medium')
       const difficultyMap: Record<string, string> = {
@@ -74,8 +73,20 @@ export function buildSqlOutput(
       };
       const difficulty = difficultyMap[q.difficulty ?? ''] ?? 'medium';
 
-      // Handle correct_answer format
-      const correctAnswer = formatCorrectAnswer(q.correct_answer);
+      // Handle correct_answer format based on question type
+      let correctAnswer: string;
+      if (type === 'mcq') {
+        // MCQ: single index as string (e.g., "0")
+        correctAnswer = String(q.correct_answer);
+      } else if (type === 'multiple' || type === 'ordering') {
+        // Multiple Select / Ordering: array of indices (e.g., [0, 2] or [2, 0, 3, 1])
+        correctAnswer = Array.isArray(q.correct_answer) ? JSON.stringify(q.correct_answer) : String(q.correct_answer);
+      } else if (type === 'matching') {
+        // Matching: object mapping (e.g., {"left": [0, 1, 2], "right": [0, 1, 2]})
+        correctAnswer = typeof q.correct_answer === 'object' ? JSON.stringify(q.correct_answer) : String(q.correct_answer);
+      } else {
+        correctAnswer = formatCorrectAnswer(q.correct_answer);
+      }
 
       // Handle pairs and matches for matching questions
       const pairsVal = q.pairs ? `'${escapeSql(JSON.stringify(q.pairs))}'::json` : 'NULL';

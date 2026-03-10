@@ -162,6 +162,7 @@ RESPOND WITH ONLY A VALID JSON ARRAY. No markdown, no explanation, no preamble. 
     antiPatternInstructions,
     fewShotSection,
     serperContext,
+    selectedQuestionTypes: questionTypes,
   };
 
   const mockPromptParams = {
