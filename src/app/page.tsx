@@ -670,39 +670,49 @@ export default function Home() {
                                 question.options.map((option: any, optIdx: number) => {
                                   const optionLabel = String.fromCharCode(65 + optIdx);
                                   
-                                  // Normalize the correct answer and option for comparison
-                                  const rawCorrect = question.correct_answer;
-                                  const optionText = String(option).trim();
-                                  // Remove curly braces: {0} -> 0, {1} -> 1, etc
-                                  const correctText = String(rawCorrect).trim().replace(/[{}]/g, '');
-                                  
-                                  // Try multiple matching strategies
+                                  // Determine if this option is correct
                                   let isCorrect = false;
+                                  const rawCorrect = question.correct_answer;
                                   
-                                  // Strategy 1: Direct match with option text
-                                  if (correctText === optionText) {
-                                    isCorrect = true;
-                                  }
-                                  // Strategy 2: Match with letter (A, B, C, D)
-                                  else if (correctText === optionLabel || correctText.toUpperCase() === optionLabel) {
-                                    isCorrect = true;
-                                  }
-                                  // Strategy 3: Match with index (0, 1, 2, 3)
-                                  else if (correctText === String(optIdx)) {
-                                    isCorrect = true;
-                                  }
-                                  // Strategy 4: Case-insensitive text match
-                                  else if (correctText.toUpperCase() === optionText.toUpperCase()) {
-                                    isCorrect = true;
-                                  }
-                                  // Strategy 5: Partial match (if correct answer contains the option or vice versa)
-                                  else if (correctText.includes(optionText) || optionText.includes(correctText)) {
-                                    isCorrect = true;
+                                  // Handle MULTIPLE SELECT: correct_answer is an array [0, 2] or [1, 3]
+                                  if (Array.isArray(rawCorrect)) {
+                                    // For multiple select: check if current index is in the array
+                                    isCorrect = rawCorrect.includes(optIdx);
+                                  } 
+                                  // Handle MCQ: correct_answer is a string like "{0}" or "0"
+                                  else {
+                                    const optionText = String(option).trim();
+                                    // Remove curly braces: {0} -> 0, {1} -> 1, etc
+                                    const correctText = String(rawCorrect).trim().replace(/[{}]/g, '');
+                                    
+                                    // Try multiple matching strategies
+                                    // Strategy 1: Match with index (0, 1, 2, 3)
+                                    if (correctText === String(optIdx)) {
+                                      isCorrect = true;
+                                    }
+                                    // Strategy 2: Match with letter (A, B, C, D)
+                                    else if (correctText === optionLabel || correctText.toUpperCase() === optionLabel) {
+                                      isCorrect = true;
+                                    }
+                                    // Strategy 3: Direct match with option text
+                                    else if (correctText === optionText) {
+                                      isCorrect = true;
+                                    }
+                                    // Strategy 4: Case-insensitive text match
+                                    else if (correctText.toUpperCase() === optionText.toUpperCase()) {
+                                      isCorrect = true;
+                                    }
+                                    // Strategy 5: Partial match (if correct answer contains the option or vice versa)
+                                    else if (correctText.includes(optionText) || optionText.includes(correctText)) {
+                                      isCorrect = true;
+                                    }
                                   }
                                   
                                   // Debug log for first option
                                   if (optIdx === 0) {
-                                    console.log('Correct answer found at index:', correctText);
+                                    console.log('Question Type:', question.type);
+                                    console.log('Correct Answer:', rawCorrect);
+                                    console.log('Is Array?:', Array.isArray(rawCorrect));
                                   }
                                   
                                   return (
@@ -710,25 +720,25 @@ export default function Home() {
                                       key={optIdx}
                                       className={`p-3 rounded-lg border-2 transition-all ${
                                         isCorrect
-                                          ? 'border-green-500 bg-green-50 shadow-md'
+                                          ? 'border-green-500 bg-green-100 shadow-md'
                                           : 'border-gray-200 bg-gray-50'
                                       }`}
                                     >
                                       <div className="flex items-start">
-                                        <span className={`font-bold mr-2 text-lg ${isCorrect ? 'text-green-600' : 'text-gray-600'}`}>
+                                        <span className={`font-bold mr-2 text-lg ${isCorrect ? 'text-green-700' : 'text-gray-600'}`}>
                                           {optionLabel}.
                                         </span>
-                                        <span className={isCorrect ? 'text-green-700 font-semibold' : 'text-gray-700'}>
+                                        <span className={isCorrect ? 'text-green-800 font-semibold' : 'text-gray-700'}>
                                           {option}
                                         </span>
-                                        {isCorrect && <span className="ml-auto text-green-600 text-sm font-bold bg-green-200 px-2 py-1 rounded">✓ CORRECT</span>}
+                                        {isCorrect && <span className="ml-auto text-white text-sm font-bold bg-green-600 px-2 py-1 rounded">✓ CORRECT</span>}
                                       </div>
                                     </div>
                                   );
                                 })
                               ) : typeof question.options === 'object' ? (
                                 Object.entries(question.options).map(([key, value]: [string, any], optIdx: number) => {
-                                  // More robust matching logic for object options
+                                  // More robust matching logic for object options (Matching questions)
                                   let isCorrect = false;
                                   const correctValue = question.correct_answer;
                                   
@@ -745,7 +755,7 @@ export default function Home() {
                                   }
                                   
                                   if (optIdx === 0) {
-                                    console.log('=== Object Question Debug ===');
+                                    console.log('=== Matching Question Debug ===');
                                     console.log('correct_answer raw:', question.correct_answer);
                                     console.log('First key:', key);
                                     console.log('First value:', value);
@@ -756,18 +766,18 @@ export default function Home() {
                                       key={optIdx}
                                       className={`p-3 rounded-lg border-2 transition-all ${
                                         isCorrect
-                                          ? 'border-green-500 bg-green-50 shadow-md'
+                                          ? 'border-green-500 bg-green-100 shadow-md'
                                           : 'border-gray-200 bg-gray-50'
                                       }`}
                                     >
                                       <div className="flex items-start">
-                                        <span className={`font-bold mr-2 text-lg ${isCorrect ? 'text-green-600' : 'text-gray-600'}`}>
+                                        <span className={`font-bold mr-2 text-lg ${isCorrect ? 'text-green-700' : 'text-gray-600'}`}>
                                           {key}:
                                         </span>
-                                        <span className={isCorrect ? 'text-green-700 font-semibold' : 'text-gray-700'}>
+                                        <span className={isCorrect ? 'text-green-800 font-semibold' : 'text-gray-700'}>
                                           {value as string}
                                         </span>
-                                        {isCorrect && <span className="ml-auto text-green-600 text-sm font-bold bg-green-200 px-2 py-1 rounded">✓ CORRECT</span>}
+                                        {isCorrect && <span className="ml-auto text-white text-sm font-bold bg-green-600 px-2 py-1 rounded">✓ CORRECT</span>}
                                       </div>
                                     </div>
                                   );
