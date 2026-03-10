@@ -40,7 +40,7 @@ export function buildHubPrompt(params: HubPromptParams): string {
     serperContext,
   } = params;
 
-  const definitionQuestionCount = Math.ceil(totalQuestions * 0.7);
+  const definitionQuestionCount = Math.ceil(totalQuestions * 0.6);
 
   return `${systemPrompt}
 
@@ -62,8 +62,8 @@ ${fewShotSection}
 TASK: Generate exactly ${totalQuestions} ${examGuide.certificationName} exam questions as a valid JSON array.
 Generate ${questionsPerModule} question(s) per module.
 
-⚠️ CRITICAL REQUIREMENT: Question Mix Distribution (70% Definition/Straightforward Focus)
-   You MUST generate AT LEAST ${definitionQuestionCount} DEFINITION/STRAIGHTFORWARD questions (70% of total).
+⚠️ CRITICAL REQUIREMENT: Question Mix Distribution (60% Definition/Straightforward Focus)
+   You MUST generate AT LEAST ${definitionQuestionCount} DEFINITION/STRAIGHTFORWARD questions (60% of total).
    These are service-based or terminology questions that are direct and practical.
    Definition questions are 6-30 words and ask "What is...", "Which service...", "What does... do?"
    
@@ -86,9 +86,9 @@ STEM LENGTH — FLEXIBLE: Minimum 10 words, maximum ${tierProfile.stemWordRange[
   ✅ MEDIUM QUESTIONS (10-60 words): Single-service application questions
   ✅ LONG QUESTIONS (10-120 words): Multi-service scenario-based questions
 
-COGNITIVE LEVELS — 70% DEFINITION + 30% APPLICATION:
+COGNITIVE LEVELS — 60% DEFINITION + 40% APPLICATION:
 
-  1️⃣ DEFINITION/STRAIGHTFORWARD (6-30 words) — 70% OF ALL QUESTIONS:
+  1️⃣ DEFINITION/STRAIGHTFORWARD (6-30 words) — 60% OF ALL QUESTIONS:
      ✅ "What is Amazon S3 primarily used for?"
      ✅ "Which AWS service provides managed relational databases?"
      ✅ "What does Amazon CloudWatch do?"
