@@ -123,7 +123,19 @@ export async function runGenerationPipeline(params: PipelineParams): Promise<Pip
   const filterNew = (batch: GeneratedQuestion[]) => {
     const unique: typeof batch = [];
     for (const q of batch) {
-      const h = computeContentHash(q.text, q.options);
+      // Matching questions use 'pairs' instead of 'options'
+      // For matching: convert pairs structure to string array for hashing
+      let hashContent: string[] | Record<string, string>;
+      if (q.type === 'matching' && q.pairs) {
+        // Flatten matching pairs into a simple record for hashing
+        hashContent = {
+          left: (q.pairs.left || []).join('|'),
+          right: (q.pairs.right || []).join('|'),
+        };
+      } else {
+        hashContent = q.options || [];
+      }
+      const h = computeContentHash(q.text, hashContent);
       if (!seenHashes.has(h)) {
         seenHashes.add(h);
         unique.push(q);

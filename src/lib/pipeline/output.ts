@@ -174,7 +174,47 @@ function sanitizeQuestion(q: GeneratedQuestion): GeneratedQuestion {
     }
   }
 
-  // FIX #2: Replace "Option 0", "Option 1", etc. with "Option A", "Option B", etc.
+  // FIX #2: Handle MATCHING type questions - ensure pairs structure exists
+  if (q.type === 'matching') {
+    // If pairs not present but options is, try to extract from options
+    if (!q.pairs && Array.isArray(q.options)) {
+      // Try to split options into left/right if they look like pairs
+      // This is a fallback for when Gemini generates matching questions with standard options
+      console.log(`[sanitizeQuestion] WARNING: Matching question missing 'pairs' field. Trying to auto-extract...`);
+      
+      // If we have an even number of options, split them
+      if (q.options.length % 2 === 0) {
+        const mid = q.options.length / 2;
+        sanitized.pairs = {
+          left: (q.options as string[]).slice(0, mid),
+          right: (q.options as string[]).slice(mid),
+        };
+        console.log(`[sanitizeQuestion] Fixed MATCHING: extracted pairs from options (${mid} left, ${mid} right)`);
+      }
+    }
+
+    // If matches (correct_answer) is provided as array, try to convert to object format
+    if (q.correct_answer && !sanitized.matches) {
+      if (Array.isArray(q.correct_answer)) {
+        // If it's an array of numbers, assume they're indices for matching
+        // Ideally: correct_answer should be {"left": [0,1,2], "right": [0,1,2]}
+        const pairCount = sanitized.pairs?.left.length || (typeof q.options === 'object' && !Array.isArray(q.options) ? Object.keys(q.options).length : 0);
+        if (typeof pairCount === 'number' && pairCount > 0) {
+          const indices: number[] = Array.from({ length: pairCount }, (_, i) => i);
+          sanitized.matches = {
+            left: indices,
+            right: indices,
+          };
+          console.log(`[sanitizeQuestion] Fixed MATCHING: created default matches with indices`);
+        }
+      } else if (typeof q.correct_answer === 'object' && q.correct_answer !== null) {
+        // Already in correct format
+        sanitized.matches = q.correct_answer as any;
+      }
+    }
+  }
+
+  // FIX #3: Replace "Option 0", "Option 1", etc. with "Option A", "Option B", etc.
   if (q.explanation) {
     let explanation = q.explanation;
     

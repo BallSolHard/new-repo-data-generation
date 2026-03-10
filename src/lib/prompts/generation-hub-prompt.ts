@@ -213,22 +213,54 @@ ORDERING QUESTIONS (type: "ordering"):
   }
 ` : ''}
 ${selectedQuestionTypes.length === 1 && selectedQuestionTypes.includes('matching') ? `
-MATCHING QUESTIONS (type: "matching"):
-  ✅ correct_answer MUST be an OBJECT: {"left": [0, 1, 2], "right": [0, 1, 2]}
-  ✅ Maps left items to right items by index
-  ❌ NEVER use strings or arrays alone
+⚠️ 🔴🔴🔴 CRITICAL FOR MATCHING QUESTIONS 🔴🔴🔴
+
+YOU ARE GENERATING: MATCHING QUESTIONS ONLY
+
+EVERY SINGLE QUESTION MUST FOLLOW THIS EXACT PATTERN:
+{
+  "text": "Match each AWS service to its primary use case.",
+  "type": "matching",
+  "pairs": {
+    "left": ["Amazon S3", "Amazon RDS", "AWS Lambda"],
+    "right": ["Object storage", "Relational database", "Serverless compute"]
+  },
+  "correct_answer": {"left": [0, 1, 2], "right": [0, 1, 2]},
+  "explanation": "..."
+}
+
+🔴 CRITICAL RULES FOR correct_answer FIELD:
+  1️⃣  correct_answer MUST BE AN OBJECT: {"left": [...], "right": [...]}
+  2️⃣  "left" array: indices in SAME ORDER as pairs.left array [0, 1, 2, ...]
+  3️⃣  "right" array: indices showing which right item matches each left item
+  4️⃣  For 1-to-1 matching: [0, 1, 2] means left[0]→right[0], left[1]→right[1], left[2]→right[2]
   
-  CORRECT MATCHING FORMAT:
-  {
-    "text": "Match each AWS service to its use case.",
-    "type": "matching",
-    "pairs": {
-      "left": ["Amazon S3", "Amazon RDS", "AWS Lambda"],
-      "right": ["Object storage", "Relational database", "Serverless compute"]
-    },
-    "correct_answer": {"left": [0, 1, 2], "right": [0, 1, 2]},
-    "explanation": "..."
-  }
+  ❌❌❌ DO NOT USE THESE FORMATS ❌❌❌
+    ❌ correct_answer: [0, 1, 2] (WRONG: should be object, not array)
+    ❌ correct_answer: "0,1,2" (WRONG: string, not object)
+    ❌ correct_answer: [0, 2, 1] (WRONG: missing "left" and "right" keys)
+    ❌ "pairs" field missing (WRONG: must include pairs structure)
+    ❌ "options" instead of "pairs" (WRONG: matching uses pairs, not options)
+
+  ✅✅✅ ONLY USE THIS FORMAT ✅✅✅
+    ✅ "correct_answer": {"left": [0, 1, 2], "right": [0, 1, 2]}
+    ✅ "pairs": {"left": ["Item 1", "Item 2", "Item 3"], "right": ["Def 1", "Def 2", "Def 3"]}
+    ✅ Left and right arrays MUST have same length (3 items each, 4 items each, etc.)
+
+ADDITIONAL REQUIREMENTS:
+  • Must have "pairs" field with "left" and "right" arrays
+  • "left" array: 3-5 items to match (e.g., AWS services)
+  • "right" array: 3-5 definitions/descriptions (same length as left)
+  • correct_answer MUST be an object: {"left": [0, 1, 2], "right": [0, 1, 2]}
+  • All indices must be valid (0-2 for 3 items, 0-4 for 5 items)
+
+INSTANT REJECTION IF ANY OF THESE:
+  ❌ correct_answer is an array like [0, 1, 2] (must be OBJECT)
+  ❌ correct_answer is a string like "0,1,2" (must be OBJECT)
+  ❌ "pairs" field missing (must include pairs structure)
+  ❌ "options" field present instead of "pairs" (matching uses pairs only)
+  ❌ Left and right arrays have different lengths
+  ❌ Indices in correct_answer.right don't match left array length
 ` : ''}
 ${selectedQuestionTypes.length > 1 ? `
 ═══════════════════════════════════════════════════════
@@ -265,8 +297,9 @@ ORDERING (type: "ordering") — Sequence of steps
 ${selectedQuestionTypes.includes('matching') ? `
 MATCHING (type: "matching") — Pair left and right items
   • "type": "matching"
-  • "correct_answer": OBJECT {"left": [0, 1, 2], "right": [0, 1, 2]}
-  • Use "pairs" field with "left" and "right" arrays
+  • "pairs": {"left": ["Item 1", "Item 2", "Item 3"], "right": ["Def 1", "Def 2", "Def 3"]}
+  • "correct_answer": OBJECT {"left": [0, 1, 2], "right": [0, 1, 2]} (NOT array or string)
+  • Left and right arrays MUST have equal length (3-5 items each)
 ` : ''}
 
 ═══════════════════════════════════════════════════════

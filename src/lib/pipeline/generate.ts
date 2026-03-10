@@ -73,7 +73,10 @@ export async function generate(params: QuestionGenerationParams, generationConte
 
   // Validate basic structure
   questions = questions.filter(q => {
-    if (!q.text || !q.options || q.correct_answer === undefined) {
+    // Matching questions use 'pairs' instead of 'options'
+    const hasOptions = q.type === 'matching' ? q.pairs : q.options;
+    
+    if (!q.text || !hasOptions || q.correct_answer === undefined) {
       console.warn('[generate] Skipping malformed question:', JSON.stringify(q).slice(0, 200));
       return false;
     }
