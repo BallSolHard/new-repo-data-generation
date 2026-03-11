@@ -149,6 +149,7 @@ If the model thinks of a concept it already used, invent a new constraint or ser
     antiPatternInstructions,
     fewShotSection,
     serperContext,
+    selectedQuestionTypes: questionTypes,
   };
 
   if (generationContext === 'hub') {
