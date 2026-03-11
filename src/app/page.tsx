@@ -32,6 +32,7 @@ type ModuleData = {
 
 type QuizData = {
   id: string;
+  mock_test_id?: string;
   title: string;
   created_at: string;
   difficulty: string;
@@ -70,6 +71,14 @@ export default function Home() {
   const [hardCount, setHardCount] = useState(1);
   // question types
   const [selectedQuestionTypes, setSelectedQuestionTypes] = useState<string[]>(['mcq']);
+  
+  // Mock test selection state
+  const [existingMockTests, setExistingMockTests] = useState<QuizData[]>([]);
+  const [selectedMockTestAction, setSelectedMockTestAction] = useState<"existing" | "new" | null>(null);
+  const [selectedExistingMockTest, setSelectedExistingMockTest] = useState<QuizData | null>(null);
+  
+  // For mock: auto-select all modules when domain is selected
+  const [selectedAllModules, setSelectedAllModules] = useState<ModuleData[]>([]);
 
   // Debug: log question types changes
   useEffect(() => {
@@ -154,6 +163,11 @@ export default function Home() {
           }
           const data = await response.json();
           setModules(data.modules || []);
+          
+          // For Mock tab: Auto-select all modules when fetched
+          if (activeTab === "mock") {
+            setSelectedAllModules(data.modules || []);
+          }
         }
       } catch (err) {
         console.error('Error fetching modules:', err);
@@ -167,7 +181,7 @@ export default function Home() {
     if (selectedDomain && domains.length > 0) {
       fetchModules();
     }
-  }, [selectedDomain, domains]);
+  }, [selectedDomain, domains, activeTab]);
 
   // Fetch quizzes when module is selected (for Mock Questions) or domain is selected (for Hub Questions)
   useEffect(() => {
@@ -219,12 +233,61 @@ export default function Home() {
     setSelectedDomain(domain);
     setSelectedModule("");
     setModules([]); // Clear modules when domain changes
+    setSelectedAllModules([]); // Clear selected all modules
+    
+    // For Mock tab: Auto-select all modules for this domain
+    if (activeTab === "mock") {
+      // Find the selected domain data
+      const selectedDomainData = domains.find(d => d.topic_name === domain);
+      if (selectedDomainData?.modules && selectedDomainData.modules.length > 0) {
+        setSelectedAllModules(selectedDomainData.modules);
+      }
+    }
   };
 
   const handleModuleChange = (module: string) => {
     setSelectedModule(module);
     setQuizzes([]); // Clear quizzes when module changes
   };
+
+  // Fetch existing mock tests when domain is selected in mock tab
+  useEffect(() => {
+    const fetchMockTests = async () => {
+      if (activeTab !== "mock" || !selectedDomain || !selectedCertification) {
+        setExistingMockTests([]);
+        return;
+      }
+
+      try {
+        const selectedDomainData = domains.find(d => d.topic_name === selectedDomain);
+        const selectedCertData = certifications.find(c => c.title === selectedCertification);
+        
+        if (selectedDomainData?.topic_id && selectedCertData?.id) {
+          const response = await fetch(
+            `/api/mock-tests?category_id=${selectedDomainData.topic_id}&certification_id=${selectedCertData.id}&domain_name=${encodeURIComponent(selectedDomain)}`
+          );
+          if (!response.ok) {
+            console.warn('Failed to fetch existing mock tests');
+            setExistingMockTests([]);
+            return;
+          }
+          const data = await response.json();
+          setExistingMockTests(data.mockTests || []);
+          
+          // Auto-select first mock test action to "existing" if tests are available
+          if ((data.mockTests || []).length > 0) {
+            setSelectedMockTestAction("existing");
+            setSelectedExistingMockTest(data.mockTests[0]);
+          }
+        }
+      } catch (err) {
+        console.error('Error fetching mock tests:', err);
+        setExistingMockTests([]);
+      }
+    };
+
+    fetchMockTests();
+  }, [selectedDomain, selectedCertification, activeTab, domains, certifications]);
 
   const handleTabChange = (tab: "hub" | "mock") => {
     setActiveTab(tab);
@@ -234,6 +297,7 @@ export default function Home() {
     setSelectedModule("");
     setModules([]); // Clear modules when switching tabs
     setQuizzes([]); // Clear quizzes when switching tabs
+    setSelectedAllModules([]); // Clear selected all modules when switching tabs
   };
 
   const getCurrentDomains = () => {
@@ -332,6 +396,83 @@ export default function Home() {
     } catch (err) {
       console.error('Error generating hub questions:', err);
       setError('Failed to generate hub questions. Please try again.');
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const generateMockQuestions = async () => {
+    if (!selectedCertification || !selectedDomain) {
+      setError("Please select certification and domain first");
+      return;
+    }
+
+    // Check if we have modules selected (for mock questions, all modules should be auto-selected)
+    if (selectedAllModules.length === 0) {
+      setError("No modules available for the selected domain");
+      return;
+    }
+
+    // Check if user has made a choice for mock test action
+    if (!selectedMockTestAction) {
+      setError("Please choose whether to create a new mock test or use an existing one");
+      return;
+    }
+
+    setIsGenerating(true);
+    setError(null);
+
+    try {
+      const selectedCertData = certifications.find(c => c.title === selectedCertification);
+      const selectedDomainData = domains.find(d => d.topic_name === selectedDomain);
+
+      // Determine quiz ID based on user's choice
+      let quizId: string;
+      if (selectedMockTestAction === "existing" && selectedExistingMockTest) {
+        quizId = selectedExistingMockTest.id;
+      } else {
+        // Create new mock test ID (domain-level, not module-specific)
+        quizId = `mock_${selectedDomainData?.topic_id}_all_${Date.now()}`;
+      }
+
+      const payload: any = {
+        certification_id: selectedCertData?.id,
+        certification_name: selectedCertification,
+        topic_id: selectedDomainData?.topic_id,
+        topic_name: selectedDomain,
+        topic_description: selectedDomainData?.topic_description || `${selectedDomain} domain knowledge`,
+        modules: selectedAllModules,  // Send all selected modules
+        quiz_id: quizId,
+        mock_test_action: selectedMockTestAction, // "existing" or "new"
+        existing_mock_test: selectedMockTestAction === "existing" ? selectedExistingMockTest : null,
+        questionTypes: selectedQuestionTypes
+      };
+
+      console.log('[generateMockQuestions] Payload:', payload);
+
+      const response = await fetch('/api/generate-mock-with-data', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload)
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to generate mock questions');
+      }
+
+      const data = await response.json();
+      setGeneratedSQL(data.sqlScript);
+      setGeneratedQuestions(data.questions || []);
+      
+      // Reset mock test selection after generation
+      setSelectedMockTestAction(null);
+      setSelectedExistingMockTest(null);
+      
+    } catch (err) {
+      console.error('Error generating mock questions:', err);
+      setError('Failed to generate mock questions. Please try again.');
     } finally {
       setIsGenerating(false);
     }
@@ -459,44 +600,17 @@ export default function Home() {
             </div>
           )}
 
-          {/* Module/Task Selection - Only show for Mock Questions */}
+          {/* Module/Task Selection - Hidden for Mock Questions (auto-selected) */}
           {selectedDomain && activeTab === "mock" && (
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
-              <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-4">
-                Choose Module/Task
-              </h2>
-              {modulesLoading ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {[1, 2, 3].map((i) => (
-                    <div key={i} className="p-4 rounded-lg border-2 border-gray-200 dark:border-gray-600 animate-pulse">
-                      <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded"></div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {getCurrentModules().map((module: string) => (
-                    <button
-                      key={module}
-                      onClick={() => handleModuleChange(module)}
-                      className={`p-4 rounded-lg border-2 transition-all duration-200 text-left ${
-                        selectedModule === module
-                          ? "border-purple-500 bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300"
-                          : "border-gray-200 dark:border-gray-600 hover:border-purple-300 dark:hover:border-purple-500"
-                      }`}
-                    >
-                      <div className="font-semibold text-gray-900 dark:text-white">
-                        {module}
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              )}
+            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+              <p className="text-blue-800 dark:text-blue-200">
+                <span className="font-semibold">ℹ️ Info:</span> All modules in the selected domain will be included in the mock test generation automatically.
+              </p>
             </div>
           )}
 
           {/* Selected Summary */}
-          {((activeTab === "hub" && selectedDomain) || (activeTab === "mock" && selectedModule)) && (
+          {((activeTab === "hub" && selectedDomain) || (activeTab === "mock" && selectedDomain)) && (
             <div className="bg-gradient-to-r from-purple-500 to-purple-600 rounded-lg shadow-lg p-6 text-white">
               <h2 className="text-2xl font-semibold mb-4">Your Selection</h2>
               <div className="space-y-2">
@@ -515,8 +629,24 @@ export default function Home() {
                     return selectedDomainData ? <code className="bg-white/20 px-2 py-1 rounded text-sm ml-2">{selectedDomainData.topic_id}</code> : null;
                   })()}
                 </p>
-                {/* Show all modules for the selected domain (for both Hub and Mock Questions) */}
-                {modules.length > 0 && (
+                
+                {/* Show modules: For Mock, show all selected modules; for Hub, show from API */}
+                {activeTab === "mock" && selectedAllModules.length > 0 && (
+                  <div>
+                    <p><span className="font-semibold">Modules (Auto-selected):</span></p>
+                    <div className="ml-4 space-y-1">
+                      {selectedAllModules.map((module, index) => (
+                        <p key={module.module_id} className="text-sm">
+                          {index + 1}. {module.module_name}
+                          <code className="bg-white/20 px-2 py-1 rounded text-xs ml-2">{module.module_id}</code>
+                        </p>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                
+                {/* For Hub tab: show modules from API */}
+                {activeTab === "hub" && modules.length > 0 && (
                   <div>
                     <p><span className="font-semibold">Modules:</span></p>
                     <div className="ml-4 space-y-1">
@@ -529,8 +659,9 @@ export default function Home() {
                     </div>
                   </div>
                 )}
+                
                 {/* Fallback to current modules list if API modules not available */}
-                {modules.length === 0 && getCurrentModules().length > 0 && (
+                {activeTab === "hub" && modules.length === 0 && getCurrentModules().length > 0 && (
                   <div>
                     <p><span className="font-semibold">Modules:</span></p>
                     <div className="ml-4 space-y-1">
@@ -543,12 +674,101 @@ export default function Home() {
                     </div>
                   </div>
                 )}
+                
                 {quizzesLoading ? (
                   <p><span className="font-semibold">Quiz ID:</span> <span className="animate-pulse">Loading...</span></p>
                 ) : quizzes.length > 0 ? (
                   <p><span className="font-semibold">Quiz ID:</span> <code className="bg-white/20 px-2 py-1 rounded text-sm">{quizzes[0].id}</code></p>
                 ) : (
                   <p><span className="font-semibold">Quiz ID:</span> <span className="text-gray-300">No quiz available</span></p>
+                )}
+
+                {/* Mock Test Selection (only show for Mock tab) */}
+                {activeTab === "mock" && (
+                  <div className="mt-6 p-4 bg-white/10 rounded-lg border border-white/20">
+                    <p className="font-semibold mb-3">📝 Select or Create Mock Test</p>
+                    
+                    {/* Show existing mock tests if available */}
+                    {existingMockTests.length > 0 ? (
+                      <div>
+                        <p className="text-sm mb-2">Available Mock Tests ({existingMockTests.length}):</p>
+                        <div className="space-y-2">
+                          {existingMockTests.map((mockTest) => (
+                            <div
+                              key={mockTest.id}
+                              onClick={() => {
+                                setSelectedExistingMockTest(mockTest);
+                                setSelectedMockTestAction("existing");
+                              }}
+                              className={`p-3 rounded-lg cursor-pointer transition border-2 ${
+                                selectedExistingMockTest?.id === mockTest.id
+                                  ? 'border-yellow-300 bg-yellow-100/20'
+                                  : 'border-white/20 bg-white/10 hover:bg-white/20'
+                              }`}
+                            >
+                              <div className="flex justify-between items-start">
+                                <div>
+                                  <p className="font-medium text-white">{mockTest.title}</p>
+                                  <p className="text-xs text-gray-200">
+                                    ID: {mockTest.mock_test_id || mockTest.id}
+                                  </p>
+                                </div>
+                                <input
+                                  type="radio"
+                                  name="mockTestChoice"
+                                  checked={selectedExistingMockTest?.id === mockTest.id}
+                                  onChange={() => {
+                                    setSelectedExistingMockTest(mockTest);
+                                    setSelectedMockTestAction("existing");
+                                  }}
+                                  className="mt-1"
+                                />
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                        
+                        {/* OR divider */}
+                        <div className="my-3 text-center text-xs text-gray-300 font-semibold">— OR —</div>
+                        
+                        {/* Create new option */}
+                        <div
+                          onClick={() => {
+                            setSelectedExistingMockTest(null);
+                            setSelectedMockTestAction("new");
+                          }}
+                          className={`p-3 rounded-lg cursor-pointer transition border-2 ${
+                            selectedMockTestAction === "new"
+                              ? 'border-green-300 bg-green-100/20'
+                              : 'border-white/20 bg-white/10 hover:bg-white/20'
+                          }`}
+                        >
+                          <div className="flex justify-between items-center">
+                            <div>
+                              <p className="font-medium text-white">✨ Create New Mock Test</p>
+                              <p className="text-xs text-gray-200">Start fresh with new questions</p>
+                            </div>
+                            <input
+                              type="radio"
+                              name="mockTestChoice"
+                              checked={selectedMockTestAction === "new"}
+                              onChange={() => {
+                                setSelectedExistingMockTest(null);
+                                setSelectedMockTestAction("new");
+                              }}
+                              className="mt-1"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="p-3 rounded-lg bg-blue-100/20 border border-blue-300/30">
+                        <p className="text-sm text-gray-100">
+                          ℹ️ No existing mock tests for this domain. A new one will be created automatically.
+                        </p>
+                      </div>
+                    )}
+                  </div>
                 )}
 
                 {/* Difficulty distribution inputs (hub only) */}
@@ -626,7 +846,7 @@ export default function Home() {
               </div>
               <button 
                 className="mt-4 bg-white text-purple-600 px-6 py-2 rounded-lg font-semibold hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                onClick={activeTab === "hub" ? generateHubQuestions : undefined}
+                onClick={activeTab === "hub" ? generateHubQuestions : generateMockQuestions}
                 disabled={isGenerating}
               >
                 {isGenerating ? "Generating..." : (activeTab === "hub" ? "Generate Hub Questions" : "Generate Mock Questions")}
