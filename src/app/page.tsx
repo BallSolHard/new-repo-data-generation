@@ -79,6 +79,9 @@ export default function Home() {
   
   // For mock: auto-select all modules when domain is selected
   const [selectedAllModules, setSelectedAllModules] = useState<ModuleData[]>([]);
+  
+  // For mock: number of questions to generate
+  const [mockQuestionsCount, setMockQuestionsCount] = useState(10);
 
   // Debug: log question types changes
   useEffect(() => {
@@ -419,6 +422,12 @@ export default function Home() {
       return;
     }
 
+    // Check if questions count is valid
+    if (!mockQuestionsCount || mockQuestionsCount < 1) {
+      setError("Please specify the number of questions to generate (minimum 1)");
+      return;
+    }
+
     setIsGenerating(true);
     setError(null);
 
@@ -426,13 +435,13 @@ export default function Home() {
       const selectedCertData = certifications.find(c => c.title === selectedCertification);
       const selectedDomainData = domains.find(d => d.topic_name === selectedDomain);
 
-      // Determine quiz ID based on user's choice
-      let quizId: string;
+      // Determine mock test ID based on user's choice
+      let mockTestId: string;
       if (selectedMockTestAction === "existing" && selectedExistingMockTest) {
-        quizId = selectedExistingMockTest.id;
+        mockTestId = selectedExistingMockTest.id;
       } else {
         // Create new mock test ID (domain-level, not module-specific)
-        quizId = `mock_${selectedDomainData?.topic_id}_all_${Date.now()}`;
+        mockTestId = `mock_${selectedDomainData?.topic_id}_all_${Date.now()}`;
       }
 
       const payload: any = {
@@ -442,10 +451,11 @@ export default function Home() {
         topic_name: selectedDomain,
         topic_description: selectedDomainData?.topic_description || `${selectedDomain} domain knowledge`,
         modules: selectedAllModules,  // Send all selected modules
-        quiz_id: quizId,
+        mock_test_id: mockTestId,
         mock_test_action: selectedMockTestAction, // "existing" or "new"
         existing_mock_test: selectedMockTestAction === "existing" ? selectedExistingMockTest : null,
-        questionTypes: selectedQuestionTypes
+        questionTypes: selectedQuestionTypes,
+        questionsPerModule: mockQuestionsCount, // Use the specified number of questions
       };
 
       console.log('[generateMockQuestions] Payload:', payload);
@@ -768,6 +778,26 @@ export default function Home() {
                         </p>
                       </div>
                     )}
+                  </div>
+                )}
+
+                {/* Number of questions input (mock only) */}
+                {activeTab === "mock" && (
+                  <div className="mt-4">
+                    <p className="font-semibold mb-2">Number of Questions to Generate</p>
+                    <div className="flex items-center space-x-4">
+                      <input
+                        type="number"
+                        min={1}
+                        max={100}
+                        value={mockQuestionsCount}
+                        onChange={e => setMockQuestionsCount(Math.max(1, parseInt(e.target.value) || 1))}
+                        className="w-24 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                      />
+                      <span className="text-sm text-gray-600 dark:text-gray-400">
+                        Questions will be generated with a mix of difficulties (easy, medium, hard)
+                      </span>
+                    </div>
                   </div>
                 )}
 
