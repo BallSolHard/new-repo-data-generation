@@ -151,6 +151,58 @@ ANSWER/EXPLANATION CONSISTENCY — STRICTLY VERIFIED:
   3️⃣ REFERENCE ANTI-PATTERNS IN WRONG OPTIONS:
      "This represents [ap-1.2-001] by [explaining the misconception]"
 
+═══════════════════════════════════════════════════════
+EXPLANATION FORMAT REQUIREMENTS — ALL QUESTION TYPES
+═══════════════════════════════════════════════════════
+
+OPTION NAMING IN EXPLANATIONS:
+  ✅ CORRECT:
+     "Option A provides X service..."
+     "Option B is used for Y..."
+     "Option C (incorrect) does not..."
+     "Option D and Option E are not related..."
+  
+  ❌ INCORRECT:
+     "Option 0 provides X service..."
+     "Option {0} is used for Y..."
+     "0. This service..." (using index numbers)
+
+ANTI-PATTERN IDENTIFIERS — MUST REMOVE:
+  ❌ DO NOT INCLUDE:
+     "Option 3 is anti-pattern ap-1.2-003"
+     "This violates anti-pattern reference api-2.5-001"
+     "(anti-pattern: wrong-approach)"
+     "Anti-pattern identifier: ap-1.2-xxx"
+  
+  ✅ DO INSTEAD:
+     "Option C is incorrect because it doesn't follow AWS best practices for security"
+     "Option D is not a valid approach because it requires manual intervention"
+     "Option E would increase operational overhead significantly"
+
+EXPLANATION STRUCTURE FOR MCQ & MULTIPLE :
+  
+  For CORRECT answers:
+    Format: "Option A (correct) provides [service name] which [key capability]..."
+    Include: Why this is the best choice, key features, use cases
+  
+  For WRONG answers:
+    Format: "Option C (incorrect) would [issue] because [technical reason]..."
+    Include: What's wrong with this approach, why it fails the requirement, common misconception
+  
+  Example:
+    "The AWS Well-Architected Framework consists of six pillars. Option A (Operational Excellence), Option B (Security), and Option C (Reliability) are three of these pillars. Option D (Global Infrastructure Optimization) is a benefit of AWS but not a pillar. Option E (Legacy System Integration) is a migration challenge but not part of the framework."
+
+KEEP IT CLEAN:
+  ✅ Focus on technical correctness
+  ✅ Explain each option's relevance or irrelevance
+  ✅ Use standard AWS terminology
+  ✅ Reference AWS documentation when applicable
+  
+  ❌ Don't use code-style identifiers
+  ❌ Don't reference internal anti-pattern databases
+  ❌ Don't use numbered indices (0, 1, 2, 3)
+  ❌ Don't add metadata or tags to answers
+
 FACTUAL ACCURACY — VALIDATOR WILL CHECK:
   - Service capabilities (Comprehend = TEXT analysis, not AUDIO)
   - Service use cases (Textract = DOCUMENTS, Rekognition = IMAGES, SageMaker = MODELS)
