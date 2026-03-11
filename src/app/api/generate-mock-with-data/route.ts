@@ -272,6 +272,7 @@ export async function POST(request: NextRequest) {
       enableValidation: body.enableValidation,
       certTier: body.certTier,
       genMode: 'simulation' as GenMode, // Mock tests use simulation mode instead of drill
+      generationContext: 'mock', // Use mock prompt with strict quality standards
       startIndexByModule,
     };
 

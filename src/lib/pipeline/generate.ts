@@ -16,7 +16,7 @@ export async function generate(params: QuestionGenerationParams, generationConte
     examGuide: params.examGuide!,
     domainContext: params.domainContext!,
     certTier: params.certTier || 'associate',
-    genMode: 'drill',
+    genMode: params.genMode || 'drill',
     modules: params.modules,
     totalQuestions: params.modules.length * params.questionsPerModule,
     questionTypes: params.questionTypes,

@@ -157,6 +157,7 @@ export async function POST(request: NextRequest) {
       enableValidation: body.enableValidation,
       certTier: body.certTier,
       genMode: body.genMode,
+      generationContext: 'hub', // Use hub prompt with looser quality standards
       startIndexByModule,
     };
 
