@@ -68,32 +68,51 @@ function buildMockTestSqlOutput(
     sql += `-- Module: ${moduleId}\n`;
     sql += `-- ─────────────────────────────────────────\n\n`;
 
-    sql += `INSERT INTO public.mock_test_questions (mock_test_id, question_text, options, question_type, correct_answer, explanation, topic_id, module_id, question_order)\n`;
+    sql += `INSERT INTO public.mock_test_questions (mock_test_id, question_text, options, question_type, correct_answer, explanation, topic_id, module_id, question_order, pairs, matches)\n`;
     sql += `VALUES\n`;
 
     const questionRecords: string[] = [];
 
     for (const q of moduleQuestions) {
       const questionText = escapeSql(q.text);
-      const optionsJson = escapeSql(JSON.stringify(q.options));
       const explanationText = escapeSql(q.explanation || '');
       
-      // Format correct_answer based on type
-      let correctAnswerJson: string;
-      if (q.type === 'mcq') {
-        // MCQ: single index as integer array [0]
-        correctAnswerJson = escapeSql(JSON.stringify([Number(q.correct_answer)]));
-      } else if (q.type === 'multiple' || q.type === 'ordering') {
-        // Multiple Select / Ordering: already an array
-        correctAnswerJson = escapeSql(JSON.stringify(Array.isArray(q.correct_answer) ? q.correct_answer : [q.correct_answer]));
-      } else if (q.type === 'matching') {
-        // Matching: convert to array format
-        correctAnswerJson = escapeSql(JSON.stringify(q.correct_answer));
+      // Handle different question types
+      let optionsValue: string;
+      let correctAnswerValue: string;
+      let pairsValue: string;
+      let matchesValue: string;
+
+      if (q.type === 'matching') {
+        // Matching questions: store pairs and matches, correct_answer is NULL
+        optionsValue = 'NULL';
+        correctAnswerValue = 'NULL';
+        const pairsJson = escapeSql(JSON.stringify(q.pairs || { left: [], right: [] }));
+        pairsValue = `'${pairsJson}'::jsonb`;
+        const matchesJson = escapeSql(JSON.stringify(q.matches || { left: [], right: [] }));
+        matchesValue = `'${matchesJson}'::jsonb`;
       } else {
-        correctAnswerJson = escapeSql(JSON.stringify([Number(q.correct_answer)]));
+        // Non-matching questions: store options and correct_answer
+        const optionsJson = escapeSql(JSON.stringify(q.options || []));
+        optionsValue = `'${optionsJson}'::jsonb`;
+        pairsValue = 'NULL';
+        matchesValue = 'NULL';
+
+        // Format correct_answer based on type
+        let correctAnswerJson: string;
+        if (q.type === 'mcq') {
+          // MCQ: single index as integer array [0]
+          correctAnswerJson = escapeSql(JSON.stringify([Number(q.correct_answer)]));
+        } else if (q.type === 'multiple' || q.type === 'ordering') {
+          // Multiple Select / Ordering: already an array
+          correctAnswerJson = escapeSql(JSON.stringify(Array.isArray(q.correct_answer) ? q.correct_answer : [q.correct_answer]));
+        } else {
+          correctAnswerJson = escapeSql(JSON.stringify([Number(q.correct_answer)]));
+        }
+        correctAnswerValue = `'${correctAnswerJson}'::integer[]`;
       }
 
-      const questionRecord = `  ('${quizId}', '${questionText}', '${optionsJson}'::jsonb, '${q.type}', '${correctAnswerJson}'::integer[], '${explanationText}', ${topicId}, '${escapeSql(moduleId)}', ${questionOrder})`;
+      const questionRecord = `  ('${escapeSql(quizId)}', '${questionText}', ${optionsValue}, '${q.type}', ${correctAnswerValue}, '${explanationText}', ${topicId}, '${escapeSql(String(q.module_id))}', ${questionOrder}, ${pairsValue}, ${matchesValue})`;
       questionRecords.push(questionRecord);
       questionOrder++;
     }
