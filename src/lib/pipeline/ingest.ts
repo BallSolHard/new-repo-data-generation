@@ -3,10 +3,10 @@ import type { ReferenceQuestion } from '@/lib/types/reference-question';
 import type { ModuleInput } from '@/lib/types/generation';
 import type { CertTier, GenMode } from '@/lib/types/tier';
 import { getCurrentGuide, resolveGuideFromCertName } from '@/data/exam-guides';
-import { selectFewShotExamplesV2 } from '@/data/reference-questions/db-backed';
 import type { QuestionType } from '@/lib/types/exam-guide';
 import type { Difficulty } from '@/lib/types/reference-question';
 import { fetchSerperContext } from '@/lib/serper';
+import { getCachedReferences } from '@/lib/utils/load-reference-questions';
 
 export interface IngestResult {
   examGuide: ExamGuide | undefined;
@@ -63,15 +63,22 @@ export async function ingest(params: {
     console.warn(`[ingest] Could not match topic "${topicName}" to any domain in ${examGuide.certificationCode}`);
   }
 
-  // Select few-shot examples using db-backed selection
-  // If no domain context, use all available reference questions (pass empty string to match all)
-  const domainId = domainContext?.id || '';
-  const fewShotExamples = await selectFewShotExamplesV2(
-    examGuide.certificationCode,
-    domainId,
-    { certTier, genMode, questionType, count: 3 }
-  );
-
+  // Select few-shot examples directly from index.txt file
+  // Simple and direct: just load 5 random examples from the certification's index.txt
+  let fewShotExamples: ReferenceQuestion[] = [];
+  if (examGuide.certificationCode) {
+    try {
+      console.log(`[RANJAN ingest] Loading few-shot examples from index.txt for ${examGuide.certificationCode}`);
+      const allExamples = await getCachedReferences(examGuide.certificationName, 10);
+      console.log(`[ingest] Loaded ${allExamples.length} reference questions from index.txt for ${examGuide.certificationCode}`);
+      
+      // Randomly select 5 examples (or fewer if not enough available)
+      fewShotExamples = allExamples.slice(0, Math.min(5, allExamples.length));
+      console.log(`[ingest] Selected ${fewShotExamples.length} few-shot examples for prompt injection`);
+    } catch (error) {
+      console.warn(`[ingest] Failed to load few-shot examples from index.txt:`, error);
+    }
+  }
   // Fetch Serper context based on topic and modules
   let serperContext: string | undefined;
   try {

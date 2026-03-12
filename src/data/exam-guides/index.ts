@@ -66,7 +66,7 @@ const slugAliases: Record<string, string> = {
   'cloud practitioner': 'aws-cloud-practitioner',
 
   // AWS AI Practitioner
-  'aif-c01': 'aws-ai-practitioner',
+  'AWS Certified AI Practitioner': 'aws-ai-practitioner',
   'aif': 'aws-ai-practitioner',
   'ai practitioner': 'aws-ai-practitioner',
 

@@ -11,8 +11,7 @@ import type { GenerationContext } from '@/lib/prompts/generation-new';
  */
 export async function generate(params: QuestionGenerationParams, generationContext: GenerationContext = 'hub'): Promise<GeneratedQuestion[]> {
   // Generate prompt using tier-aware, mode-specific approach
-  console.log('PARAMS ', params)
-  const prompt = createGenerationPrompt({
+  const prompt = await createGenerationPrompt({
     examGuide: params.examGuide!,
     domainContext: params.domainContext!,
     certTier: params.certTier || 'associate',

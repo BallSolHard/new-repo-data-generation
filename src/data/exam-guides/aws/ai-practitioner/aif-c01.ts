@@ -1,10 +1,10 @@
 import type { ExamGuide } from '@/lib/types/exam-guide';
 
 export const aifC01: ExamGuide = {
-  certificationCode: 'AIF-C01',
+  certificationCode: 'AWS Certified AI Practitioner',
   certificationName: 'AWS Certified AI Practitioner',
   provider: 'aws',
-  version: 'AIF-C01',
+  version: 'AWS Certified AI Practitioner',
   effectiveDate: '2024-09-09',
   status: 'current',
   tier: 'foundational' as const,

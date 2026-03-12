@@ -10,6 +10,8 @@ import { getAnswerBiasRules, getQuestionTypeFormats } from './generation';
 import { getTierProfile, getModeProfile } from './tier-profiles';
 import { buildHubPrompt } from './generation-hub-prompt';
 import { buildMockPrompt } from './generation-mock-prompt';
+import { getCachedReferences } from '@/lib/utils/load-reference-questions';
+import { log } from 'util';
 
 /**
  * 'hub'  — Practice hub: loosely enforced standards.
@@ -42,7 +44,7 @@ export interface V2GenerationPromptParams {
   currentDifficulty?: Difficulty;
 }
 
-export function createGenerationPrompt(params: V2GenerationPromptParams): string {
+export async function createGenerationPrompt(params: V2GenerationPromptParams): Promise<string> {
   const {
     examGuide,
     domainContext,
@@ -58,7 +60,7 @@ export function createGenerationPrompt(params: V2GenerationPromptParams): string
     complexityLevelDistribution,
     currentDifficulty,
   } = params;
-
+  console.log(`[KKKKKKKKKKKK] `, params);
   const tierProfile = getTierProfile(certTier);
   const modeProfile = getModeProfile(genMode);
 
@@ -77,9 +79,22 @@ export function createGenerationPrompt(params: V2GenerationPromptParams): string
   // 5. Anti-pattern usage instructions
   const antiPatternInstructions = buildAntiPatternInstructions(domainContext, targetTask);
 
-  // 6. Few-shot examples
-  const fewShotSection = fewShotExamples?.length ? buildFewShotSection(fewShotExamples) : '';
+  // 6. Few-shot examples — load from index.txt if not provided
+  let resolvedFewShotExamples = fewShotExamples || [];
 
+  // If no examples provided, load from index.txt reference questions
+  if (!resolvedFewShotExamples.length && examGuide.certificationCode) {
+    try {
+      resolvedFewShotExamples = await getCachedReferences(examGuide.certificationCode, 5);
+      console.log(`[createGenerationPrompt] Loaded ${resolvedFewShotExamples.length} reference questions from index.txt for ${examGuide.certificationCode}`);
+    } catch (error) {
+      console.warn(`[createGenerationPrompt] Failed to load reference questions:`, error);
+      // Continue without reference questions if loading fails
+    }
+  }
+
+  const fewShotSection = resolvedFewShotExamples?.length ? buildFewShotSection(resolvedFewShotExamples) : '';
+  console.log("RANJAN CODE1A ", fewShotExamples);
   // 7. Answer bias rules
   const answerBiasRules = getAnswerBiasRules(totalQuestions);
 

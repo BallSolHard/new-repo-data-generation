@@ -73,7 +73,37 @@ ${serperContext}
 ${fewShotSection}
 
 ═══════════════════════════════════════════════════════
-🚨🚨🚨 CRITICAL: QUESTION TYPE REQUIREMENTS 🚨🚨🚨
+� HOW TO USE THESE REFERENCE EXAMPLES
+═══════════════════════════════════════════════════════
+
+The reference examples above (if present) are extracted from a comprehensive question bank
+stored in: data/reference-questions/aws/$certification-name/index.txt
+
+These represent ~400 curated questions from AWS certifications. We've selected 5 diverse examples
+that span different question types and difficulty levels to calibrate your generation.
+
+YOUR GENERATION SHOULD:
+  ✅ Match the STYLE and TONE of these reference questions
+  ✅ Match the EXPLANATION DEPTH (why correct answer is right, why others are wrong)
+  ✅ Use similar OPTION VARIETY (realistic alternatives, plausible distractors)
+  
+YOUR GENERATION MUST NOT:
+  ❌ Copy or paraphrase the reference questions
+  ❌ Use the same scenarios from reference examples
+  ❌ Reuse the same combination of services
+  ✅ Instead: Generate ENTIRELY NEW questions inspired by the reference quality level
+
+REFERENCE QUALITY INDICATORS:
+  • Questions are scenario-based or concept-testing
+  • Explanations address EVERY option (both correct and incorrect)
+  • Service names are exact and accurate
+  • Business context is realistic (cost, performance, security concerns)
+  • No anti-pattern codes or internal reference identifiers
+
+═══════════════════════════════════════════════════════
+
+═══════════════════════════════════════════════════════
+�🚨🚨🚨 CRITICAL: QUESTION TYPE REQUIREMENTS 🚨🚨🚨
 ═══════════════════════════════════════════════════════
 
 SELECTED QUESTION TYPES: ${selectedQuestionTypes.join(', ').toUpperCase()}

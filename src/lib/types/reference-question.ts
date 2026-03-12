@@ -22,9 +22,6 @@ export interface ReferenceQuestion {
   domainId: string;                // Maps to ExamDomain.id
   text: string;
   type: QuestionType;
-  options: string[];
-  correctAnswer: string | number[] | null;  // "{2}" for mcq, [0,2] for multiple, null for matching
-  explanation: string;
   difficulty: Difficulty;
   tags?: string[];                 // e.g. ["s3", "encryption", "sse-kms"]
   source?: QuestionSource;
