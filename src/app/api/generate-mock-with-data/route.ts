@@ -99,17 +99,23 @@ function buildMockTestSqlOutput(
         matchesValue = 'NULL';
 
         // Format correct_answer based on type
-        let correctAnswerJson: string;
+        let correctAnswerIndices: number[];
         if (q.type === 'mcq') {
-          // MCQ: single index as integer array [0]
-          correctAnswerJson = escapeSql(JSON.stringify([Number(q.correct_answer)]));
+          // MCQ: single index as integer array {0}
+          correctAnswerIndices = [Number(q.correct_answer)];
         } else if (q.type === 'multiple' || q.type === 'ordering') {
           // Multiple Select / Ordering: already an array
-          correctAnswerJson = escapeSql(JSON.stringify(Array.isArray(q.correct_answer) ? q.correct_answer : [q.correct_answer]));
+          if (Array.isArray(q.correct_answer)) {
+            correctAnswerIndices = q.correct_answer.map(i => Number(i));
+          } else {
+            correctAnswerIndices = [Number(q.correct_answer)];
+          }
         } else {
-          correctAnswerJson = escapeSql(JSON.stringify([Number(q.correct_answer)]));
+          correctAnswerIndices = [Number(q.correct_answer)];
         }
-        correctAnswerValue = `'${correctAnswerJson}'::integer[]`;
+        // Format as PostgreSQL array literal: '{0}' or '{0,2}' etc
+        const arrayLiteral = '{' + correctAnswerIndices.join(',') + '}';
+        correctAnswerValue = `'${escapeSql(arrayLiteral)}'::integer[]`;
       }
 
       const questionRecord = `  ('${escapeSql(quizId)}', '${questionText}', ${optionsValue}, '${q.type}', ${correctAnswerValue}, '${explanationText}', ${topicId}, '${escapeSql(String(q.module_id))}', ${questionOrder}, ${pairsValue}, ${matchesValue})`;
