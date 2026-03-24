@@ -29,6 +29,36 @@ const CERTIFICATIONS: CertificationPath[] = [
     certCode: 'AWS Certified AI Practitioner',
     domainId: 'aws-cloud-practitioner',
   },
+  {
+    folderName: 'AWS Certified Developer - Associate (DVA-C02)',
+    certCode: 'AWS Certified Developer - Associate (DVA-C02)',
+    domainId: 'aws-developer',
+  },
+  {
+    folderName: 'AWS Certified Advanced Networking - Specialty (ANS-C01)',
+    certCode: 'AWS Certified Advanced Networking - Specialty (ANS-C01)',
+    domainId: 'aws-advanced-networking',
+  },
+  {
+    folderName: 'AWS Certified Data Engineer - Associate (DEA-C01)',
+    certCode: 'AWS Certified Data Engineer - Associate (DEA-C01)',
+    domainId: 'aws-data-engineer',
+  },
+  {
+    folderName: 'AWS Certified Security - Specialty (SCS-C02)',
+    certCode: 'AWS Certified Security - Specialty (SCS-C02)',
+    domainId: 'aws-security',
+  },
+  {
+    folderName: 'AWS Certified Generative AI Developer - Professional (AIP-C01)',
+    certCode: 'AWS Certified Generative AI Developer - Professional (AIP-C01)',
+    domainId: 'aws-generative-ai',
+  },
+  {
+    folderName: 'AWS Certified Solutions Architect - Professional (SAP-C02)',
+    certCode: 'AWS Certified Solutions Architect - Professional (SAP-C02)',
+    domainId: 'aws-solutions-architect',
+  }
 ];
 
 const REFERENCE_DATA_PATH = join(process.cwd(), 'src', 'data', 'reference-questions', 'aws');

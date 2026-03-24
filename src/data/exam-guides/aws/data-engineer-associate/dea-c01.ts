@@ -2,7 +2,7 @@ import type { ExamGuide } from '@/lib/types/exam-guide';
 
 export const deaC01: ExamGuide = {
   certificationCode: 'DEA-C01',
-  certificationName: 'AWS Certified Data Engineer - Associate',
+  certificationName: 'AWS Certified Data Engineer - Associate (DEA-C01)',
   provider: 'aws',
   version: 'DEA-C01',
   effectiveDate: '2024-02-27',

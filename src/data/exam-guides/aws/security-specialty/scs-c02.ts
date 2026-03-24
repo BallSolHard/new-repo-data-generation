@@ -2,7 +2,7 @@ import type { ExamGuide } from '@/lib/types/exam-guide';
 
 export const scsC02: ExamGuide = {
   certificationCode: 'SCS-C02',
-  certificationName: 'AWS Certified Security - Specialty',
+  certificationName: 'AWS Certified Security - Specialty (SCS-C02)',
   provider: 'aws',
   version: 'SCS-C02',
   effectiveDate: '2023-07-11',

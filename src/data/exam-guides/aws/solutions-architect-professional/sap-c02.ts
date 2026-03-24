@@ -2,7 +2,7 @@ import type { ExamGuide } from '@/lib/types/exam-guide';
 
 export const sapC02: ExamGuide = {
   certificationCode: 'SAP-C02',
-  certificationName: 'AWS Certified Solutions Architect - Professional',
+  certificationName: 'AWS Certified Solutions Architect - Professional (SAP-C02)',
   provider: 'aws',
   version: 'SAP-C02',
   effectiveDate: '2022-11-15',

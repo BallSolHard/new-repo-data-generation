@@ -2,7 +2,7 @@ import type { ExamGuide } from '@/lib/types/exam-guide';
 
 export const dopC02: ExamGuide = {
   certificationCode: 'DOP-C02',
-  certificationName: 'AWS Certified DevOps Engineer - Professional',
+  certificationName: 'AWS Certified DevOps Engineer - Professional (DOP-C02)',
   provider: 'aws',
   version: 'DOP-C02',
   effectiveDate: '2023-03-07',

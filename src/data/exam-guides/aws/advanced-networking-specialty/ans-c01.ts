@@ -2,7 +2,7 @@ import type { ExamGuide } from '@/lib/types/exam-guide';
 
 export const ansC01: ExamGuide = {
   certificationCode: 'ANS-C01',
-  certificationName: 'AWS Certified Advanced Networking - Specialty',
+  certificationName: 'AWS Certified Advanced Networking - Specialty (ANS-C01)',
   provider: 'aws',
   version: 'ANS-C01',
   effectiveDate: '2022-03-15',

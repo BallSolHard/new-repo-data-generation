@@ -2,7 +2,7 @@ import type { ExamGuide } from '@/lib/types/exam-guide';
 
 export const aipC01: ExamGuide = {
   certificationCode: 'AIP-C01',
-  certificationName: 'AWS Certified Generative AI Developer - Professional',
+  certificationName: 'AWS Certified Generative AI Developer - Professional (AIP-C01)',
   provider: 'aws',
   version: 'AIP-C01',
   effectiveDate: '2025-04-01',

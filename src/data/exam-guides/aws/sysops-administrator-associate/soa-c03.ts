@@ -2,7 +2,7 @@ import type { ExamGuide } from '@/lib/types/exam-guide';
 
 export const soaC03: ExamGuide = {
   certificationCode: 'SOA-C03',
-  certificationName: 'AWS Certified SysOps Administrator - Associate',
+  certificationName: 'AWS Certified CloudOps Engineer - Associate (SOA-C03)',
   provider: 'aws',
   version: 'SOA-C03',
   effectiveDate: '2021-07-26',

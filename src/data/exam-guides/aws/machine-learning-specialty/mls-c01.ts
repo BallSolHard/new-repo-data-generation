@@ -2,7 +2,7 @@ import type { ExamGuide } from '@/lib/types/exam-guide';
 
 export const mlsC01: ExamGuide = {
   certificationCode: 'MLS-C01',
-  certificationName: 'AWS Certified Machine Learning - Specialty',
+  certificationName: 'AWS Certified Machine Learning - Specialty (MLS-C01)',
   provider: 'aws',
   version: 'MLS-C01',
   effectiveDate: '2019-03-26',

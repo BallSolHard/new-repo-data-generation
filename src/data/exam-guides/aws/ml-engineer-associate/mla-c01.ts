@@ -2,7 +2,7 @@ import type { ExamGuide } from '@/lib/types/exam-guide';
 
 export const mlaC01: ExamGuide = {
   certificationCode: 'MLA-C01',
-  certificationName: 'AWS Certified Machine Learning Engineer - Associate',
+  certificationName: 'AWS Certified Machine Learning Engineer - Associate (MLA-C01)',
   provider: 'aws',
   version: 'MLA-C01',
   effectiveDate: '2024-10-15',

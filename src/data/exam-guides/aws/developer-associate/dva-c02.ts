@@ -2,7 +2,7 @@ import type { ExamGuide } from '@/lib/types/exam-guide';
 
 export const dvaC02: ExamGuide = {
   certificationCode: 'DVA-C02',
-  certificationName: 'AWS Certified Developer - Associate',
+  certificationName: 'AWS Certified Developer - Associate (DVA-C02)',
   provider: 'aws',
   version: 'DVA-C02',
   effectiveDate: '2023-03-28',
