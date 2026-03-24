@@ -20,8 +20,6 @@ import { computeContentHash } from '@/lib/engine/question-bank';
 export async function runGenerationPipeline(params: PipelineParams): Promise<PipelineResult> {
   const generationTimestamp = new Date().toISOString();
 
-  console.log(`[pipeline] Starting generation for ${params.certificationName}, topic: ${params.topicName}`);
-
   // ─── Step 1: Ingest ───
   const { examGuide, domainContext, fewShotExamples, examGuideVersion, certTier, genMode, serperContext } = await ingest({
     certificationName: params.certificationName,
@@ -34,16 +32,10 @@ export async function runGenerationPipeline(params: PipelineParams): Promise<Pip
     genMode: params.genMode,
   });
 
-  console.log(`[pipeline] Exam guide: ${examGuideVersion}, domain: ${domainContext?.name || 'none'}, examples: ${fewShotExamples.length}`);
-
   // ─── Step 2: Generate ───
   const questionTypes = params.questionTypes || (params.questionType ? [params.questionType] : ['mcq']);
   
-  console.log('[pipeline] Question types resolution:', {
-    params_questionTypes: params.questionTypes,
-    params_questionType: params.questionType,
-    resolved_questionTypes: questionTypes
-  });
+
   let questionsPerModule = params.questionsPerModule || 2;
   // ensure at least 1 per module
   const minPerModule = 1;

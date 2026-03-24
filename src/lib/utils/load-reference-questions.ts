@@ -40,14 +40,11 @@ const REFERENCE_DATA_PATH = join(process.cwd(), 'src', 'data', 'reference-questi
 export async function loadCertificationReferences(certPath: CertificationPath): Promise<ReferenceQuestion[]> {
   try {
     const indexPath = join(REFERENCE_DATA_PATH, certPath.folderName, 'index.txt');
-    console.log(`[loadCertificationReferences] Reading from path: ${indexPath}`);
     
     const content = await fs.readFile(indexPath, 'utf-8');
-    console.log(`[loadCertificationReferences] File content size: ${content.length} bytes`);
     
     // Simplified: just split by double newlines and extract first few lines of each block
     const blocks = content.split(/\n\n+/).filter(b => b.trim().length > 50);
-    console.log(`[loadCertificationReferences] Found ${blocks.length} question blocks`);
     
     // Convert raw blocks to simple ReferenceQuestion objects
     const questions: ReferenceQuestion[] = blocks.slice(0, 100).map((block, idx) => {
@@ -59,6 +56,9 @@ export async function loadCertificationReferences(certPath: CertificationPath): 
         text: lines.slice(0, 3).join(' ').substring(0, 300),  // First 3 lines as question
         type: 'mcq',
         difficulty: 'intermediate',
+        options: ['Option A', 'Option B', 'Option C', 'Option D'],
+        correctAnswer: '{0}',  // Array format: {0} means first option
+        explanation: lines.slice(3, 6).join(' ').substring(0, 200),  // Next lines as explanation
         domainId: certPath.domainId,
         tags: [],
       };
@@ -121,18 +121,45 @@ const referenceCache = new Map<string, ReferenceQuestion[]>();
 
 /**
  * Get cached or fresh reference questions
+ * NOTE: Always shuffles the selection to provide variety on each call
+ * (even though questions are cached, the selection is randomized)
  */
 export async function getCachedReferences(certCode: string, count: number = 5): Promise<ReferenceQuestion[]> {
-  const cacheKey = `${certCode}-${count}`;
+  // Cache key for loading the file (not the selection)
+  const cacheKey = `${certCode}-full`;
   
-  if (referenceCache.has(cacheKey)) {
-    return referenceCache.get(cacheKey) || [];
+  // Load from cache or disk
+  let allQuestions = referenceCache.get(cacheKey);
+  
+  if (!allQuestions) {
+    // Not in cache, load it
+    const references = await getSelectedReferences(certCode, 30);  // Load more questions
+    referenceCache.set(cacheKey, references);
+    allQuestions = references;
   }
 
-  const references = await getSelectedReferences(certCode, count);
-  referenceCache.set(cacheKey, references);
-  
-  return references;
+  // Always randomize the selection on each call (different questions each time)
+  return getRandomQuestions(allQuestions, count);
+}
+
+/**
+ * Get N random questions from a pool
+ */
+function getRandomQuestions(questions: ReferenceQuestion[], count: number): ReferenceQuestion[] {
+  if (questions.length <= count) return questions;
+
+  const selected: ReferenceQuestion[] = [];
+  const indices = new Set<number>();
+
+  while (selected.length < count && indices.size < questions.length) {
+    const randomIdx = Math.floor(Math.random() * questions.length);
+    if (!indices.has(randomIdx)) {
+      indices.add(randomIdx);
+      selected.push(questions[randomIdx]);
+    }
+  }
+
+  return selected;
 }
 
 /**

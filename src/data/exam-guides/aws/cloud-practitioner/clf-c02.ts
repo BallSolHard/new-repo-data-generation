@@ -2,7 +2,7 @@ import type { ExamGuide } from '@/lib/types/exam-guide';
 
 export const clfC02: ExamGuide = {
   certificationCode: 'CLF-C02',
-  certificationName: 'AWS Certified Cloud Practitioner',
+  certificationName: 'AWS Certified Cloud Practitioner - Foundational (CLF-C02)',
   provider: 'aws',
   version: 'CLF-C02',
   effectiveDate: '2023-09-19',

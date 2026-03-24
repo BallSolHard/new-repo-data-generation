@@ -35,7 +35,7 @@ export function getGenerationModel() {
  */
 export function getValidationModel() {
   return genAI.getGenerativeModel({
-    model: 'gemini-2.5-pro',
+    model: 'gemini-2.5-flash',       // Pro renamed to flash
     generationConfig: VALIDATION_CONFIG,
   });
 }

@@ -79,30 +79,53 @@ export function buildSqlOutput(
 
       // Handle correct_answer format based on question type
       let correctAnswer: string;
+      let correctAnswerForSql: string;
+      let optionsForSql = optionsJson;
+      let matchesVal = 'NULL';
+
       if (type === 'mcq') {
         // MCQ: single index as string (e.g., "0")
         correctAnswer = String(q.correct_answer);
+        correctAnswerForSql = `'${escapeSql(correctAnswer)}'`;
       } else if (type === 'multiple' || type === 'ordering') {
         // Multiple Select / Ordering: array of indices (e.g., [0, 2] or [2, 0, 3, 1])
         correctAnswer = Array.isArray(q.correct_answer) ? JSON.stringify(q.correct_answer) : String(q.correct_answer);
+        correctAnswerForSql = `'${escapeSql(correctAnswer)}'`;
       } else if (type === 'matching') {
-        // Matching: object mapping (e.g., {"left": [0, 1, 2], "right": [0, 1, 2]})
-        correctAnswer = typeof q.correct_answer === 'object' ? JSON.stringify(q.correct_answer) : String(q.correct_answer);
+        // Matching: correct_answer should be NULL
+        correctAnswer = 'NULL';
+        correctAnswerForSql = 'NULL';
+        
+        // Build options object from pairs.left with A, B, C keys
+        if (q.pairs && Array.isArray(q.pairs.left)) {
+          const optionsObj: Record<string, string> = {};
+          q.pairs.left.forEach((item: string, index: number) => {
+            optionsObj[String.fromCharCode(65 + index)] = item;
+          });
+          optionsForSql = JSON.stringify(optionsObj);
+          
+          // Build matches with left/right structure
+          const matchesObj = {
+            left: Array.from({ length: q.pairs.left.length }, (_, i) => i),
+            right: Array.from({ length: q.pairs.left.length }, (_, i) => i)
+          };
+          matchesVal = `'${escapeSql(JSON.stringify(matchesObj))}'::jsonb`;
+        }
       } else {
         correctAnswer = formatCorrectAnswer(q.correct_answer);
+        correctAnswerForSql = `'${escapeSql(correctAnswer)}'`;
       }
 
-      // Handle pairs and matches for matching questions
+      // Handle pairs for matching questions
       const pairsVal = q.pairs ? `'${escapeSql(JSON.stringify(q.pairs))}'::json` : 'NULL';
-      const matchesVal = q.matches ? `'${escapeSql(JSON.stringify(q.matches))}'::json` : 'NULL';
 
       sql += `INSERT INTO public.question (id, text, type, options, correct_answer, explanation, created_at, quiz_id, modified_at, index, pairs, matches, module_id, difficulty)\n`;
       sql += `VALUES (\n`;
       sql += `  '${escapeSql(questionId)}',\n`;
       sql += `  '${escapedText}',\n`;
       sql += `  '${type}',\n`;
-      sql += `  '${escapeSql(optionsJson)}'::json,\n`;
-      sql += `  '${escapeSql(correctAnswer)}',\n`;
+      sql += `  '${escapeSql(optionsForSql)}'::json,\n`;
+      sql += `  ${correctAnswerForSql},\n`;
       sql += `  '${escapedExplanation}',\n`;
       sql += `  NOW(),\n`;
       sql += `  '${escapeSql(quizId)}',\n`;

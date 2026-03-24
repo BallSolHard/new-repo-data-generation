@@ -64,17 +64,13 @@ export async function ingest(params: {
   }
 
   // Select few-shot examples directly from index.txt file
-  // Simple and direct: just load 5 random examples from the certification's index.txt
+  // Load random examples each time to ensure variety across multiple generation runs
   let fewShotExamples: ReferenceQuestion[] = [];
   if (examGuide.certificationCode) {
     try {
-      console.log(`[RANJAN ingest] Loading few-shot examples from index.txt for ${examGuide.certificationCode}`);
-      const allExamples = await getCachedReferences(examGuide.certificationName, 10);
-      console.log(`[ingest] Loaded ${allExamples.length} reference questions from index.txt for ${examGuide.certificationCode}`);
-      
-      // Randomly select 5 examples (or fewer if not enough available)
-      fewShotExamples = allExamples.slice(0, Math.min(5, allExamples.length));
-      console.log(`[ingest] Selected ${fewShotExamples.length} few-shot examples for prompt injection`);
+      // Request 5-10 random examples (will be different each call due to randomization)
+      const randomExamples = await getCachedReferences(examGuide.certificationName, 10);
+      fewShotExamples = randomExamples.slice(0, Math.min(5, randomExamples.length));
     } catch (error) {
       console.warn(`[ingest] Failed to load few-shot examples from index.txt:`, error);
     }
@@ -84,11 +80,9 @@ export async function ingest(params: {
   try {
     const moduleNames = params.modules.map(m => m.module_name).join(', ');
     const query = `${topicName}${moduleNames ? `, ${moduleNames}` : ''}`;
-    console.log(`[ingest] Fetching Serper context for query: "${query}"`);
     // combine topic and module names into a single query; serper will return
     // whichever information it thinks is relevant
     serperContext = await fetchSerperContext(query);
-    console.log(`[ingest] Serper context received: ${serperContext?.length || 0} characters`);
     if (!serperContext) {
       console.warn('[ingest] Warning: Serper returned empty context. Check SERPER_API_KEY or network.');
     }

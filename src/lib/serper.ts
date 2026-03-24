@@ -17,7 +17,6 @@ export async function fetchSerperContext(query: string): Promise<string> {
   try {
     // first attempt: GET with query parameter (include key in URL just in case)
     let url = `https://google.serper.dev/search?q=${encodeURIComponent(query)}&api_key=${encodeURIComponent(key)}`;
-    console.log(`[serper] 🔍 Fetching context for query: "${query}"`);
     let resp = await fetch(url, {
       method: 'GET',
       headers: {
@@ -28,7 +27,6 @@ export async function fetchSerperContext(query: string): Promise<string> {
 
     // if the GET failed with a client error, try sending the query in the body
     if (!resp.ok && (resp.status === 404 || resp.status === 405 || resp.status === 403)) {
-      console.log('[serper] ⚠️  GET failed, retrying using POST with JSON body');
       resp = await fetch('https://google.serper.dev/search', {
         method: 'POST',
         headers: {
@@ -49,22 +47,9 @@ export async function fetchSerperContext(query: string): Promise<string> {
     }
 
     const data: any = await resp.json();
-    console.log('[serper] ✅ API returned data successfully');
-    console.log('[serper] Response structure:', JSON.stringify({
-      hasAnswer: !!data.answer,
-      hasOrganic_results: Array.isArray(data.organic_results),
-      hasOrganic: Array.isArray(data.organic),
-      organicCount: data.organic_results?.length || data.organic?.length || 0,
-      hasSearchParameters: !!data.searchParameters,
-      hasKnowledgeGraph: !!data.knowledgeGraph,
-      hasRelated: Array.isArray(data.related),
-      relatedCount: data.related?.length || 0,
-      allKeys: Object.keys(data).join(', ')
-    }));
     
     // prefer the structured answer if available
     if (data.answer) {
-      console.log(`[serper] ✅ Using AI-generated answer (${data.answer.length} chars)`);
       return data.answer;
     }
     
