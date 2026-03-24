@@ -84,12 +84,22 @@ export function buildSqlOutput(
       let matchesVal = 'NULL';
 
       if (type === 'mcq') {
-        // MCQ: single index as string (e.g., "0")
-        correctAnswer = String(q.correct_answer);
+        // MCQ: single index as array string format (e.g., "{0}")
+        // Store as TEXT in format like '{0}' for PostgreSQL array notation
+        const index = Array.isArray(q.correct_answer) ? q.correct_answer[0] : q.correct_answer;
+        correctAnswer = `{${index}}`;
         correctAnswerForSql = `'${escapeSql(correctAnswer)}'`;
       } else if (type === 'multiple' || type === 'ordering') {
-        // Multiple Select / Ordering: array of indices (e.g., [0, 2] or [2, 0, 3, 1])
-        correctAnswer = Array.isArray(q.correct_answer) ? JSON.stringify(q.correct_answer) : String(q.correct_answer);
+        // Multiple Select / Ordering: array of indices stored as string (e.g., '{0,2}')
+        let indices: number[];
+        if (Array.isArray(q.correct_answer)) {
+          indices = q.correct_answer;
+        } else if (typeof q.correct_answer === 'string' && q.correct_answer.includes(',')) {
+          indices = q.correct_answer.split(',').map(n => parseInt(n, 10));
+        } else {
+          indices = [parseInt(String(q.correct_answer), 10)];
+        }
+        correctAnswer = `{${indices.join(',')}}`;
         correctAnswerForSql = `'${escapeSql(correctAnswer)}'`;
       } else if (type === 'matching') {
         // Matching: correct_answer should be NULL
