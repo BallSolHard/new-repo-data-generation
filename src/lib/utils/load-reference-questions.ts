@@ -58,6 +58,16 @@ const CERTIFICATIONS: CertificationPath[] = [
     folderName: 'AWS Certified Solutions Architect - Professional (SAP-C02)',
     certCode: 'AWS Certified Solutions Architect - Professional (SAP-C02)',
     domainId: 'aws-solutions-architect',
+  },
+  {
+    folderName: 'AWS Certified Machine Learning - Specialty (MLS-C01)',
+    certCode: 'AWS Certified Machine Learning - Specialty (MLS-C01)',
+    domainId: 'aws-machine-learning',
+  },
+  {
+    folderName: 'AWS Certified DevOps Engineer - Professional (DOP-C02)',
+    certCode: 'AWS Certified DevOps Engineer - Professional (DOP-C02)',
+    domainId: 'aws-devops',
   }
 ];
 

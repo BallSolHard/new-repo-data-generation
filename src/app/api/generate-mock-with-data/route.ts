@@ -41,7 +41,9 @@ function escapeSql(str: string): string {
 function buildMockTestSqlOutput(
   questions: GeneratedQuestion[],
   quizId: string,
-  topicId: string
+  topicId: string,
+  certificationId: string,
+  certificationName: string
 ): string {
   let sql = `-- ═══════════════════════════════════════════════════════\n`;
   sql += `-- Generated Mock Test Questions — AI Pipeline Output\n`;
@@ -53,10 +55,39 @@ function buildMockTestSqlOutput(
   sql += `-- ═══════════════════════════════════════════════════════\n\n`;
   sql += `BEGIN;\n\n`;
 
+  // ─────────────────────────────────────────
+  // CREATE MOCK TEST RECORD (REQUIRED FOR NEW MOCK TESTS)
+  // ─────────────────────────────────────────
+  sql += `-- ─────────────────────────────────────────\n`;
+  sql += `-- Create Mock Test Record\n`;
+  sql += `-- ─────────────────────────────────────────\n\n`;
+  sql += `INSERT INTO public.mock_tests (\n`;
+  sql += `  id,\n`;
+  sql += `  certification_id,\n`;
+  sql += `  title,\n`;
+  sql += `  total_questions,\n`;
+  sql += `  description,\n`;
+  sql += `  created_at\n`;
+  sql += `)\n`;
+  sql += `VALUES (\n`;
+  sql += `  '${escapeSql(quizId)}',\n`;
+  sql += `  ${certificationId},\n`;
+  sql += `  'Mock Test - ${certificationName}',\n`;
+  sql += `  0,\n`;
+  sql += `  'Mock test for ${certificationName}',\n`;
+  sql += `  NOW()\n`;
+  sql += `)\n`;
+  sql += `ON CONFLICT (id) DO NOTHING;\n\n`;
+
   // Group questions by module for organized output
   const byModule = new Map<string, GeneratedQuestion[]>();
   for (const q of questions) {
-    const key = q.module_id || 'unknown';
+    // Ensure module_id is never undefined or 'unknown'
+    let key = q.module_id;
+    if (!key || key === 'unknown' || key === undefined) {
+      // Use a default module name if module_id is missing
+      key = `module_${questions.indexOf(q) % Math.max(1, Math.ceil(questions.length / 5)) + 1}`;
+    }
     if (!byModule.has(key)) byModule.set(key, []);
     byModule.get(key)!.push(q);
   }
@@ -118,7 +149,7 @@ function buildMockTestSqlOutput(
         correctAnswerValue = `'${escapeSql(arrayLiteral)}'::integer[]`;
       }
 
-      const questionRecord = `  ('${escapeSql(quizId)}', '${questionText}', ${optionsValue}, '${q.type}', ${correctAnswerValue}, '${explanationText}', ${topicId}, '${escapeSql(String(q.module_id))}', ${questionOrder}, ${pairsValue}, ${matchesValue})`;
+      const questionRecord = `  ('${escapeSql(quizId)}', '${questionText}', ${optionsValue}, '${q.type}', ${correctAnswerValue}, '${explanationText}', ${topicId}, '${escapeSql(String(moduleId))}', ${questionOrder}, ${pairsValue}, ${matchesValue})`;
       questionRecords.push(questionRecord);
       questionOrder++;
     }
@@ -275,7 +306,7 @@ export async function POST(request: NextRequest) {
     const result = await runGenerationPipeline(pipelineParams);
 
     // Generate mock-specific SQL script that inserts into mock_test_questions table
-    const mockSqlScript = buildMockTestSqlOutput(result.questions, body.mock_test_id, String(body.topic_id));
+    const mockSqlScript = buildMockTestSqlOutput(result.questions, body.mock_test_id, String(body.topic_id), String(body.certification_id), body.certification_name);
 
     // Optionally store generated questions in the question bank
     let bankResult: { stored: number; duplicates: number } | undefined;

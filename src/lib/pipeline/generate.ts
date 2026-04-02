@@ -62,13 +62,24 @@ export async function generate(params: QuestionGenerationParams, generationConte
   const version = params.examGuideVersion || params.examGuide?.version;
   const domainId = params.domainContext?.id;
 
-  questions = questions.map(q => ({
-    ...q,
-    examGuideVersion: version,
-    domainId: domainId,
-    ...(params.certTier && { certTier: params.certTier }),
-    ...(params.genMode && { genMode: params.genMode }),
-  }));
+  // Distribute questions across modules and enrich with module_id if missing
+  questions = questions.map((q, index) => {
+    // If module_id is not set, assign one based on round-robin distribution across modules
+    let assignedModuleId = q.module_id;
+    if (!assignedModuleId && params.modules.length > 0) {
+      const moduleIndex = index % params.modules.length;
+      assignedModuleId = params.modules[moduleIndex].module_id;
+    }
+
+    return {
+      ...q,
+      module_id: assignedModuleId,
+      examGuideVersion: version,
+      domainId: domainId,
+      ...(params.certTier && { certTier: params.certTier }),
+      ...(params.genMode && { genMode: params.genMode }),
+    };
+  });
 
   // Validate basic structure
   questions = questions.filter(q => {

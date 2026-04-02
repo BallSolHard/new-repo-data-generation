@@ -145,7 +145,7 @@ export function buildSqlOutput(
       sql += `  ${matchesVal},\n`;
       sql += `  '${escapeSql(moduleId)}',\n`;
       sql += `  '${difficulty}'\n`;
-      sql += `) ON CONFLICT (id) DO NOTHING;\n\n`;
+      sql += `);\n\n`;
 
       quizQuestionLinks.push(`(NOW(), '${escapeSql(quizId)}', '${escapeSql(questionId)}')`);
       questionIndex++;
@@ -159,7 +159,7 @@ export function buildSqlOutput(
     sql += `-- ─────────────────────────────────────────\n`;
     sql += `INSERT INTO public.quiz_question (created_at, quiz_id, question_id) VALUES\n`;
     sql += `  ${quizQuestionLinks.join(',\n  ')}\n`;
-    sql += `ON CONFLICT DO NOTHING;\n\n`;
+    sql += `;\n\n`;
   }
 
   // Update question count
