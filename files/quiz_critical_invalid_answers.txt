@@ -1,0 +1,1582 @@
+====================================================================================================
+QUIZ CRITICAL QUESTIONS - INVALID ANSWERS REPORT
+====================================================================================================
+Questions with invalid correct_answer are appended in real-time
+====================================================================================================
+
+[✗ INVALID] Question ID: q_61_m_61_4_89
+Reason: Answer is factually incorrect or not the best choice
+Text: A data governance team is concerned about sensitive data, such as Personally Identifiable Informatio...
+Options: ['Amazon GuardDuty.', 'Amazon Macie.', 'AWS Security Hub.', 'AWS Key Management Service (KMS).', 'AWS Config.']
+Correct Answer: [1, 2]
+Type: multiple
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_62_m_62_2_84
+Reason: Answer is factually incorrect or not the best choice
+Text: Order the typical considerations when choosing an AWS Region for a new application deployment, from ...
+Options: ['Service availability (ensuring required AWS services are present)', 'Data residency and compliance requirements', 'Latency to end-users for optimal performance', 'Cost of services in that specific Region']
+Correct Answer: [1, 2, 0, 3]
+Type: ordering
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_61_m_61_4_103
+Reason: Missing question text, options, or correct_answer
+Text: Match each AWS Shield offering to its DDoS protection feature.
+Options: {'A': 'AWS Shield Standard', 'B': 'AWS Shield Advanced', 'C': 'DDoS Protection'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_61_m_61_2_105
+Reason: Missing question text, options, or correct_answer
+Text: Match each logging and auditing service to its primary purpose.
+Options: {'A': 'AWS CloudTrail', 'B': 'AWS Config', 'C': 'Audit Trail'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_61_m_61_1_89
+Reason: Missing question text, options, or correct_answer
+Text: Match each customer managed component to its description.
+Options: {'A': 'Guest Operating System', 'B': 'IAM Configuration', 'C': 'Network Access Control Lists'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_63_m_63_2_94
+Reason: Missing question text, options, or correct_answer
+Text: Match the cost analysis capability to the AWS tool.
+Options: {'A': 'Historical spending analysis', 'B': 'Cost forecasting', 'C': 'Identifying savings opportunities'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_63_m_63_3_81
+Reason: Missing question text, options, or correct_answer
+Text: A small development team is building a new application on AWS and needs access to technical guidance...
+Options: {'A': 'No access to technical support engineers', 'B': 'General guidance, 12-24 hour response', 'C': 'Community-driven Q&A forum', 'D': 'Collection of best practice documents'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_62_m_62_2_90
+Reason: Missing question text, options, or correct_answer
+Text: Match the AWS global infrastructure concept to its definition.
+Options: {'A': 'High Availability', 'B': 'Fault Tolerance', 'C': 'Low Latency'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_60_m_60_1_127
+Reason: Missing question text, options, or correct_answer
+Text: Match the AWS Cloud benefit with its description regarding global reach.
+Options: {'A': 'Global Infrastructure', 'B': 'Elasticity', 'C': 'Fault Tolerance', 'D': 'Total Cost of Ownership (TCO)'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_60_m_60_1_133
+Reason: Missing question text, options, or correct_answer
+Text: Match the AWS Cloud benefit to its role in reducing operational burden.
+Options: {'A': 'Managed Services', 'B': 'Automation', 'C': 'Shared Responsibility Model', 'D': 'Global Infrastructure'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_61_m_61_1_101
+Reason: Missing question text, options, or correct_answer
+Text: Match the AWS shared responsibility model responsibility to the correct category.
+Options: {'A': 'Security of the physical facility', 'B': 'Customer data encryption', 'C': 'Patching the underlying host OS for Amazon RDS'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_61_m_61_1_102
+Reason: Missing question text, options, or correct_answer
+Text: Match the AWS shared responsibility model component to the party primarily responsible.
+Options: {'A': 'Security of the hypervisor', 'B': 'Application-level security', 'C': 'Configuration of Amazon S3 bucket policies'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_63_m_63_1_106
+Reason: Missing question text, options, or correct_answer
+Text: A development team is experimenting with new AWS services and needs to manage costs carefully, espec...
+Options: {'A': 'Amazon EC2', 'B': 'Amazon S3', 'C': 'AWS Lambda', 'D': 'Amazon RDS'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_63_m_63_1_108
+Reason: Missing question text, options, or correct_answer
+Text: A media company runs various analytics jobs that can tolerate interruptions and are not time-sensiti...
+Options: {'A': 'Deepest discounts for interruptible tasks', 'B': 'No upfront commitment, pay-as-you-go', 'C': 'Significant savings for consistent usage', 'D': 'Fixed hourly rate for 1 or 3 years'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_63_m_63_2_105
+Reason: Missing question text, options, or correct_answer
+Text: A company is looking to gain deeper insights into their AWS spending patterns and identify areas for...
+Options: {'A': "Current month's spending summary", 'B': 'Historical cost and usage trends', 'C': 'Detailed, hourly usage line items', 'D': 'Potential savings recommendations'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_65_m_65_1_85
+Reason: Answer is factually incorrect or not the best choice
+Text: An agentic system is being developed to manage cloud resource provisioning. This agent needs to unde...
+Options: ["Configure IAM roles with granular permissions for the agent's execution environment, adhering to least privilege.", 'Define tools for the agent to interact with AWS services, such as AWS CloudFormation or AWS CLI commands, wrapped in secure execution environments.', "Implement a validation step within the agent's workflow to review generated IaC or commands before execution.", "Utilize AWS Step Functions to orchestrate the agent's workflow, including a human-in-the-loop approval for resource provisioning."]
+Correct Answer: [1, 2, 3, 0]
+Type: ordering
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_65_m_65_1_86
+Reason: Answer is factually incorrect or not the best choice
+Text: A company wants to create an agent that can dynamically generate SQL queries to retrieve data from a...
+Options: ['Integrate a validation step (e.g., a separate Lambda function) to analyze and sanitize the generated SQL query for security vulnerabilities before execution.', 'Provide the agent with a schema description of the Amazon RDS database.', "Configure the agent's prompt to emphasize generating safe and compliant SQL queries, potentially with examples.", 'Implement a tool that takes a generated SQL query and executes it against the database, returning results.']
+Correct Answer: [1, 3, 0, 2]
+Type: ordering
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_7_m_7_2_98
+Reason: Missing question text, options, or correct_answer
+Text: Match the prompt element to its role in guiding a foundation model.
+Options: {'A': 'Instruction', 'B': 'Context', 'C': 'Examples'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_5_m_5_3_94
+Reason: Answer is factually incorrect or not the best choice
+Text: Machine learning model development is an iterative process. After an initial model is trained and ev...
+Options: ["Evaluate the model's performance on validation data", 'Adjust model hyperparameters or features', 'Train an initial version of the model', 'Retrain the model with updated configurations']
+Correct Answer: [2, 0, 1, 3]
+Type: ordering
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_7_m_7_2_72
+Reason: Answer is factually incorrect or not the best choice
+Text: When applying Chain-of-Thought prompting to help a foundation model solve complex problems, arrange ...
+Options: ['Present the problem statement to be solved.', 'Request the model to explain its reasoning steps.', 'Provide examples of intermediate reasoning steps.', 'Ask for the final answer after the reasoning.']
+Correct Answer: [0, 2, 1, 3]
+Type: ordering
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_9_m_9_1_145
+Reason: Answer is factually incorrect or not the best choice
+Text: A startup is developing an AI-driven content moderation service. To protect against adversarial atta...
+Options: ['Implement adversarial training techniques by augmenting the training dataset with adversarial examples.', 'Deploy input sanitization and preprocessing filters to detect and remove adversarial perturbations before inference.', 'Regularly monitor model performance metrics and output confidence scores for anomalies that may indicate an attack.', "Utilize model robustness evaluation tools to assess the model's susceptibility to known adversarial attack types."]
+Correct Answer: [1, 0, 3, 2]
+Type: ordering
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_7_m_7_3_80
+Reason: Missing question text, options, or correct_answer
+Text: Match the data preparation step to its importance for fine-tuning.
+Options: {'A': 'Data curation', 'B': 'Data governance', 'C': 'Data labeling'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_7_m_7_3_77
+Reason: Missing question text, options, or correct_answer
+Text: Match the Parameter-Efficient Fine-Tuning (PEFT) technique to its description.
+Options: {'A': 'LoRA', 'B': 'QLoRA', 'C': 'Adapter tuning'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_5_m_5_1_84
+Reason: Missing question text, options, or correct_answer
+Text: Match each type of machine learning to the characteristic of its training data.
+Options: {'A': 'Supervised Learning', 'B': 'Unsupervised Learning', 'C': 'Reinforcement Learning'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_7_m_7_2_102
+Reason: Missing question text, options, or correct_answer
+Text: Match common output formatting requirements to their respective structured data types.
+Options: {'A': 'Key-value pairs', 'B': 'Hierarchical document structure', 'C': 'Tabular data'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_7_m_7_1_96
+Reason: Missing question text, options, or correct_answer
+Text: Match the vector store service to its underlying database technology.
+Options: {'A': 'Amazon OpenSearch Service', 'B': 'Amazon Aurora', 'C': 'Amazon Neptune'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_7_m_7_3_95
+Reason: Missing question text, options, or correct_answer
+Text: Match the scenario for updating a foundation model's knowledge or behavior to the optimal method.
+Options: {'A': 'Frequent updates with new factual information', 'B': "Changing the model's core reasoning style", 'C': 'Teaching the model a new, specific task'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_8_m_8_2_131
+Reason: Missing question text, options, or correct_answer
+Text: Match post-hoc explainability techniques to their primary purpose.
+Options: {'A': 'SHAP values', 'B': 'Feature importance', 'C': 'Model interpretability'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_9_m_9_1_150
+Reason: Missing question text, options, or correct_answer
+Text: Match the security concept to its application in AI systems.
+Options: {'A': 'Encryption at Rest', 'B': 'Private Endpoints', 'C': 'Access Control'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_9_m_9_2_132
+Reason: Missing question text, options, or correct_answer
+Text: Match the AI governance principle to its core objective.
+Options: {'A': 'Transparency', 'B': 'Fairness', 'C': 'Accountability'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_9_m_9_2_147
+Reason: Missing question text, options, or correct_answer
+Text: A large tech company develops an internal AI tool to optimize employee task assignments. The develop...
+Options: {'A': 'Internal AI Governance', 'B': 'Audit Trails', 'C': 'Bias Detection'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_5_m_5_3_109
+Reason: Missing question text, options, or correct_answer
+Text: A global e-commerce company is initiating a new machine learning project to optimize its inventory m...
+Options: {'A': 'Data Collection', 'B': 'Data Preprocessing', 'C': 'Feature Engineering'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_7_m_7_1_90
+Reason: Missing question text, options, or correct_answer
+Text: Match the vector store service to its primary use case with RAG.
+Options: {'A': 'Amazon OpenSearch Service', 'B': 'Amazon Aurora', 'C': 'Amazon Neptune'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_7_m_7_3_76
+Reason: Missing question text, options, or correct_answer
+Text: Match the foundation model training phase to its primary goal.
+Options: {'A': 'Pre-training', 'B': 'Fine-tuning', 'C': 'Instruction tuning'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_8_m_8_2_143
+Reason: Missing question text, options, or correct_answer
+Text: Match the human-centered design principle to its impact on explainable AI systems.
+Options: {'A': 'Human-centered design', 'B': 'User trust', 'C': 'Explainable AI systems'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_9_m_9_1_159
+Reason: Missing question text, options, or correct_answer
+Text: Match the data protection state to the appropriate security mechanism.
+Options: {'A': 'Encryption at rest', 'B': 'Encryption in transit', 'C': 'Access control'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_14_m_14_1_21
+Reason: Answer is factually incorrect or not the best choice
+Text: An ML workflow requires ingesting large volumes of streaming data for near real-time analytics. Whic...
+Options: ['Amazon S3', 'AWS Flink', 'Amazon EBS', 'Amazon RDS']
+Correct Answer: [1]
+Type: mcq
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_17_m_17_2_7
+Reason: Answer is factually incorrect or not the best choice
+Text: An MLOps engineer aims to reduce costs for underutilized SageMaker inference endpoints. Which AWS se...
+Options: ['AWS Cost Explorer', 'AWS Compute Optimizer', 'AWS Inference Recommender', 'AWS X-Ray']
+Correct Answer: [2]
+Type: mcq
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_15_m_15_3_104
+Reason: Answer is factually incorrect or not the best choice
+Text: When evaluating a regression model that predicts continuous numerical values, a machine learning eng...
+Options: ['Accuracy', 'Root Mean Squared Error (RMSE)', 'F1 Score', 'Mean Absolute Error (MAE)', 'Area Under the Curve (AUC)']
+Correct Answer: [1, 3]
+Type: multiple
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_16_m_16_2_139
+Reason: Answer is factually incorrect or not the best choice
+Text: An e-commerce platform wants to perform A/B testing for two different versions of its product recomm...
+Options: ['Define `ProductionVariant` for Model A, specifying initial traffic weight and instance details.', 'Define `ProductionVariant` for Model B, specifying initial traffic weight and instance details.', 'Define the `AWS::SageMaker::EndpointConfig` resource.', 'Define `AWS::SageMaker::Model` for Model A (old version).', 'Define `AWS::SageMaker::Model` for Model B (new version).']
+Correct Answer: [3, 4, 2, 0, 1]
+Type: ordering
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_16_m_16_2_144
+Reason: Answer is factually incorrect or not the best choice
+Text: An MLOps engineer wants to provision a SageMaker Notebook Instance using AWS CloudFormation. Order t...
+Options: ['Review the CloudFormation stack events and resources.', 'Upload the CloudFormation template to an S3 bucket.', 'Create a new CloudFormation stack, specifying the S3 template URL and parameters.', 'Define the SageMaker Notebook Instance resource in a CloudFormation template.']
+Correct Answer: [3, 1, 2, 0]
+Type: ordering
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_14_m_14_1_166
+Reason: Missing question text, options, or correct_answer
+Text: Match each data format characteristic to its benefit for ML analytics.
+Options: {'A': 'Columnar format', 'B': 'Row-based format'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_14_m_14_1_168
+Reason: Missing question text, options, or correct_answer
+Text: Match the data format to its typical use case in machine learning workflows.
+Options: {'A': 'CSV', 'B': 'Apache Parquet', 'C': 'TFRecord'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_15_m_15_3_141
+Reason: Missing question text, options, or correct_answer
+Text: Match each Amazon SageMaker Clarify feature to its purpose.
+Options: {'A': 'SageMaker Clarify', 'B': 'Bias Detection', 'C': 'Feature Attribution'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_15_m_15_3_144
+Reason: Missing question text, options, or correct_answer
+Text: Match each model evaluation metric to its primary use case.
+Options: {'A': 'Accuracy', 'B': 'RMSE', 'C': 'AUC-ROC'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_15_m_15_3_146
+Reason: Missing question text, options, or correct_answer
+Text: Match the SageMaker Clarify capability to its function.
+Options: {'A': 'Bias detection', 'B': 'Feature attribution', 'C': 'Explainability'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_15_m_15_3_147
+Reason: Missing question text, options, or correct_answer
+Text: Match the model performance issue to its characteristic.
+Options: {'A': 'Overfitting', 'B': 'Underfitting', 'C': 'Bias-variance tradeoff'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_15_m_15_3_149
+Reason: Missing question text, options, or correct_answer
+Text: Match the regularization technique to its primary effect.
+Options: {'A': 'L1 regularization', 'B': 'L2 regularization', 'C': 'Early stopping'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_15_m_15_3_150
+Reason: Missing question text, options, or correct_answer
+Text: A data scientist observes different model behaviors. Match the observation to the likely issue.
+Options: {'A': 'Low training accuracy, Low validation accuracy', 'B': 'High training accuracy, Low validation accuracy', 'C': 'Disparate predictions for demographic groups'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_15_m_15_3_151
+Reason: Missing question text, options, or correct_answer
+Text: Match the classification metric to its focus area.
+Options: {'A': 'Precision', 'B': 'Recall', 'C': 'F1-Score'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_15_m_15_3_155
+Reason: Missing question text, options, or correct_answer
+Text: Match each component of a confusion matrix to its definition in binary classification.
+Options: {'A': 'True Positives (TP)', 'B': 'False Positives (FP)', 'C': 'False Negatives (FN)'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_15_m_15_1_159
+Reason: Missing question text, options, or correct_answer
+Text: Match the SageMaker built-in algorithm to its primary use case.
+Options: {'A': 'XGBoost', 'B': 'Linear Learner', 'C': 'Image Classification'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_15_m_15_1_160
+Reason: Missing question text, options, or correct_answer
+Text: Match the SageMaker built-in algorithm to its ML problem type.
+Options: {'A': 'k-means', 'B': 'PCA', 'C': 'k-NN'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_15_m_15_1_161
+Reason: Missing question text, options, or correct_answer
+Text: Match the SageMaker built-in algorithm to its data type focus.
+Options: {'A': 'BlazingText', 'B': 'DeepAR', 'C': 'Object Detection'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_15_m_15_1_162
+Reason: Missing question text, options, or correct_answer
+Text: Match the machine learning framework to its common association.
+Options: {'A': 'TensorFlow', 'B': 'PyTorch', 'C': 'scikit-learn'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_15_m_15_1_163
+Reason: Missing question text, options, or correct_answer
+Text: Match the SageMaker JumpStart feature to its benefit.
+Options: {'A': 'Pre-trained models', 'B': 'One-click deployment', 'C': 'Transfer learning'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_15_m_15_1_164
+Reason: Missing question text, options, or correct_answer
+Text: A data science team needs to select algorithms for specific tasks. Match the business problem to the...
+Options: {'A': 'Predicting customer churn (binary outcome)', 'B': 'Forecasting sales for next quarter (continuous value)', 'C': 'Grouping similar documents (unlabeled data)'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_15_m_15_1_165
+Reason: Missing question text, options, or correct_answer
+Text: Match the concept of transfer learning to its definition.
+Options: {'A': 'Pre-trained model', 'B': 'Feature extraction', 'C': 'Fine-tuning'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_15_m_15_2_139
+Reason: Missing question text, options, or correct_answer
+Text: Match each AWS compute resource to its primary use in ML training.
+Options: {'A': 'Amazon EC2 GPU instances', 'B': 'AWS Trainium', 'C': 'p3/p4 instances'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_15_m_15_2_140
+Reason: Missing question text, options, or correct_answer
+Text: Match the SageMaker Training Job component to its purpose.
+Options: {'A': 'Instance selection', 'B': 'Spot Training', 'C': 'Checkpointing'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_15_m_15_2_141
+Reason: Missing question text, options, or correct_answer
+Text: Match the SageMaker Automatic Model Tuning (HPO) concept to its definition.
+Options: {'A': 'Hyperparameter ranges', 'B': 'Bayesian optimization', 'C': 'Tuning jobs'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_15_m_15_2_142
+Reason: Missing question text, options, or correct_answer
+Text: Match the distributed training strategy to its description.
+Options: {'A': 'Data parallelism', 'B': 'Model parallelism'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_15_m_15_2_144
+Reason: Missing question text, options, or correct_answer
+Text: Match the regularization technique to its mechanism for preventing overfitting.
+Options: {'A': 'L1 regularization', 'B': 'Dropout', 'C': 'Early stopping'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_15_m_15_2_147
+Reason: Missing question text, options, or correct_answer
+Text: Match the hyperparameter tuning approach to its outcome.
+Options: {'A': 'Too wide a search space with few trials', 'B': 'Bayesian optimization', 'C': 'Narrowed hyperparameter ranges'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_16_m_16_1_157
+Reason: Missing question text, options, or correct_answer
+Text: Match the SageMaker inference option to its characteristic for large payloads.
+Options: {'A': 'Asynchronous inference', 'B': 'Real-time inference', 'C': 'Serverless inference'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_16_m_16_3_145
+Reason: Missing question text, options, or correct_answer
+Text: An MLOps team is designing an automated workflow for deploying machine learning models. They need to...
+Options: {'A': 'Amazon EventBridge', 'B': 'AWS Step Functions', 'C': 'SageMaker Pipelines', 'D': 'AWS Lambda'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_17_m_17_1_148
+Reason: Missing question text, options, or correct_answer
+Text: Match each model maintenance strategy to its trigger.
+Options: {'A': 'Scheduled Retraining', 'B': 'Triggered Retraining', 'C': 'Model Rollback'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_14_m_14_2_157
+Reason: Missing question text, options, or correct_answer
+Text: Match Amazon SageMaker services to their roles in feature engineering and management.
+Options: {'A': 'SageMaker Data Wrangler', 'B': 'SageMaker Feature Store', 'C': 'SageMaker Processing'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_15_m_15_3_148
+Reason: Missing question text, options, or correct_answer
+Text: Match each confusion matrix component to its definition.
+Options: {'A': 'True Positives', 'B': 'False Positives', 'C': 'False Negatives'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_15_m_15_3_145
+Reason: Missing question text, options, or correct_answer
+Text: Match the SageMaker Debugger feature to its description.
+Options: {'A': 'Training job analysis', 'B': 'Anomaly detection', 'C': 'Rule monitoring'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_15_m_15_1_166
+Reason: Missing question text, options, or correct_answer
+Text: Match the SageMaker approach to its characteristic.
+Options: {'A': 'Built-in SageMaker algorithms', 'B': 'Custom algorithms', 'C': 'SageMaker JumpStart'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_15_m_15_2_145
+Reason: Missing question text, options, or correct_answer
+Text: A machine learning engineer wants to optimize training. Match the scenario to the SageMaker feature.
+Options: {'A': 'Reducing cost for non-critical jobs', 'B': 'Resuming interrupted training, Speeding up training on large datasets'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_15_m_15_2_143
+Reason: Missing question text, options, or correct_answer
+Text: Match the SageMaker Experiments feature to its purpose.
+Options: {'A': 'Experiment tracking', 'B': 'Trial components', 'C': 'Lineage'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_15_m_15_2_146
+Reason: Missing question text, options, or correct_answer
+Text: Match the cross-validation strategy to its characteristic.
+Options: {'A': 'K-fold cross-validation', 'B': 'Stratified K-fold', 'C': 'Leave-one-out cross-validation'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_17_m_17_3_130
+Reason: Missing question text, options, or correct_answer
+Text: A cybersecurity team is performing a security audit of an Amazon SageMaker deployment. They are spec...
+Options: {'A': 'VPC-only mode', 'B': 'Direct Internet Access', 'C': 'Security Groups', 'D': 'Network ACLs'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_14_m_14_1_21
+Reason: Answer is factually incorrect or not the best choice
+Text: An ML workflow requires ingesting large volumes of streaming data for near real-time analytics. Whic...
+Options: ['Amazon S3', 'AWS Flink', 'Amazon EBS', 'Amazon RDS']
+Correct Answer: [1]
+Type: mcq
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_14_m_14_1_115
+Reason: Answer is factually incorrect or not the best choice
+Text: A data scientist is training a large-scale machine learning model using Amazon SageMaker, with a dat...
+Options: ['File mode, which downloads the entire dataset to the training instance before training begins.', 'Pipe mode, which streams data directly from Amazon S3 to the training instance during training.', 'FastFile mode, which uses a high-performance file system cache for faster data access.', 'Managed Spot Training, which optimizes cost but not necessarily data transfer.']
+Correct Answer: [2]
+Type: mcq
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_15_m_15_2_134
+Reason: Answer is factually incorrect or not the best choice
+Text: A team is training a large language model and needs to distribute the training workload across multi...
+Options: ['Configure the SageMaker Estimator with the desired number of instances and instance types (e.g., EC2 GPU instances).', 'Prepare the training script to handle distributed data loading and model synchronization.', 'Launch the SageMaker Training Job.', 'Choose a distributed training strategy, such as data parallelism or model parallelism, based on model size and data volume.']
+Correct Answer: [1, 3, 0, 2]
+Type: ordering
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_16_m_16_2_139
+Reason: Answer is factually incorrect or not the best choice
+Text: An e-commerce platform wants to perform A/B testing for two different versions of its product recomm...
+Options: ['Define `ProductionVariant` for Model A, specifying initial traffic weight and instance details.', 'Define `ProductionVariant` for Model B, specifying initial traffic weight and instance details.', 'Define the `AWS::SageMaker::EndpointConfig` resource.', 'Define `AWS::SageMaker::Model` for Model A (old version).', 'Define `AWS::SageMaker::Model` for Model B (new version).']
+Correct Answer: [3, 4, 2, 0, 1]
+Type: ordering
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_16_m_16_2_142
+Reason: Answer is factually incorrect or not the best choice
+Text: An MLOps team needs to update a critical production Amazon SageMaker real-time endpoint with a new, ...
+Options: ['Update the `AWS::SageMaker::Model` resource in CloudFormation to reference the new model artifacts and ECR image.', 'Train and evaluate the new model version.', 'Apply the updated CloudFormation stack to initiate the endpoint update.', 'Update the `AWS::SageMaker::EndpointConfig` resource to reference the new model.']
+Correct Answer: [1, 0, 3, 2]
+Type: ordering
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_16_m_16_2_144
+Reason: Answer is factually incorrect or not the best choice
+Text: An MLOps engineer wants to provision a SageMaker Notebook Instance using AWS CloudFormation. Order t...
+Options: ['Review the CloudFormation stack events and resources.', 'Upload the CloudFormation template to an S3 bucket.', 'Create a new CloudFormation stack, specifying the S3 template URL and parameters.', 'Define the SageMaker Notebook Instance resource in a CloudFormation template.']
+Correct Answer: [3, 1, 2, 0]
+Type: ordering
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_14_m_14_1_166
+Reason: Missing question text, options, or correct_answer
+Text: Match each data format characteristic to its benefit for ML analytics.
+Options: {'A': 'Columnar format', 'B': 'Row-based format'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_14_m_14_1_168
+Reason: Missing question text, options, or correct_answer
+Text: Match the data format to its typical use case in machine learning workflows.
+Options: {'A': 'CSV', 'B': 'Apache Parquet', 'C': 'TFRecord'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_15_m_15_3_139
+Reason: Missing question text, options, or correct_answer
+Text: Match each model evaluation metric to its primary definition.
+Options: {'A': 'Accuracy', 'B': 'Precision', 'C': 'Recall'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_15_m_15_3_146
+Reason: Missing question text, options, or correct_answer
+Text: Match the SageMaker Clarify capability to its function.
+Options: {'A': 'Bias detection', 'B': 'Feature attribution', 'C': 'Explainability'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_15_m_15_3_147
+Reason: Missing question text, options, or correct_answer
+Text: Match the model performance issue to its characteristic.
+Options: {'A': 'Overfitting', 'B': 'Underfitting', 'C': 'Bias-variance tradeoff'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_15_m_15_3_149
+Reason: Missing question text, options, or correct_answer
+Text: Match the regularization technique to its primary effect.
+Options: {'A': 'L1 regularization', 'B': 'L2 regularization', 'C': 'Early stopping'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_15_m_15_3_150
+Reason: Missing question text, options, or correct_answer
+Text: A data scientist observes different model behaviors. Match the observation to the likely issue.
+Options: {'A': 'Low training accuracy, Low validation accuracy', 'B': 'High training accuracy, Low validation accuracy', 'C': 'Disparate predictions for demographic groups'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_15_m_15_3_151
+Reason: Missing question text, options, or correct_answer
+Text: Match the classification metric to its focus area.
+Options: {'A': 'Precision', 'B': 'Recall', 'C': 'F1-Score'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_15_m_15_1_159
+Reason: Missing question text, options, or correct_answer
+Text: Match the SageMaker built-in algorithm to its primary use case.
+Options: {'A': 'XGBoost', 'B': 'Linear Learner', 'C': 'Image Classification'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_15_m_15_1_160
+Reason: Missing question text, options, or correct_answer
+Text: Match the SageMaker built-in algorithm to its ML problem type.
+Options: {'A': 'k-means', 'B': 'PCA', 'C': 'k-NN'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_15_m_15_1_161
+Reason: Missing question text, options, or correct_answer
+Text: Match the SageMaker built-in algorithm to its data type focus.
+Options: {'A': 'BlazingText', 'B': 'DeepAR', 'C': 'Object Detection'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_15_m_15_1_162
+Reason: Missing question text, options, or correct_answer
+Text: Match the machine learning framework to its common association.
+Options: {'A': 'TensorFlow', 'B': 'PyTorch', 'C': 'scikit-learn'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_15_m_15_1_163
+Reason: Missing question text, options, or correct_answer
+Text: Match the SageMaker JumpStart feature to its benefit.
+Options: {'A': 'Pre-trained models', 'B': 'One-click deployment', 'C': 'Transfer learning'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_15_m_15_1_164
+Reason: Missing question text, options, or correct_answer
+Text: A data science team needs to select algorithms for specific tasks. Match the business problem to the...
+Options: {'A': 'Predicting customer churn (binary outcome)', 'B': 'Forecasting sales for next quarter (continuous value)', 'C': 'Grouping similar documents (unlabeled data)'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_15_m_15_1_165
+Reason: Missing question text, options, or correct_answer
+Text: Match the concept of transfer learning to its definition.
+Options: {'A': 'Pre-trained model', 'B': 'Feature extraction', 'C': 'Fine-tuning'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_15_m_15_2_140
+Reason: Missing question text, options, or correct_answer
+Text: Match the SageMaker Training Job component to its purpose.
+Options: {'A': 'Instance selection', 'B': 'Spot Training', 'C': 'Checkpointing'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_15_m_15_2_141
+Reason: Missing question text, options, or correct_answer
+Text: Match the SageMaker Automatic Model Tuning (HPO) concept to its definition.
+Options: {'A': 'Hyperparameter ranges', 'B': 'Bayesian optimization', 'C': 'Tuning jobs'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_15_m_15_2_142
+Reason: Missing question text, options, or correct_answer
+Text: Match the distributed training strategy to its description.
+Options: {'A': 'Data parallelism', 'B': 'Model parallelism'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_15_m_15_2_144
+Reason: Missing question text, options, or correct_answer
+Text: Match the regularization technique to its mechanism for preventing overfitting.
+Options: {'A': 'L1 regularization', 'B': 'Dropout', 'C': 'Early stopping'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_15_m_15_2_147
+Reason: Missing question text, options, or correct_answer
+Text: Match the hyperparameter tuning approach to its outcome.
+Options: {'A': 'Too wide a search space with few trials', 'B': 'Bayesian optimization', 'C': 'Narrowed hyperparameter ranges'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_15_m_15_2_153
+Reason: Missing question text, options, or correct_answer
+Text: Match each cross-validation concept to its role in model evaluation.
+Options: {'A': 'Cross-validation', 'B': 'K-fold Cross-validation', 'C': 'Validation Set'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_16_m_16_2_154
+Reason: Missing question text, options, or correct_answer
+Text: Match each AWS service to its primary role in an ML workflow orchestration.
+Options: {'A': 'Amazon SageMaker Pipelines', 'B': 'AWS CloudFormation', 'C': 'Amazon ECR'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_17_m_17_1_148
+Reason: Missing question text, options, or correct_answer
+Text: Match each model maintenance strategy to its trigger.
+Options: {'A': 'Scheduled Retraining', 'B': 'Triggered Retraining', 'C': 'Model Rollback'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_15_m_15_3_148
+Reason: Missing question text, options, or correct_answer
+Text: Match each confusion matrix component to its definition.
+Options: {'A': 'True Positives', 'B': 'False Positives', 'C': 'False Negatives'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_15_m_15_3_145
+Reason: Missing question text, options, or correct_answer
+Text: Match the SageMaker Debugger feature to its description.
+Options: {'A': 'Training job analysis', 'B': 'Anomaly detection', 'C': 'Rule monitoring'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_15_m_15_1_166
+Reason: Missing question text, options, or correct_answer
+Text: Match the SageMaker approach to its characteristic.
+Options: {'A': 'Built-in SageMaker algorithms', 'B': 'Custom algorithms', 'C': 'SageMaker JumpStart'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_15_m_15_2_145
+Reason: Missing question text, options, or correct_answer
+Text: A machine learning engineer wants to optimize training. Match the scenario to the SageMaker feature.
+Options: {'A': 'Reducing cost for non-critical jobs', 'B': 'Resuming interrupted training, Speeding up training on large datasets'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_15_m_15_2_143
+Reason: Missing question text, options, or correct_answer
+Text: Match the SageMaker Experiments feature to its purpose.
+Options: {'A': 'Experiment tracking', 'B': 'Trial components', 'C': 'Lineage'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_15_m_15_2_146
+Reason: Missing question text, options, or correct_answer
+Text: Match the cross-validation strategy to its characteristic.
+Options: {'A': 'K-fold cross-validation', 'B': 'Stratified K-fold', 'C': 'Leave-one-out cross-validation'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_26_m_26_3_28
+Reason: Answer is factually incorrect or not the best choice
+Text: An EC2 instance in a public subnet can access the internet, but another instance in the same subnet ...
+Options: ["The instance's CPU utilization.", 'The Network Access Control Lists (NACLs) associated with the subnet.', 'The Elastic Load Balancer (ELB) configuration for the application.', 'Amazon CloudWatch alarms configured for the Auto Scaling group, which would indicate scaling events but not individual instance network connectivity issues.']
+Correct Answer: [1]
+Type: mcq
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_24_m_24_1_45
+Reason: Answer is factually incorrect or not the best choice
+Text: What is the primary benefit of using Infrastructure as Code (IaC) tools like CloudFormation for reso...
+Options: ['Manual provisioning through the AWS Console', 'Infrastructure as Code (IaC) tools like CloudFormation or Terraform', 'Using the AWS Command Line Interface (CLI) for one-off tasks', 'Implementing shell scripts on a dedicated EC2 instance to call AWS APIs, which requires extensive custom coding and lacks native state management, version control, or rollback capabilities.']
+Correct Answer: [1]
+Type: mcq
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_23_m_23_3_41
+Reason: Answer is factually incorrect or not the best choice
+Text: A SysOps Administrator needs to ensure that critical data stored in Amazon S3 is protected against a...
+Options: ['S3 Lifecycle Policies to manage object transitions.', 'S3 Cross-Region Replication for data redundancy.', 'S3 Versioning to retain multiple copies of objects.', 'S3 Object Lock to prevent object deletion for a fixed or indefinite time.']
+Correct Answer: [2]
+Type: mcq
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_23_m_23_3_66
+Reason: Answer is factually incorrect or not the best choice
+Text: Which AWS services offer centralized backup management and support point-in-time recovery for relati...
+Options: ['Amazon S3', 'AWS Backup', 'Amazon RDS', 'Amazon DynamoDB', 'Amazon EBS']
+Correct Answer: [1, 2]
+Type: multiple
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_22_m_22_1_111
+Reason: Missing question text, options, or correct_answer
+Text: Match the AWS monitoring tool to its primary use case.
+Options: {'A': 'AWS Config', 'B': 'CloudWatch Alarms', 'C': 'CloudWatch Logs Insights'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_22_m_22_1_112
+Reason: Missing question text, options, or correct_answer
+Text: Match the alarm strategy to its outcome.
+Options: {'A': 'Individual alarms', 'B': 'Composite alarms', 'C': 'Alert fatigue'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_22_m_22_1_105
+Reason: Missing question text, options, or correct_answer
+Text: Match alarm strategies to their effects on monitoring.
+Options: {'A': 'Individual alarms', 'B': 'Composite alarms', 'C': 'Alert noise'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_22_m_22_1_108
+Reason: Missing question text, options, or correct_answer
+Text: Match each Amazon CloudWatch Logs component to its role.
+Options: {'A': 'Log group', 'B': 'Log stream', 'C': 'Metric filter', 'D': 'Retention policy'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_22_m_22_1_109
+Reason: Missing question text, options, or correct_answer
+Text: Match the Amazon CloudWatch Logs service or feature to its capability.
+Options: {'A': 'CloudWatch Logs', 'B': 'CloudWatch Logs Insights', 'C': 'Metric filter'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_22_m_22_1_110
+Reason: Missing question text, options, or correct_answer
+Text: Match each AWS service to its primary monitoring function.
+Options: {'A': 'AWS CloudTrail', 'B': 'Amazon CloudWatch Logs', 'C': 'AWS Config'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_22_m_22_2_102
+Reason: Missing question text, options, or correct_answer
+Text: Match EC2 failure scenarios to their recovery mechanisms.
+Options: {'A': 'EC2 system failures', 'B': 'Auto Recovery', 'C': 'Manual recovery'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_22_m_22_2_103
+Reason: Missing question text, options, or correct_answer
+Text: Match the AWS Systems Manager concept to its definition.
+Options: {'A': 'Systems Manager Automation', 'B': 'Runbook', 'C': 'Manual remediation'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_22_m_22_2_104
+Reason: Missing question text, options, or correct_answer
+Text: Match the AWS Health Dashboard feature to its description.
+Options: {'A': 'AWS Health Dashboard', 'B': 'Service Health Dashboard', 'C': 'Account-specific events'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_22_m_22_2_105
+Reason: Missing question text, options, or correct_answer
+Text: Match the event-driven remediation component to its role.
+Options: {'A': 'CloudWatch Alarm', 'B': 'EventBridge rule', 'C': 'Automated response'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_22_m_22_2_106
+Reason: Missing question text, options, or correct_answer
+Text: Match the service to its primary remediation capability.
+Options: {'A': 'Systems Manager Automation', 'B': 'EC2 Auto Recovery', 'C': 'Amazon EventBridge'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_22_m_22_2_107
+Reason: Missing question text, options, or correct_answer
+Text: A critical production application runs on Amazon EC2 instances and requires high availability. The o...
+Options: {'A': 'Automated EC2 host recovery', 'B': 'Proactive cost optimization advice', 'C': 'Monitor underlying EC2 hardware'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_23_m_23_3_91
+Reason: Missing question text, options, or correct_answer
+Text: Match the database backup features to their corresponding AWS service.
+Options: {'A': 'Automated Backups', 'B': 'Manual Snapshots', 'C': 'Point-in-Time Recovery'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_23_m_23_3_97
+Reason: Missing question text, options, or correct_answer
+Text: Match the Amazon S3 feature to its data protection capability.
+Options: {'A': 'S3 Versioning', 'B': 'S3 Lifecycle policy', 'C': 'S3 Cross-Region Replication'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_23_m_23_3_99
+Reason: Missing question text, options, or correct_answer
+Text: Match the recovery objective to its definition in disaster recovery planning.
+Options: {'A': 'Recovery Time Objective', 'B': 'Recovery Point Objective', 'C': 'Disaster Recovery'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_23_m_23_3_107
+Reason: Missing question text, options, or correct_answer
+Text: A company needs to implement a cost-effective backup solution for its EC2 instances and associated E...
+Options: {'A': 'EBS Snapshots', 'B': 'EBS Lifecycle Manager', 'C': 'EBS Fast Snapshot Restore (FSR)', 'D': 'EBS Multi-Attach'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_23_m_23_1_103
+Reason: Missing question text, options, or correct_answer
+Text: A data analytics platform uses Amazon RDS and needs to scale its database to handle increasing read ...
+Options: {'A': 'Amazon RDS Read Replicas', 'B': 'Amazon RDS Storage Auto Scaling', 'C': 'Amazon RDS Multi-AZ', 'D': 'Amazon RDS Performance Insights'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_24_m_24_2_143
+Reason: Missing question text, options, or correct_answer
+Text: Match the AWS Systems Manager feature to its specific automation purpose.
+Options: {'A': 'Systems Manager State Manager', 'B': 'Systems Manager Patch Manager', 'C': 'Systems Manager Run Command'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_24_m_24_2_145
+Reason: Missing question text, options, or correct_answer
+Text: Match the AWS service to its primary role in operational automation.
+Options: {'A': 'AWS Lambda', 'B': 'Amazon EventBridge', 'C': 'Systems Manager Run Command'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_24_m_24_2_146
+Reason: Missing question text, options, or correct_answer
+Text: Match the AWS service to its function in scheduling and event-driven automation.
+Options: {'A': 'Amazon EventBridge', 'B': 'AWS Lambda', 'C': 'Systems Manager State Manager'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_24_m_24_2_147
+Reason: Missing question text, options, or correct_answer
+Text: Match the AWS Systems Manager feature to its specific OS management task.
+Options: {'A': 'Systems Manager Patch Manager', 'B': 'Systems Manager State Manager', 'C': 'Systems Manager Run Command'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_24_m_24_2_148
+Reason: Missing question text, options, or correct_answer
+Text: Match the AWS service to its role in configuration and compliance management.
+Options: {'A': 'Systems Manager State Manager', 'B': 'Systems Manager Patch Manager', 'C': 'AWS Service Catalog'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_24_m_24_2_151
+Reason: Missing question text, options, or correct_answer
+Text: An operations team manages a critical application deployed on Amazon EC2 instances. They need to aut...
+Options: {'A': 'Triggering automation based on events', 'B': 'Executing serverless code for tasks', 'C': 'Scheduling recurring tasks', 'D': 'Orchestrating complex operational runbooks'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_24_m_24_1_135
+Reason: Missing question text, options, or correct_answer
+Text: Match each AWS CloudFormation concept to its description.
+Options: {'A': 'CloudFormation Template', 'B': 'CloudFormation Stack', 'C': 'CloudFormation Change Set'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_24_m_24_1_136
+Reason: Missing question text, options, or correct_answer
+Text: Match the AWS resource provisioning tool to its primary function.
+Options: {'A': 'AWS CloudFormation', 'B': 'AWS Service Catalog', 'C': 'AWS CDK'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_24_m_24_1_138
+Reason: Missing question text, options, or correct_answer
+Text: Match the deployment and configuration management service to its primary use case.
+Options: {'A': 'AWS CodeDeploy', 'B': 'AWS OpsWorks', 'C': 'AWS CloudFormation'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_24_m_24_1_140
+Reason: Missing question text, options, or correct_answer
+Text: Match the AWS service or concept to its role in standardized resource provisioning.
+Options: {'A': 'AWS Service Catalog', 'B': 'Amazon Machine Image (AMI)', 'C': 'AWS CloudFormation'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_24_m_24_1_141
+Reason: Missing question text, options, or correct_answer
+Text: Match the Infrastructure as Code (IaC) tool to its primary method of operation.
+Options: {'A': 'AWS CloudFormation', 'B': 'AWS CDK', 'C': 'AWS CodeDeploy'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_24_m_24_1_142
+Reason: Missing question text, options, or correct_answer
+Text: Match the AWS service to its capability for multi-account or standardized deployments.
+Options: {'A': 'CloudFormation StackSets', 'B': 'AWS CDK', 'C': 'AWS Service Catalog'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_24_m_24_1_143
+Reason: Missing question text, options, or correct_answer
+Text: Match the CloudFormation approach to its outcome regarding stack consistency.
+Options: {'A': 'Manual changes to resources', 'B': 'Using CloudFormation Change Sets', 'C': 'Applying all changes via CloudFormation'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_22_m_22_2_101
+Reason: Missing question text, options, or correct_answer
+Text: Match AWS Health notification types to their characteristics.
+Options: {'A': 'AWS Health events', 'B': 'Generic status pages', 'C': 'Account-specific impact'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_26_m_26_3_34
+Reason: Answer is factually incorrect or not the best choice
+Text: When troubleshooting intermittent 5xx errors from a web application behind an Application Load Balan...
+Options: ['elb_status_code.', 'request_processing_time.', 'client_ip.', 'user_agent_string, which helps identify the browser or client making the request, but not the backend error.']
+Correct Answer: [0]
+Type: mcq
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_23_m_23_3_41
+Reason: Answer is factually incorrect or not the best choice
+Text: A SysOps Administrator needs to ensure that critical data stored in Amazon S3 is protected against a...
+Options: ['S3 Lifecycle Policies to manage object transitions.', 'S3 Cross-Region Replication for data redundancy.', 'S3 Versioning to retain multiple copies of objects.', 'S3 Object Lock to prevent object deletion for a fixed or indefinite time.']
+Correct Answer: [2]
+Type: mcq
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_27_m_27_1_104
+Reason: Answer is factually incorrect or not the best choice
+Text: Which AWS services can help a SysOps Administrator identify underutilized resources and receive reco...
+Options: ['AWS Cost Explorer', 'AWS Compute Optimizer', 'AWS Budgets', 'Amazon CloudFront', 'Amazon ElastiCache']
+Correct Answer: [0, 1, 2]
+Type: multiple
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_22_m_22_1_111
+Reason: Missing question text, options, or correct_answer
+Text: Match the AWS monitoring tool to its primary use case.
+Options: {'A': 'AWS Config', 'B': 'CloudWatch Alarms', 'C': 'CloudWatch Logs Insights'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_22_m_22_1_112
+Reason: Missing question text, options, or correct_answer
+Text: Match the alarm strategy to its outcome.
+Options: {'A': 'Individual alarms', 'B': 'Composite alarms', 'C': 'Alert fatigue'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_22_m_22_1_108
+Reason: Missing question text, options, or correct_answer
+Text: Match each Amazon CloudWatch Logs component to its role.
+Options: {'A': 'Log group', 'B': 'Log stream', 'C': 'Metric filter', 'D': 'Retention policy'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_22_m_22_1_109
+Reason: Missing question text, options, or correct_answer
+Text: Match the Amazon CloudWatch Logs service or feature to its capability.
+Options: {'A': 'CloudWatch Logs', 'B': 'CloudWatch Logs Insights', 'C': 'Metric filter'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_22_m_22_1_110
+Reason: Missing question text, options, or correct_answer
+Text: Match each AWS service to its primary monitoring function.
+Options: {'A': 'AWS CloudTrail', 'B': 'Amazon CloudWatch Logs', 'C': 'AWS Config'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_22_m_22_1_115
+Reason: Missing question text, options, or correct_answer
+Text: A financial services company needs to manage vast volumes of logs from various applications and AWS ...
+Options: {'A': 'Control log storage costs', 'B': 'Efficiently search log data', 'C': 'Store API activity records'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_22_m_22_2_103
+Reason: Missing question text, options, or correct_answer
+Text: Match the AWS Systems Manager concept to its definition.
+Options: {'A': 'Systems Manager Automation', 'B': 'Runbook', 'C': 'Manual remediation'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_22_m_22_2_104
+Reason: Missing question text, options, or correct_answer
+Text: Match the AWS Health Dashboard feature to its description.
+Options: {'A': 'AWS Health Dashboard', 'B': 'Service Health Dashboard', 'C': 'Account-specific events'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_22_m_22_2_105
+Reason: Missing question text, options, or correct_answer
+Text: Match the event-driven remediation component to its role.
+Options: {'A': 'CloudWatch Alarm', 'B': 'EventBridge rule', 'C': 'Automated response'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_22_m_22_2_106
+Reason: Missing question text, options, or correct_answer
+Text: Match the service to its primary remediation capability.
+Options: {'A': 'Systems Manager Automation', 'B': 'EC2 Auto Recovery', 'C': 'Amazon EventBridge'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_23_m_23_3_91
+Reason: Missing question text, options, or correct_answer
+Text: Match the database backup features to their corresponding AWS service.
+Options: {'A': 'Automated Backups', 'B': 'Manual Snapshots', 'C': 'Point-in-Time Recovery'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_23_m_23_3_99
+Reason: Missing question text, options, or correct_answer
+Text: Match the recovery objective to its definition in disaster recovery planning.
+Options: {'A': 'Recovery Time Objective', 'B': 'Recovery Point Objective', 'C': 'Disaster Recovery'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_23_m_23_3_104
+Reason: Missing question text, options, or correct_answer
+Text: An analytics firm is designing a disaster recovery plan for its data processing infrastructure. Matc...
+Options: {'A': 'RPO of seconds, RTO of minutes', 'B': 'RPO of minutes, RTO of hours', 'C': 'RPO of hours, RTO of days', 'D': 'RPO of zero, RTO of seconds'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_23_m_23_3_107
+Reason: Missing question text, options, or correct_answer
+Text: A company needs to implement a cost-effective backup solution for its EC2 instances and associated E...
+Options: {'A': 'EBS Snapshots', 'B': 'EBS Lifecycle Manager', 'C': 'EBS Fast Snapshot Restore (FSR)', 'D': 'EBS Multi-Attach'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_23_m_23_2_88
+Reason: Missing question text, options, or correct_answer
+Text: Match the AWS services to their roles in providing highly available storage.
+Options: {'A': 'Amazon S3', 'B': 'Amazon EFS', 'C': 'Amazon EBS'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_23_m_23_2_95
+Reason: Missing question text, options, or correct_answer
+Text: A SysOps Administrator needs to configure DNS such that if the primary web server endpoint becomes u...
+Options: {'A': 'Endpoint health detection', 'B': 'Automatic traffic shift', 'C': 'Primary server resource'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_23_m_23_1_103
+Reason: Missing question text, options, or correct_answer
+Text: A data analytics platform uses Amazon RDS and needs to scale its database to handle increasing read ...
+Options: {'A': 'Amazon RDS Read Replicas', 'B': 'Amazon RDS Storage Auto Scaling', 'C': 'Amazon RDS Multi-AZ', 'D': 'Amazon RDS Performance Insights'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_24_m_24_2_142
+Reason: Missing question text, options, or correct_answer
+Text: Match each AWS Systems Manager capability to its primary function.
+Options: {'A': 'Systems Manager Run Command', 'B': 'Systems Manager Session Manager', 'C': 'Systems Manager Patch Manager'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_24_m_24_2_143
+Reason: Missing question text, options, or correct_answer
+Text: Match the AWS Systems Manager feature to its specific automation purpose.
+Options: {'A': 'Systems Manager State Manager', 'B': 'Systems Manager Patch Manager', 'C': 'Systems Manager Run Command'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_24_m_24_2_144
+Reason: Missing question text, options, or correct_answer
+Text: Match the remote access method to its security and operational characteristics.
+Options: {'A': 'Systems Manager Session Manager', 'B': 'SSH/RDP directly to EC2', 'C': 'Bastion Host with SSH'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_24_m_24_2_145
+Reason: Missing question text, options, or correct_answer
+Text: Match the AWS service to its primary role in operational automation.
+Options: {'A': 'AWS Lambda', 'B': 'Amazon EventBridge', 'C': 'Systems Manager Run Command'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_24_m_24_2_146
+Reason: Missing question text, options, or correct_answer
+Text: Match the AWS service to its function in scheduling and event-driven automation.
+Options: {'A': 'Amazon EventBridge', 'B': 'AWS Lambda', 'C': 'Systems Manager State Manager'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_24_m_24_2_147
+Reason: Missing question text, options, or correct_answer
+Text: Match the AWS Systems Manager feature to its specific OS management task.
+Options: {'A': 'Systems Manager Patch Manager', 'B': 'Systems Manager State Manager', 'C': 'Systems Manager Run Command'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_24_m_24_2_148
+Reason: Missing question text, options, or correct_answer
+Text: Match the AWS service to its role in configuration and compliance management.
+Options: {'A': 'Systems Manager State Manager', 'B': 'Systems Manager Patch Manager', 'C': 'AWS Service Catalog'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_24_m_24_2_152
+Reason: Missing question text, options, or correct_answer
+Text: A development team is migrating a legacy application to AWS and needs to establish a robust CI/CD pi...
+Options: {'A': 'Automated application deployment', 'B': 'Serverless compute for custom tasks', 'C': 'Infrastructure as Code for resources', 'D': 'Configuration management for instances'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_24_m_24_1_135
+Reason: Missing question text, options, or correct_answer
+Text: Match each AWS CloudFormation concept to its description.
+Options: {'A': 'CloudFormation Template', 'B': 'CloudFormation Stack', 'C': 'CloudFormation Change Set'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_24_m_24_1_136
+Reason: Missing question text, options, or correct_answer
+Text: Match the AWS resource provisioning tool to its primary function.
+Options: {'A': 'AWS CloudFormation', 'B': 'AWS Service Catalog', 'C': 'AWS CDK'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_24_m_24_1_138
+Reason: Missing question text, options, or correct_answer
+Text: Match the deployment and configuration management service to its primary use case.
+Options: {'A': 'AWS CodeDeploy', 'B': 'AWS OpsWorks', 'C': 'AWS CloudFormation'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_24_m_24_1_139
+Reason: Missing question text, options, or correct_answer
+Text: Match the AWS CloudFormation feature to its capability.
+Options: {'A': 'CloudFormation Drift Detection', 'B': 'CloudFormation StackSets', 'C': 'CloudFormation Nested Stacks'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_24_m_24_1_140
+Reason: Missing question text, options, or correct_answer
+Text: Match the AWS service or concept to its role in standardized resource provisioning.
+Options: {'A': 'AWS Service Catalog', 'B': 'Amazon Machine Image (AMI)', 'C': 'AWS CloudFormation'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_24_m_24_1_141
+Reason: Missing question text, options, or correct_answer
+Text: Match the Infrastructure as Code (IaC) tool to its primary method of operation.
+Options: {'A': 'AWS CloudFormation', 'B': 'AWS CDK', 'C': 'AWS CodeDeploy'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_24_m_24_1_143
+Reason: Missing question text, options, or correct_answer
+Text: Match the CloudFormation approach to its outcome regarding stack consistency.
+Options: {'A': 'Manual changes to resources', 'B': 'Using CloudFormation Change Sets', 'C': 'Applying all changes via CloudFormation'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_24_m_24_1_129
+Reason: Missing question text, options, or correct_answer
+Text: Match the AWS service to its role in managing cloud resources.
+Options: {'A': 'AWS CloudFormation', 'B': 'AWS Service Catalog', 'C': 'EC2 Launch Templates'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_22_m_22_2_101
+Reason: Missing question text, options, or correct_answer
+Text: Match AWS Health notification types to their characteristics.
+Options: {'A': 'AWS Health events', 'B': 'Generic status pages', 'C': 'Account-specific impact'}
+Correct Answer: None
+Type: matching
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_33_m_33_3_76
+Reason: Answer is factually incorrect or not the best choice
+Text: A data engineer is designing a disaster recovery strategy for critical data stored in Amazon S3. The...
+Options: ['Enable S3 Versioning on the Amazon S3 bucket.', 'Configure MFA Delete for the S3 bucket.', 'Generate an access key and secret key for the root AWS account or an IAM user with MFA enabled.', 'Test the deletion process to ensure MFA Delete is enforced.']
+Correct Answer: [0, 1, 2, 3]
+Type: ordering
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_35_m_35_5_40
+Reason: Answer is factually incorrect or not the best choice
+Text: A data engineer is designing a data lake solution that must comply with GDPR. This includes the 'rig...
+Options: ['Amazon S3 Object Lock', 'AWS CloudTrail', 'Amazon Macie', 'AWS Audit Manager']
+Correct Answer: [0]
+Type: mcq
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_34_m_34_1_124
+Reason: Answer is factually incorrect or not the best choice
+Text: A company needs to process newly uploaded CSV files in an Amazon S3 bucket immediately after they ar...
+Options: ['Create an AWS Lambda function with the Python processing script.', 'Configure an Amazon S3 event notification to invoke the Lambda function when new objects are created.', 'Grant the Lambda function appropriate permissions to access the S3 bucket and other necessary AWS services.', 'Upload the Python processing script to the AWS Lambda function.']
+Correct Answer: [0, 2, 1, 3]
+Type: ordering
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_34_m_34_4_72
+Reason: Answer is factually incorrect or not the best choice
+Text: Order the steps to create a DataBrew recipe by interactively applying transformations.
+Options: ['Open an existing DataBrew project with a loaded dataset.', 'Apply a series of transformations (e.g., clean, pivot, join) to the data sample.', 'Preview the results of each transformation step.', 'Save the sequence of transformations as a DataBrew recipe.']
+Correct Answer: [0, 1, 2, 3]
+Type: ordering
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_35_m_35_1_53
+Reason: Answer is factually incorrect or not the best choice
+Text: Arrange the following steps in the correct order to create an IAM role for an AWS Glue job.
+Options: ['Attach an IAM policy to define permissions for the Glue job.', "Create the IAM role with 'Glue' as the trusted entity.", 'Specify the role name and review the configuration.', 'Define the trust policy that allows Glue to assume the role.']
+Correct Answer: [1, 3, 0, 2]
+Type: ordering
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_35_m_35_1_74
+Reason: Answer is factually incorrect or not the best choice
+Text: A global analytics firm needs to enable its data analysts to query sensitive customer data stored in...
+Options: ['Configure the Amazon Redshift cluster to use an IAM role that has permissions to allow IAM users to connect to the cluster.', 'Create an IAM policy that grants `redshift:GetClusterCredentials` permission for the specific Redshift cluster and attach it to the IAM roles or users of the data analysts.', 'Create a database user in Amazon Redshift that maps to the IAM role or user, using `CREATE USER <db_user> WITH IAM`.', "Ensure the Redshift cluster's VPC security group allows inbound connections from the analysts' network."]
+Correct Answer: [3, 0, 1, 2]
+Type: ordering
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_35_m_35_5_69
+Reason: Answer is factually incorrect or not the best choice
+Text: A data privacy team needs to handle GDPR right-to-erasure requests for data stored in an S3-based da...
+Options: ['Enable S3 Object Lock on the S3 bucket storing the PII data.', 'Design a data model that stores PII in individual, versioned objects or partitions.', 'Implement a process to identify and mark PII objects for deletion or anonymization.', "Use S3 Object Lock's governance or compliance mode to prevent accidental or malicious deletion for a retention period."]
+Correct Answer: [1, 0, 2, 3]
+Type: ordering
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_37_m_37_1_30
+Reason: Answer is factually incorrect or not the best choice
+Text: For managing server configurations using Chef Automate or Puppet Enterprise, which AWS service provi...
+Options: ['AWS Systems Manager', 'AWS OpsWorks Stacks', 'AWS AppConfig', 'AWS Lambda, which is a serverless compute service that lets you run code without provisioning or managing servers, making it ideal for event-driven applications and microservices.']
+Correct Answer: [1]
+Type: mcq
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_39_m_39_3_31
+Reason: Answer is factually incorrect or not the best choice
+Text: You want to trigger an AWS Lambda function every time a new object is uploaded to a specific S3 buck...
+Options: ['Configure S3 event notifications directly to SNS and then subscribe Lambda', 'Use AWS Config rules to monitor S3 bucket changes and trigger Lambda', 'Amazon EventBridge with an S3 event pattern', 'Set up a cron job on an EC2 instance that periodically checks the S3 bucket for new objects and invokes the Lambda function manually']
+Correct Answer: [2]
+Type: mcq
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_37_m_37_2_66
+Reason: Answer is factually incorrect or not the best choice
+Text: A company requires automated remediation for non-compliant AWS resources detected by AWS Config rule...
+Options: ['AWS Systems Manager State Manager', 'AWS Systems Manager Automation', 'AWS CloudFormation', 'AWS Service Catalog', 'AWS OpsWorks']
+Correct Answer: [0, 1]
+Type: multiple
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_36_m_36_3_63
+Reason: Answer is factually incorrect or not the best choice
+Text: Which of the following are valid methods for storing artifacts generated by an AWS CodePipeline buil...
+Options: ['Amazon S3 buckets', 'AWS CodeArtifact repositories', 'Amazon ECR registries', 'AWS CodeCommit repositories', 'AWS Secrets Manager']
+Correct Answer: [0, 2]
+Type: multiple
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_40_m_40_1_89
+Reason: Answer is factually incorrect or not the best choice
+Text: Which AWS services can be used to integrate AWS Health events for automated responses and notificati...
+Options: ['AWS Health', 'Amazon EventBridge', 'AWS Config', 'Amazon SQS', 'AWS Systems Manager Incident Manager']
+Correct Answer: [0, 1]
+Type: multiple
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_44_m_44_1_14
+Reason: Answer is factually incorrect or not the best choice
+Text: To support blue/green deployments for an application running on EC2 instances behind an Application ...
+Options: ['Perform in-place upgrades.', 'Use Route 53 weighted routing to shift traffic between two Auto Scaling groups.', 'Manually update the instances.', 'Deploy a new environment and then update the Application Load Balancer listener rules or Route 53 records to gradually shift traffic to the new version, while maintaining the old environment for a quick rollback if necessary, ensuring minimal downtime and risk.']
+Correct Answer: [1]
+Type: mcq
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_43_m_43_3_11
+Reason: Answer is factually incorrect or not the best choice
+Text: An application uses Amazon RDS and occasionally experiences short bursts of high traffic. How can yo...
+Options: ['Use Amazon RDS Provisioned IOPS storage', "Enable Amazon RDS Auto Scaling for the database instance, which automatically adjusts the database's capacity based on real-time workload metrics.", 'Utilize Amazon RDS Read Replicas for read-heavy workloads', 'Right-size the instance for average load and monitor']
+Correct Answer: [0]
+Type: mcq
+----------------------------------------------------------------------------------------------------
+
+[✗ INVALID] Question ID: q_43_m_43_6_13
+Reason: Answer is factually incorrect or not the best choice
+Text: A company wants to minimize costs for a predictable, long-running EC2 workload. Which purchasing opt...
+Options: ['EC2 Reserved Instances.', 'EC2 On-Demand Instances.', 'EC2 Spot Instances, which allow you to bid on unused EC2 capacity and can result in significant savings compared to On-Demand prices, but they can be interrupted by AWS.', 'Savings Plans for compute usage.']
+Correct Answer: [0]
+Type: mcq
+----------------------------------------------------------------------------------------------------
+
