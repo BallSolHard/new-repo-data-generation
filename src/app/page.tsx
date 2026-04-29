@@ -49,7 +49,7 @@ type QuizData = {
 
 
 export default function Home() {
-  const [activeTab, setActiveTab] = useState<"hub" | "mock">("hub");
+  const [activeTab, setActiveTab] = useState<"hub" | "mock" | "course">("hub");
   const [selectedCertification, setSelectedCertification] = useState<string>("");
   const [selectedDomain, setSelectedDomain] = useState<string>("");
   const [selectedModule, setSelectedModule] = useState<string>("");
@@ -82,6 +82,10 @@ export default function Home() {
   
   // For mock: number of questions to generate
   const [mockQuestionsCount, setMockQuestionsCount] = useState(10);
+
+  // Course generation states
+  const [generatedCourseContent, setGeneratedCourseContent] = useState<any>(null);
+  const [courseLoadingModule, setCourseLoadingModule] = useState<string | null>(null);
 
   // Debug: log question types changes
   useEffect(() => {
@@ -292,7 +296,7 @@ export default function Home() {
     fetchMockTests();
   }, [selectedDomain, selectedCertification, activeTab, domains, certifications]);
 
-  const handleTabChange = (tab: "hub" | "mock") => {
+  const handleTabChange = (tab: "hub" | "mock" | "course") => {
     setActiveTab(tab);
     // Reset selections when switching tabs
     setSelectedCertification("");
@@ -301,6 +305,7 @@ export default function Home() {
     setModules([]); // Clear modules when switching tabs
     setQuizzes([]); // Clear quizzes when switching tabs
     setSelectedAllModules([]); // Clear selected all modules when switching tabs
+    setGeneratedCourseContent(null);
   };
 
   const getCurrentDomains = () => {
@@ -488,6 +493,138 @@ export default function Home() {
     }
   };
 
+  const convertCourseContentToMarkdown = (content: any): string => {
+    let markdown = '';
+
+    // Header
+    markdown += `# ${content.module_name}\n\n`;
+    if (content.topic_name) {
+      markdown += `**${content.topic_name}**\n\n`;
+    }
+
+    // Metadata
+    markdown += `> Certification: ${content.certification_name}\n`;
+    markdown += `> Duration: ${content.estimated_duration || '5-7 minutes'}\n\n`;
+
+    // Overview
+    if (content.overview) {
+      markdown += `## Overview\n\n${content.overview}\n\n`;
+    }
+
+    // Learning Objectives
+    if (content.learning_objectives && content.learning_objectives.length > 0) {
+      markdown += `## 🎯 Learning Objectives\n\n`;
+      content.learning_objectives.forEach((objective: string, idx: number) => {
+        markdown += `${idx + 1}. ${objective}\n`;
+      });
+      markdown += `\n`;
+    }
+
+    // Content Sections
+    if (content.content_sections && content.content_sections.length > 0) {
+      content.content_sections.forEach((section: any, idx: number) => {
+        markdown += `## ${idx + 1}. ${section.title}\n\n`;
+        if (section.duration) {
+          markdown += `*Duration: ${section.duration}*\n\n`;
+        }
+        markdown += `${section.content}\n\n`;
+
+        // Key Points
+        if (section.key_points && section.key_points.length > 0) {
+          markdown += `### 🔑 Key Points\n\n`;
+          section.key_points.forEach((point: string) => {
+            markdown += `- ${point}\n`;
+          });
+          markdown += `\n`;
+        }
+
+        // Examples
+        if (section.examples && section.examples.length > 0) {
+          markdown += `### 💡 Examples\n\n`;
+          section.examples.forEach((example: string, exIdx: number) => {
+            markdown += `**Example ${exIdx + 1}:**\n\`\`\`\n${example}\n\`\`\`\n\n`;
+          });
+        }
+
+        // Best Practices
+        if (section.best_practices && section.best_practices.length > 0) {
+          markdown += `### ✅ Best Practices\n\n`;
+          section.best_practices.forEach((practice: string) => {
+            markdown += `- ${practice}\n`;
+          });
+          markdown += `\n`;
+        }
+      });
+    }
+
+    // Summary
+    if (content.summary) {
+      markdown += `## Summary\n\n${content.summary}\n\n`;
+    }
+
+    // Next Steps
+    if (content.next_steps && content.next_steps.length > 0) {
+      markdown += `## 📋 Next Steps\n\n`;
+      content.next_steps.forEach((step: string, idx: number) => {
+        markdown += `${idx + 1}. ${step}\n`;
+      });
+      markdown += `\n`;
+    }
+
+    return markdown;
+  };
+
+  const generateCourseContent = async (moduleId: string, moduleName: string) => {
+    if (!selectedCertification || !selectedDomain) {
+      setError("Please select certification and domain first");
+      return;
+    }
+
+    setCourseLoadingModule(moduleId);
+    setError(null);
+
+    try {
+      const selectedCertData = certifications.find(c => c.title === selectedCertification);
+      const selectedDomainData = domains.find(d => d.topic_name === selectedDomain);
+      const selectedModuleData = modules.find(m => m.module_id === moduleId);
+
+      const payload = {
+        certification_id: selectedCertData?.id,
+        certification_name: selectedCertification,
+        topic_id: selectedDomainData?.topic_id,
+        topic_name: selectedDomain,
+        topic_description: selectedDomainData?.topic_description || `${selectedDomain} domain knowledge`,
+        module_id: moduleId,
+        module_name: moduleName,
+        module_description: selectedModuleData?.module_description || `${moduleName} module content`,
+        module_content: selectedModuleData?.module_content || "",
+      };
+
+      console.log('[generateCourseContent] Payload:', payload);
+
+      const response = await fetch('/api/generate-course-content', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload)
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to generate course content');
+      }
+
+      const data = await response.json();
+      setGeneratedCourseContent(data);
+      
+    } catch (err) {
+      console.error('Error generating course content:', err);
+      setError('Failed to generate course content. Please try again.');
+    } finally {
+      setCourseLoadingModule(null);
+    }
+  };
+
   return (
     <>
       <TopBar />
@@ -526,6 +663,16 @@ export default function Home() {
                 }`}
               >
                 Generate Mock Questions
+              </button>
+              <button
+                onClick={() => handleTabChange("course")}
+                className={`flex-1 py-3 px-6 rounded-md font-semibold transition-all duration-200 ${
+                  activeTab === "course"
+                    ? "bg-purple-500 text-white shadow-lg"
+                    : "text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                }`}
+              >
+                Generate Course
               </button>
             </div>
           </div>
@@ -876,11 +1023,259 @@ export default function Home() {
               </div>
               <button 
                 className="mt-4 bg-white text-purple-600 px-6 py-2 rounded-lg font-semibold hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                onClick={activeTab === "hub" ? generateHubQuestions : generateMockQuestions}
-                disabled={isGenerating}
+                onClick={activeTab === "hub" ? generateHubQuestions : (activeTab === "mock" ? generateMockQuestions : undefined)}
+                disabled={isGenerating || (activeTab as string) === "course"}
               >
                 {isGenerating ? "Generating..." : (activeTab === "hub" ? "Generate Hub Questions" : "Generate Mock Questions")}
               </button>
+            </div>
+          )}
+
+          {/* Course Content Display - Only for Course Tab */}
+          {activeTab === "course" && selectedDomain && (
+            <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg shadow-lg p-6 text-white">
+              <h2 className="text-2xl font-semibold mb-4">Select a Module to Generate Course Content</h2>
+              
+              {modulesLoading ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {[1, 2, 3, 4].map((i) => (
+                    <div key={i} className="p-4 rounded-lg border-2 border-white/20 animate-pulse bg-white/10">
+                      <div className="h-6 bg-white/20 rounded"></div>
+                    </div>
+                  ))}
+                </div>
+              ) : modules.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {modules.map((module) => (
+                    <button
+                      key={module.module_id}
+                      onClick={() => generateCourseContent(module.module_id, module.module_name)}
+                      disabled={courseLoadingModule === module.module_id}
+                      className={`p-4 rounded-lg border-2 transition-all duration-200 text-left ${
+                        courseLoadingModule === module.module_id
+                          ? 'border-yellow-300 bg-yellow-100/20 opacity-75'
+                          : 'border-white/30 bg-white/10 hover:bg-white/20'
+                      }`}
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <h3 className="font-semibold text-white mb-1">{module.module_name}</h3>
+                          <p className="text-sm text-blue-100">{module.module_description}</p>
+                          <code className="text-xs bg-white/20 px-2 py-1 rounded mt-2 inline-block">{module.module_id}</code>
+                        </div>
+                        {courseLoadingModule === module.module_id && (
+                          <div className="ml-4 mt-1">
+                            <div className="animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full"></div>
+                          </div>
+                        )}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-blue-100">No modules available for this domain.</p>
+              )}
+            </div>
+          )}
+
+          {/* Generated Course Content Display */}
+          {activeTab === "course" && generatedCourseContent && (
+            <div className="space-y-6">
+              {/* Course Header */}
+              <div className="bg-gradient-to-r from-indigo-600 to-blue-600 rounded-lg shadow-lg p-8 text-white">
+                <h1 className="text-4xl font-bold mb-2">{generatedCourseContent.module_name}</h1>
+                <p className="text-indigo-100 text-lg mb-4">{generatedCourseContent.topic_name}</p>
+                <div className="flex items-center space-x-4 text-sm">
+                  <span className="bg-white/20 px-4 py-2 rounded-full font-semibold">
+                    📚 {generatedCourseContent.certification_name}
+                  </span>
+                  <span className="bg-white/20 px-4 py-2 rounded-full font-semibold">
+                    ⏱️ {generatedCourseContent.estimated_duration || "5-7 minutes"}
+                  </span>
+                </div>
+              </div>
+
+              {/* Course Overview */}
+              {generatedCourseContent.overview && (
+                <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 border-l-4 border-blue-500">
+                  <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-4">Overview</h2>
+                  <p className="text-gray-700 dark:text-gray-300 text-lg leading-relaxed">
+                    {generatedCourseContent.overview}
+                  </p>
+                </div>
+              )}
+
+              {/* Learning Objectives */}
+              {generatedCourseContent.learning_objectives && generatedCourseContent.learning_objectives.length > 0 && (
+                <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 border-l-4 border-green-500">
+                  <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-4">🎯 Learning Objectives</h2>
+                  <ul className="space-y-3">
+                    {generatedCourseContent.learning_objectives.map((objective: string, idx: number) => (
+                      <li key={idx} className="flex items-start">
+                        <span className="inline-flex items-center justify-center h-7 w-7 rounded-full bg-green-500 text-white mr-3 flex-shrink-0 mt-0.5 font-semibold text-sm">
+                          {idx + 1}
+                        </span>
+                        <span className="text-gray-700 dark:text-gray-300">{objective}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* Course Content Sections */}
+              {generatedCourseContent.content_sections && generatedCourseContent.content_sections.length > 0 && (
+                <div className="space-y-4">
+                  {generatedCourseContent.content_sections.map((section: any, idx: number) => (
+                    <div key={idx} className="bg-white dark:bg-gray-800 rounded-lg shadow-lg overflow-hidden border-l-4 border-purple-500">
+                      <div className="bg-purple-50 dark:bg-purple-900/20 px-6 py-4 border-b border-purple-200 dark:border-purple-800">
+                        <h3 className="text-xl font-semibold text-purple-900 dark:text-purple-100">
+                          {idx + 1}. {section.title}
+                        </h3>
+                        {section.duration && (
+                          <p className="text-sm text-purple-600 dark:text-purple-300 mt-1">⏱️ {section.duration}</p>
+                        )}
+                      </div>
+                      <div className="p-6">
+                        <div className="text-gray-700 dark:text-gray-300 prose dark:prose-invert max-w-none">
+                          {section.content.split('\n').map((line: string, lineIdx: number) => (
+                            line.trim() && (
+                              <p key={lineIdx} className="mb-4 leading-relaxed">
+                                {line}
+                              </p>
+                            )
+                          ))}
+                        </div>
+                        
+                        {/* Key Points */}
+                        {section.key_points && section.key_points.length > 0 && (
+                          <div className="mt-6 bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4 border-l-4 border-blue-500">
+                            <h4 className="font-semibold text-blue-900 dark:text-blue-100 mb-3">🔑 Key Points:</h4>
+                            <ul className="space-y-2">
+                              {section.key_points.map((point: string, pointIdx: number) => (
+                                <li key={pointIdx} className="flex items-start text-blue-800 dark:text-blue-200">
+                                  <span className="mr-2">•</span>
+                                  <span>{point}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+
+                        {/* Examples */}
+                        {section.examples && section.examples.length > 0 && (
+                          <div className="mt-6 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg p-4 border-l-4 border-yellow-500">
+                            <h4 className="font-semibold text-yellow-900 dark:text-yellow-100 mb-3">💡 Examples:</h4>
+                            <div className="space-y-3">
+                              {section.examples.map((example: string, exIdx: number) => (
+                                <div key={exIdx} className="text-yellow-800 dark:text-yellow-200 text-sm">
+                                  <p className="font-medium mb-1">Example {exIdx + 1}:</p>
+                                  <p className="ml-4">{example}</p>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Best Practices */}
+                        {section.best_practices && section.best_practices.length > 0 && (
+                          <div className="mt-6 bg-green-50 dark:bg-green-900/20 rounded-lg p-4 border-l-4 border-green-500">
+                            <h4 className="font-semibold text-green-900 dark:text-green-100 mb-3">✅ Best Practices:</h4>
+                            <ul className="space-y-2">
+                              {section.best_practices.map((practice: string, practIdx: number) => (
+                                <li key={practIdx} className="flex items-start text-green-800 dark:text-green-200">
+                                  <span className="mr-2">✓</span>
+                                  <span>{practice}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Summary */}
+              {generatedCourseContent.summary && (
+                <div className="bg-indigo-50 dark:bg-indigo-900/20 rounded-lg shadow-lg p-6 border-l-4 border-indigo-500">
+                  <h2 className="text-2xl font-semibold text-indigo-900 dark:text-indigo-100 mb-4">Summary</h2>
+                  <p className="text-indigo-800 dark:text-indigo-200 leading-relaxed text-lg">
+                    {generatedCourseContent.summary}
+                  </p>
+                </div>
+              )}
+
+              {/* Next Steps */}
+              {generatedCourseContent.next_steps && generatedCourseContent.next_steps.length > 0 && (
+                <div className="bg-gradient-to-r from-teal-50 to-cyan-50 dark:from-teal-900/20 dark:to-cyan-900/20 rounded-lg shadow-lg p-6 border-l-4 border-teal-500">
+                  <h2 className="text-2xl font-semibold text-teal-900 dark:text-teal-100 mb-4">📋 Next Steps</h2>
+                  <ol className="space-y-3">
+                    {generatedCourseContent.next_steps.map((step: string, stepIdx: number) => (
+                      <li key={stepIdx} className="flex items-start">
+                        <span className="inline-flex items-center justify-center h-7 w-7 rounded-full bg-teal-500 text-white mr-3 flex-shrink-0 font-semibold text-sm">
+                          {stepIdx + 1}
+                        </span>
+                        <span className="text-teal-800 dark:text-teal-200">{step}</span>
+                      </li>
+                    ))}
+                  </ol>
+                </div>
+              )}
+
+              {/* Copy/Export Options */}
+              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 flex flex-wrap gap-4">
+                <button
+                  onClick={() => {
+                    const courseText = JSON.stringify(generatedCourseContent, null, 2);
+                    navigator.clipboard.writeText(courseText);
+                    alert('Course content copied to clipboard!');
+                  }}
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-semibold transition-colors"
+                >
+                  📋 Copy as JSON
+                </button>
+                <button
+                  onClick={() => {
+                    const markdownContent = convertCourseContentToMarkdown(generatedCourseContent);
+                    navigator.clipboard.writeText(markdownContent);
+                    alert('Course content copied as Markdown!');
+                  }}
+                  className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-lg font-semibold transition-colors"
+                >
+                  📝 Copy as Markdown
+                </button>
+                <button
+                  onClick={() => {
+                    const markdownContent = convertCourseContentToMarkdown(generatedCourseContent);
+                    const element = document.createElement('a');
+                    element.setAttribute('href', 'data:text/markdown;charset=utf-8,' + encodeURIComponent(markdownContent));
+                    element.setAttribute('download', `${generatedCourseContent.module_id}_course.md`);
+                    element.style.display = 'none';
+                    document.body.appendChild(element);
+                    element.click();
+                    document.body.removeChild(element);
+                  }}
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-lg font-semibold transition-colors"
+                >
+                  📥 Download as Markdown
+                </button>
+                <button
+                  onClick={() => {
+                    const courseText = `# ${generatedCourseContent.module_name}\n\n${JSON.stringify(generatedCourseContent, null, 2)}`;
+                    const element = document.createElement('a');
+                    element.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(courseText));
+                    element.setAttribute('download', `${generatedCourseContent.module_id}_course.json`);
+                    element.style.display = 'none';
+                    document.body.appendChild(element);
+                    element.click();
+                    document.body.removeChild(element);
+                  }}
+                  className="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-semibold transition-colors"
+                >
+                  💾 Download JSON
+                </button>
+              </div>
             </div>
           )}
 

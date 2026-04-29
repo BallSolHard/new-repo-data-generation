@@ -130,19 +130,22 @@ def get_questions_by_certification(certification_id: int) -> List[Dict[str, Any]
 
 def validate_with_gemini(question: Dict[str, Any]) -> Dict[str, Any]:
     """
-    Use Google Gemini to validate:
-    1. If the marked correct answer is actually correct
-    2. If the explanation makes sense
+    Use Google Gemini to validate MCQ questions with DOUBLE VALIDATION:
+    1. Initial validation: If marked answer is correct or incorrect
+    2. Double validation: If answer is incorrect, validate the suggested correction
+    3. Explanation validation
     
     Args:
         question: Question dictionary
         
     Returns:
-        Gemini validation result
+        Gemini validation result with comprehensive validation flags
     """
     if not model:
         return {
             "is_valid": False,
+            "correct_answer_valid": False,
+            "actual_correct_indices": [],
             "reason": "Gemini not available",
             "error": "GOOGLE_API_KEY not configured"
         }
@@ -156,16 +159,34 @@ def validate_with_gemini(question: Dict[str, Any]) -> Dict[str, Any]:
         if not explanation or len(explanation.strip()) == 0:
             return {
                 "is_valid": False,
+                "correct_answer_valid": False,
+                "actual_correct_indices": [],
                 "reason": "No explanation provided",
                 "error": "Empty explanation"
             }
         
+        # Handle both list and single values
+        if not isinstance(correct_answers, list):
+            correct_answers = [correct_answers] if correct_answers else []
+        
+        if not correct_answers:
+            return {
+                "is_valid": False,
+                "correct_answer_valid": False,
+                "actual_correct_indices": [],
+                "reason": "No correct answer specified",
+                "error": "Empty correct_answer"
+            }
+        
         # Format options for Gemini
         options_text = "\n".join([f"{chr(65 + i)}) {opt}" for i, opt in enumerate(options)])
+        marked_letters = [chr(65 + idx) for idx in correct_answers]
+        marked_letters_str = ", ".join(marked_letters)
         
-        # Create validation prompt
-        validation_prompt = f"""
-You are an expert exam validator. Validate this MCQ question strictly.
+        # STEP 1: Initial validation
+        print(f"   [Validation Step 1/3] Initial answer validation...")
+        initial_validation_prompt = f"""
+You are an expert exam validator. Analyze this MCQ question.
 
 QUESTION:
 {question_text}
@@ -173,57 +194,182 @@ QUESTION:
 OPTIONS:
 {options_text}
 
-MARKED CORRECT ANSWER(S): {[chr(65 + idx) for idx in correct_answers]}
+MARKED CORRECT ANSWER(S) IN DATABASE: {marked_letters_str} (indices: {correct_answers})
 
-PROVIDED EXPLANATION:
-{explanation}
-
-Validate:
-1. Is the marked correct answer factually correct?
-2. Does the explanation clearly state WHY this option is correct?
-3. Does the explanation clearly state WHY EACH other option is incorrect?
-
-IMPORTANT: An explanation is only valid if it:
-- Clearly explains the factual reasoning for the correct answer
-- Explicitly addresses why each incorrect option is wrong
-- Provides factual basis for rejecting incorrect options
-- Is not vague or incomplete about incorrect options
+Your task:
+1. Determine the ACTUAL correct answer(s) for this question based on factual accuracy
+2. Check if the MARKED answer(s) match the ACTUAL answer(s)
+3. If incorrect, specify which answer(s) SHOULD be correct
 
 Respond ONLY in this JSON format (no markdown, no extra text):
 {{
-    "is_valid": true/false,
+    "marked_answer_indices": {correct_answers},
+    "marked_answer_letters": {marked_letters},
+    "actual_correct_indices": [0, 2],
+    "actual_correct_letters": ["A", "C"],
     "correct_answer_valid": true/false,
-    "explanation_valid": true/false,
-    "explains_correct_option": true/false,
-    "explains_incorrect_options": true/false,
-    "reason": "brief reason if invalid"
+    "reason": "brief reason why this is the correct answer"
 }}
 """
         
-        response = model.generate_content(validation_prompt)
+        response = model.generate_content(initial_validation_prompt)
         response_text = response.text.strip()
         
-        # Extract JSON from response
+        # Extract JSON from initial validation
         try:
             import re
             json_match = re.search(r'\{.*\}', response_text, re.DOTALL)
             if json_match:
-                gemini_result = json.loads(json_match.group())
+                initial_result = json.loads(json_match.group())
             else:
-                gemini_result = json.loads(response_text)
-            
-            return gemini_result
-            
+                initial_result = json.loads(response_text)
         except json.JSONDecodeError:
             return {
                 "is_valid": False,
-                "reason": "Could not parse Gemini response",
+                "correct_answer_valid": False,
+                "actual_correct_indices": [],
+                "reason": "Could not parse initial validation response",
                 "error": response_text[:200]
             }
+        
+        # STEP 2: Double validation - verify the suggested answer(s) are correct
+        actual_answer_indices = initial_result.get("actual_correct_indices", correct_answers)
+        actual_answer_letters = [chr(65 + idx) for idx in actual_answer_indices]
+        actual_answer_letters_str = ", ".join(actual_answer_letters)
+        
+        print(f"   [Validation Step 2/3] Double-checking suggested answer(s): {actual_answer_letters_str}...")
+        double_validation_prompt = f"""
+You are an expert exam validator. Double-check this/these answer(s).
+
+QUESTION:
+{question_text}
+
+OPTIONS:
+{options_text}
+
+SUGGESTED CORRECT ANSWER(S): {actual_answer_letters_str} (indices: {actual_answer_indices})
+
+Your task:
+1. Verify that {actual_answer_letters_str} is/are definitively the correct answer(s)
+2. Confirm it's/they're factually accurate
+3. Rate your confidence level
+
+IMPORTANT: Be ABSOLUTELY CERTAIN this is correct. If you have ANY doubt, respond with low confidence.
+
+Respond ONLY in this JSON format (no markdown, no extra text):
+{{
+    "is_definitively_correct": true/false,
+    "confidence": "high|medium|low",
+    "verification_reason": "brief explanation of why you verified this is correct",
+    "double_validation_passed": true/false
+}}
+"""
+        
+        response = model.generate_content(double_validation_prompt)
+        response_text = response.text.strip()
+        
+        # Extract JSON from double validation
+        try:
+            json_match = re.search(r'\{.*\}', response_text, re.DOTALL)
+            if json_match:
+                double_validation = json.loads(json_match.group())
+            else:
+                double_validation = json.loads(response_text)
+        except json.JSONDecodeError:
+            double_validation = {
+                "is_definitively_correct": False,
+                "confidence": "low",
+                "double_validation_passed": False
+            }
+        
+        # STEP 3: Validate explanation
+        print(f"   [Validation Step 3/3] Validating explanation...")
+        explanation_validation_prompt = f"""
+You are an expert exam validator. Validate the explanation quality.
+
+QUESTION:
+{question_text}
+
+OPTIONS:
+{options_text}
+
+CORRECT ANSWER(S): {actual_answer_letters_str}
+
+PROVIDED EXPLANATION:
+{explanation}
+
+Your task:
+1. Check if explanation clearly explains WHY the correct option(s) is/are right
+2. Check if explanation clearly explains WHY EACH incorrect option is wrong
+3. Assess explanation quality and completeness
+
+Respond ONLY in this JSON format (no markdown, no extra text):
+{{
+    "explanation_valid": true/false,
+    "explains_correct_option": true/false,
+    "explains_incorrect_options": true/false,
+    "explanation_issues": "list issues if any"
+}}
+"""
+        
+        response = model.generate_content(explanation_validation_prompt)
+        response_text = response.text.strip()
+        
+        try:
+            json_match = re.search(r'\{.*\}', response_text, re.DOTALL)
+            if json_match:
+                explanation_result = json.loads(json_match.group())
+            else:
+                explanation_result = json.loads(response_text)
+        except json.JSONDecodeError:
+            explanation_result = {
+                "explanation_valid": False,
+                "explanation_issues": "Could not parse response"
+            }
+        
+        # Determine if answer is valid based on double validation
+        is_initial_correct = initial_result.get("correct_answer_valid", False)
+        double_validation_passed = double_validation.get("double_validation_passed", double_validation.get("is_definitively_correct", False))
+        confidence = double_validation.get("confidence", "low")
+        
+        # Only accept the corrected answer if double validation passed AND high confidence
+        if not is_initial_correct and double_validation_passed and confidence == "high":
+            answer_is_valid = True
+            final_answer_indices = actual_answer_indices
+        elif is_initial_correct:
+            answer_is_valid = True
+            final_answer_indices = actual_answer_indices
+        else:
+            answer_is_valid = False
+            # If double validation failed, revert to marked answer
+            if not is_initial_correct and not double_validation_passed:
+                final_answer_indices = correct_answers
+        
+        # Final result
+        final_result = {
+            "marked_answer_indices": correct_answers,
+            "marked_answer_letters": marked_letters,
+            "actual_correct_indices": final_answer_indices,
+            "actual_correct_letters": [chr(65 + idx) for idx in final_answer_indices],
+            "correct_answer_valid": answer_is_valid,
+            "answer_validation_confidence": confidence,
+            "double_validation_passed": double_validation_passed,
+            "reason_for_correct_answer": initial_result.get("reason", ""),
+            "verification_reason": double_validation.get("verification_reason", ""),
+            "explanation_valid": explanation_result.get("explanation_valid", False),
+            "explains_correct_option": explanation_result.get("explains_correct_option", False),
+            "explains_incorrect_options": explanation_result.get("explains_incorrect_options", False),
+            "explanation_issues": explanation_result.get("explanation_issues", ""),
+            "is_valid": answer_is_valid and explanation_result.get("explanation_valid", False)
+        }
+        
+        return final_result
         
     except Exception as e:
         return {
             "is_valid": False,
+            "correct_answer_valid": False,
+            "actual_correct_indices": [],
             "reason": "Gemini validation error",
             "error": str(e)
         }
@@ -284,18 +430,23 @@ Respond with ONLY the explanation text (no JSON, no markdown, no extra formattin
         return f"Error generating explanation: {str(e)}"
 
 
-def generate_corrected_answer(question: Dict[str, Any]) -> str:
+def generate_corrected_answer(question: Dict[str, Any], correct_answer_indices: List[int] = None) -> str:
     """
-    Generate the correct answer index using Gemini.
+    Get the correct answer indices. If provided, use those (from validation), otherwise generate via Gemini.
     
     Args:
         question: Question dictionary
+        correct_answer_indices: Pre-validated correct answer indices (optional)
         
     Returns:
-        Corrected answer as JSON array string (e.g., "[0]")
+        Corrected answer as JSON array string (e.g., "[0]" or "[0, 2]")
     """
+    # If we have pre-validated indices, use them
+    if correct_answer_indices is not None:
+        return json.dumps(correct_answer_indices)
+    
     if not model:
-        return "[0]"
+        return json.dumps(question.get("correct_answer", [0]))
     
     try:
         question_text = question.get("text", "")
@@ -313,7 +464,7 @@ QUESTION:
 OPTIONS:
 {options_text}
 
-Respond with ONLY a JSON array with the index of the correct answer(s). Examples:
+Respond with ONLY a JSON array with the index/indices of the correct answer(s). Examples:
 - For option A (first): [0]
 - For option C (third): [2]
 - For multiple answers: [0, 2]
@@ -329,10 +480,10 @@ Do not include any other text.
         json_match = re.search(r'\[\d+(?:,\s*\d+)*\]', response_text)
         if json_match:
             return json_match.group()
-        return "[0]"  # Default fallback
+        return json.dumps(question.get("correct_answer", [0]))  # Fallback
         
     except Exception as e:
-        return "[0]"
+        return json.dumps(question.get("correct_answer", [0]))
 
 
 def validate_explanation(question: Dict[str, Any]) -> Dict[str, Any]:
@@ -474,11 +625,16 @@ def validate_all_questions(certification_id: int) -> Dict[str, Any]:
             question_id = validation_result["question_id"]
             sql_updates = []
             
-            # If correct answer is invalid, generate corrected answer
+            # If correct answer is invalid, use the double-validated answer
             if not validation_result.get("correct_answer_valid"):
-                print(f"   Generating corrected answer...")
-                corrected_answer = generate_corrected_answer(question)
-                sql_stmt = f"UPDATE public.question SET correct_answer = '{corrected_answer}' WHERE id = '{question_id}'; -- CORRECTED ANSWER"
+                print(f"   Correcting answer (double-validated)...")
+                actual_answer_indices = validation_result.get("actual_correct_indices", question.get("correct_answer", []))
+                confidence = validation_result.get("answer_validation_confidence", "unknown")
+                corrected_answer = json.dumps(actual_answer_indices)
+                
+                print(f"   Corrected to: {corrected_answer} (confidence: {confidence})")
+                
+                sql_stmt = f"UPDATE public.question SET correct_answer = '{corrected_answer}' WHERE id = '{question_id}'; -- CORRECTED ANSWER (confidence: {confidence})"
                 sql_updates.append(sql_stmt)
                 all_sql_updates.append(sql_stmt)
             
@@ -497,14 +653,20 @@ def validate_all_questions(certification_id: int) -> Dict[str, Any]:
                 "error": validation_result.get("error"),
                 "reason": validation_result.get("reason"),
                 "correct_answer_valid": validation_result.get("correct_answer_valid"),
+                "answer_validation_confidence": validation_result.get("answer_validation_confidence"),
+                "double_validation_passed": validation_result.get("double_validation_passed"),
                 "explanation_valid": validation_result.get("explanation_valid"),
                 "explains_correct_option": validation_result.get("explains_correct_option"),
                 "explains_incorrect_options": validation_result.get("explains_incorrect_options"),
+                "marked_answer": validation_result.get("marked_answer_indices"),
+                "corrected_answer": validation_result.get("actual_correct_indices"),
                 "question_data": {
                     "text": question.get("text", "")[:200],
                     "options": question.get("options", []),
                     "correct_answer": question.get("correct_answer", []),
                     "explanation": question.get("explanation", "")[:200],
+                    "module": question.get("module"),
+                    "topic": question.get("topic"),
                 },
                 "sql_updates": sql_updates
             }
