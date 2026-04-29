@@ -23,9 +23,8 @@ load_dotenv()
 SUPABASE_URL = os.getenv("NEXT_PUBLIC_SUPABASE_URL_PROD")
 SUPABASE_SERVICE_ROLE_KEY = os.getenv("NEXT_PUBLIC_SUPABASE_ANON_KEY_PROD")
 GOOGLE_API_KEY = os.getenv("GEMINI_API_KEY")
-KIMI_API_KEY = "sk-nmtiCVe0iifBCwjflNLJONLzRjRI0Fjz3eQ67C5NDTBDR1ZY"
-import pdb
-pdb.set_trace()
+KIMI_API_KEY = os.getenv("KIMI_API_KEY")
+
 # Initialize Supabase client
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 
@@ -69,7 +68,7 @@ if not gemini_model and not kimi_model:
 
 def call_kimi_api(prompt: str) -> str:
     """
-    Call Kimi API with the given prompt.
+    Call Kimi API using OpenAI SDK (Kimi is OpenAI-compatible).
     Raises exceptions on failure - does NOT fall back to other models.
     
     Args:
@@ -81,57 +80,59 @@ def call_kimi_api(prompt: str) -> str:
     Raises:
         Exception: If API call fails or authentication is invalid
     """
-    url = "https://api.moonshot.cn/v1/chat/completions"
-    headers = {
-        "Authorization": f"Bearer {KIMI_API_KEY}",
-        "Content-Type": "application/json"
-    }
-    payload = {
-        "model": "moonshot-v1-8k",
-        "messages": [
-            {
-                "role": "user",
-                "content": prompt
-            }
-        ],
-        "temperature": 0.7,
-        "max_tokens": 2000
-    }
-    
-    print(f"   [Kimi API Call]", end="")
-    
     try:
-        response = requests.post(url, headers=headers, json=payload, timeout=30)
+        from openai import OpenAI
+        
+        # Initialize Kimi client using OpenAI SDK
+        kimi_client = OpenAI(
+            api_key=KIMI_API_KEY,
+            base_url="https://api.moonshot.ai/v1"
+        )
+        
+        print(f"   [Kimi API Call]", end="")
+        
+        # Make API call using OpenAI SDK
+        completion = kimi_client.chat.completions.create(
+            model="kimi-k2.6",  # Latest Kimi model
+            messages=[
+                {
+                    "role": "user",
+                    "content": prompt
+                }
+            ],
+            temperature=0.6,  # Kimi K2.6 uses fixed value 0.6 for non-thinking mode
+            max_tokens=2000
+        )
+        
+        # Extract response
+        if completion.choices and len(completion.choices) > 0:
+            return completion.choices[0].message.content
+        else:
+            raise Exception(f"Unexpected Kimi response format (no choices)")
+            
+    except ImportError:
+        raise Exception("OpenAI SDK not installed. Run: pip install openai")
+    except Exception as e:
+        error_msg = str(e)
         
         # Handle authentication errors specifically
-        if response.status_code == 401:
-            raise Exception(f"Kimi Authentication Failed (401): Invalid API key. Please check KIMI_API_KEY in .env. Response: {response.json()}")
+        if "401" in error_msg or "authentication" in error_msg.lower() or "invalid" in error_msg.lower():
+            raise Exception(f"Kimi Authentication Failed: Invalid API key or insufficient permissions. Please verify KIMI_API_KEY in .env. Error: {error_msg}")
         
-        # Handle other HTTP errors
-        if response.status_code >= 400:
-            try:
-                error_detail = response.json()
-                raise Exception(f"Kimi API Error ({response.status_code}): {error_detail}")
-            except ValueError:
-                raise Exception(f"Kimi API Error ({response.status_code}): {response.text}")
+        # Handle rate limiting
+        if "429" in error_msg:
+            raise Exception(f"Kimi Rate Limited: Too many requests. Please try again later.")
         
-        result = response.json()
+        # Handle timeout
+        if "timeout" in error_msg.lower():
+            raise Exception(f"Kimi API Request Timeout (30s exceeded)")
         
-        if "choices" in result and len(result["choices"]) > 0:
-            return result["choices"][0]["message"]["content"]
-        else:
-            raise Exception(f"Unexpected Kimi response format (no choices): {result}")
-            
-    except requests.exceptions.Timeout:
-        raise Exception("Kimi API Request Timeout (30s exceeded)")
-    except requests.exceptions.ConnectionError as e:
-        raise Exception(f"Kimi API Connection Error: {str(e)}")
-    except requests.exceptions.RequestException as e:
-        raise Exception(f"Kimi API Request Error: {str(e)}")
-    except Exception as e:
-        if "Kimi" in str(e):
-            raise  # Re-raise Kimi-specific errors
-        raise Exception(f"Kimi API Error: {str(e)}")
+        # Handle connection errors
+        if "connection" in error_msg.lower():
+            raise Exception(f"Kimi API Connection Error: {error_msg}")
+        
+        # Generic error
+        raise Exception(f"Kimi API Error: {error_msg}")
 
 
 def generate_content(prompt: str, use_model: str = SELECTED_MODEL) -> str:
