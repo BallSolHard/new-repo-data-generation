@@ -93,6 +93,12 @@ export async function POST(request: NextRequest) {
         enableValidation,
         certTier: resolvedCertTier,
         genMode: resolvedGenMode,
+        generationContext: 'mock',
+        // Hardcoded dual-model configuration
+        generationModel: 'kimi',
+        generationModelWebSearchEnabled: true,
+        validationModel: 'gemini',
+        validationModelWebSearchEnabled: false,
       };
 
       const result = await runGenerationPipeline(pipelineParams);

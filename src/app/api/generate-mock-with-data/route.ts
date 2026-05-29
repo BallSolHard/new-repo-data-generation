@@ -276,7 +276,7 @@ export async function POST(request: NextRequest) {
     const moduleIds = body.modules.map(m => String(m.module_id));
     const startIndexByModule = await getStartIndexByModule(String(body.topic_id), moduleIds);
 
-    // Build pipeline params with genMode set to 'simulation' for mock tests
+    // Build pipeline params with hardcoded models and genMode set to 'simulation' for mock tests
     const pipelineParams: PipelineParams = {
       certificationCode: body.certification_code || '',
       certificationName: body.certification_name,
@@ -301,6 +301,11 @@ export async function POST(request: NextRequest) {
       genMode: 'simulation' as GenMode, // Mock tests use simulation mode instead of drill
       generationContext: 'mock', // Use mock prompt with strict quality standards
       startIndexByModule,
+      // Hardcoded dual-model configuration
+      generationModel: 'kimi',
+      generationModelWebSearchEnabled: true,
+      validationModel: 'gemini',
+      validationModelWebSearchEnabled: false,
     };
 
     const result = await runGenerationPipeline(pipelineParams);

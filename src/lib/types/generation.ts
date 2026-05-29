@@ -118,6 +118,11 @@ export interface PipelineParams {
   // AI Model selection
   aiModel?: 'gemini' | 'kimi';
   kimiWebSearchEnabled?: boolean;
+  // Dual-model configuration: separate models for generation and validation
+  generationModel?: 'gemini' | 'kimi';
+  generationModelWebSearchEnabled?: boolean;
+  validationModel?: 'gemini' | 'kimi';
+  validationModelWebSearchEnabled?: boolean;
 }
 
 export interface MockPipelineParams {

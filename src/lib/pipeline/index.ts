@@ -46,12 +46,27 @@ export async function runGenerationPipeline(params: PipelineParams): Promise<Pip
   let rawQuestions: GeneratedQuestion[] = [];
   let targetCount = 0;
 
+  // Resolve which model to use for generation (dual-model or single-model fallback)
+  const generationModelToUse = params.generationModel || params.aiModel || 'gemini';
+  const generationWebSearchEnabled = params.generationModelWebSearchEnabled ?? params.kimiWebSearchEnabled ?? false;
+
+  console.log(`\n[pipeline] ╔════════════════════════════════════════════════════════╗`);
+  console.log(`[pipeline] ║        GENERATION CONFIGURATION                        ║`);
+  console.log(`[pipeline] ╚════════════════════════════════════════════════════════╝`);
+  console.log(`[pipeline] Model: ${generationModelToUse.toUpperCase()}`);
+  console.log(`[pipeline] Web Search: ${generationWebSearchEnabled ? '✅ ENABLED' : '❌ DISABLED'}`);
+  console.log(`[pipeline] Distribution: ${distribution && Object.keys(distribution).length > 0 ? 'YES' : 'NO'}`);
+  if (distribution && Object.keys(distribution).length > 0) {
+    console.log(`[pipeline] Difficulty Levels: ${Object.entries(distribution).map(([k, v]) => `${k}(${v})`).join(', ')}`);
+  }
+  console.log(`[pipeline] ─────────────────────────────────────────────────────\n`);
+
   if (distribution && Object.keys(distribution).length > 0) {
     // iterate through each difficulty level and generate the requested number
     for (const level of ['easy', 'intermediate', 'hard'] as Difficulty[]) {
       const count = distribution[level as Difficulty] || 0;
       if (count <= 0) continue;
-      console.log(`[pipeline] Generating for difficulty="${level}": ${params.modules.length} modules × ${count} questions = ${params.modules.length * count} total`);
+      console.log(`[pipeline] Generating for difficulty="${level}": ${params.modules.length} modules × ${count} questions = ${params.modules.length * count} total (using ${generationModelToUse})`);
       const subParams: QuestionGenerationParams = {
         modules: params.modules,
         topicName: params.topicName,
@@ -71,8 +86,8 @@ export async function runGenerationPipeline(params: PipelineParams): Promise<Pip
         genMode,
       };
       const batch = await generate(subParams, params.generationContext ?? 'hub', {
-        aiModel: params.aiModel,
-        kimiWebSearchEnabled: params.kimiWebSearchEnabled,
+        aiModel: generationModelToUse,
+        kimiWebSearchEnabled: generationWebSearchEnabled,
       });
       // tag each question with the difficulty that was requested so the UI
       // can display it later
@@ -97,9 +112,10 @@ export async function runGenerationPipeline(params: PipelineParams): Promise<Pip
       certTier,
       genMode,
     };
+    console.log(`[pipeline] Using ${generationModelToUse} for generation (web search: ${generationWebSearchEnabled})`);
     rawQuestions = (await generate(generationParams, params.generationContext ?? 'hub', {
-      aiModel: params.aiModel,
-      kimiWebSearchEnabled: params.kimiWebSearchEnabled,
+      aiModel: generationModelToUse,
+      kimiWebSearchEnabled: generationWebSearchEnabled,
     })).map(q => ({
       ...q,
       difficulty: generationParams.complexityLevel,
@@ -175,8 +191,8 @@ export async function runGenerationPipeline(params: PipelineParams): Promise<Pip
       genMode,
     };
     const extra = await generate(extraParams, params.generationContext ?? 'hub', {
-      aiModel: params.aiModel,
-      kimiWebSearchEnabled: params.kimiWebSearchEnabled,
+      aiModel: generationModelToUse,
+      kimiWebSearchEnabled: generationWebSearchEnabled,
     });
     const deduped = filterNew(extra);
     accumulated = accumulated.concat(deduped);
@@ -197,19 +213,40 @@ export async function runGenerationPipeline(params: PipelineParams): Promise<Pip
   let rejectedCount = 0;
 
   if (params.enableValidation !== false) {
+    // Resolve which model to use for validation (dual-model or single-model fallback)
+    const validationModelToUse = params.validationModel || params.aiModel || 'gemini';
+    const validationWebSearchEnabled = params.validationModelWebSearchEnabled ?? false;
+
+    console.log(`\n[pipeline] ╔════════════════════════════════════════════════════════╗`);
+    console.log(`[pipeline] ║        VALIDATION CONFIGURATION                        ║`);
+    console.log(`[pipeline] ╚════════════════════════════════════════════════════════╝`);
+    console.log(`[pipeline] Model: ${validationModelToUse.toUpperCase()}`);
+    console.log(`[pipeline] Web Search: ${validationWebSearchEnabled ? '✅ ENABLED' : '❌ DISABLED'}`);
+    console.log(`[pipeline] Questions to Validate: ${dedupedQuestions.length}`);
+    console.log(`[pipeline] ─────────────────────────────────────────────────────\n`);
+
     const { validated, rejected } = await validate(dedupedQuestions, {
       certificationName: params.certificationName,
       domainContext,
       rejectLowConfidence: true,
       certTier,
-      aiModel: params.aiModel,
-      kimiWebSearchEnabled: params.kimiWebSearchEnabled,
+      aiModel: validationModelToUse,
+      kimiWebSearchEnabled: validationWebSearchEnabled,
     });
     finalQuestions = validated;
     rejectedCount = rejected.length;
+  } else {
+    console.log(`[pipeline] ⓘ Validation DISABLED, skipping validation step`);
   }
 
   // ─── Step 4: Output ───
+  console.log(`\n[pipeline] ╔════════════════════════════════════════════════════════╗`);
+  console.log(`[pipeline] ║        BUILDING OUTPUT                                  ║`);
+  console.log(`[pipeline] ╚════════════════════════════════════════════════════════╝`);
+  console.log(`[pipeline] Final Questions: ${finalQuestions.length}`);
+  console.log(`[pipeline] Rejected Count: ${rejectedCount}`);
+  console.log(`[pipeline] ─────────────────────────────────────────────────────`);
+
   const sqlScript = buildSqlOutput(finalQuestions, {
     topicId: params.topicId,
     quizId: params.quizId,
@@ -220,7 +257,13 @@ export async function runGenerationPipeline(params: PipelineParams): Promise<Pip
     startIndexByModule: params.startIndexByModule,
   });
 
-  console.log(`[pipeline] Complete. ${finalQuestions.length} questions generated, ${rejectedCount} rejected.`);
+  console.log(`[pipeline] ✅ SQL script generated`);
+  console.log(`[pipeline] SQL Script Length: ${sqlScript.length} characters`);
+  console.log(`[pipeline] ─────────────────────────────────────────────────────`);
+  console.log(`[pipeline] ╔════════════════════════════════════════════════════════╗`);
+  console.log(`[pipeline] ║        PIPELINE COMPLETE ✅                           ║`);
+  console.log(`[pipeline] ║  Generated: ${finalQuestions.length} | Rejected: ${rejectedCount}                          ║`);
+  console.log(`[pipeline] ╚════════════════════════════════════════════════════════╝\n`);
 
   return {
     success: true,

@@ -5,7 +5,6 @@ import type { PipelineParams } from '@/lib/types/generation';
 import type { QuestionType } from '@/lib/types/exam-guide';
 import type { Difficulty } from '@/lib/types/reference-question';
 import type { CertTier, GenMode } from '@/lib/types/tier';
-import type { AIModel } from '@/lib/pipeline/generate';
 import { getSupabaseClient } from '../config';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -28,8 +27,6 @@ interface RequestBody {
   certTier?: CertTier;
   genMode?: GenMode;
   complexityLevelDistribution?: Record<string, number>;
-  aiModel?: AIModel;
-  kimiWebSearchEnabled?: boolean;
 }
 
 // ─── Validation ───────────────────────────────────────────────────────────────
@@ -108,8 +105,6 @@ export async function POST(request: NextRequest) {
     body.enableValidation ??= true;
     body.storeInBank ??= false;
     body.genMode ??= 'drill';
-    body.aiModel ??= 'gemini';
-    body.kimiWebSearchEnabled ??= true;
     body.modules ??= [];
 
     // Validate
@@ -131,7 +126,7 @@ export async function POST(request: NextRequest) {
     const moduleIds = body.modules.map(m => String(m.module_id));
     const startIndexByModule = await getStartIndexByModule(String(body.topic_id), moduleIds);
 
-    // Build pipeline params
+    // Build pipeline params with hardcoded models
     const pipelineParams: PipelineParams = {
       certificationCode: body.certification_code || '',
       certificationName: body.certification_name,
@@ -156,8 +151,11 @@ export async function POST(request: NextRequest) {
       genMode: body.genMode,
       generationContext: 'hub', // Use hub prompt with looser quality standards
       startIndexByModule,
-      aiModel: body.aiModel,
-      kimiWebSearchEnabled: body.kimiWebSearchEnabled,
+      // Hardcoded dual-model configuration
+      generationModel: 'kimi',
+      generationModelWebSearchEnabled: true,
+      validationModel: 'gemini',
+      validationModelWebSearchEnabled: false,
     };
 
     const result = await runGenerationPipeline(pipelineParams);
