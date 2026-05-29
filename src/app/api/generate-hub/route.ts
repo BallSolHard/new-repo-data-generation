@@ -5,6 +5,7 @@ import type { PipelineParams } from '@/lib/types/generation';
 import type { QuestionType } from '@/lib/types/exam-guide';
 import type { Difficulty } from '@/lib/types/reference-question';
 import type { CertTier, GenMode } from '@/lib/types/tier';
+import type { AIModel } from '@/lib/pipeline/generate';
 import { getSupabaseClient } from '../config';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -27,6 +28,8 @@ interface RequestBody {
   certTier?: CertTier;
   genMode?: GenMode;
   complexityLevelDistribution?: Record<string, number>;
+  aiModel?: AIModel;
+  kimiWebSearchEnabled?: boolean;
 }
 
 // ─── Validation ───────────────────────────────────────────────────────────────
@@ -105,6 +108,8 @@ export async function POST(request: NextRequest) {
     body.enableValidation ??= true;
     body.storeInBank ??= false;
     body.genMode ??= 'drill';
+    body.aiModel ??= 'gemini';
+    body.kimiWebSearchEnabled ??= true;
     body.modules ??= [];
 
     // Validate
@@ -151,6 +156,8 @@ export async function POST(request: NextRequest) {
       genMode: body.genMode,
       generationContext: 'hub', // Use hub prompt with looser quality standards
       startIndexByModule,
+      aiModel: body.aiModel,
+      kimiWebSearchEnabled: body.kimiWebSearchEnabled,
     };
 
     const result = await runGenerationPipeline(pipelineParams);

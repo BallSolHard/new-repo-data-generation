@@ -1,8 +1,8 @@
 import type { PipelineParams, PipelineResult, QuestionGenerationParams, GeneratedQuestion } from '@/lib/types/generation';
 import type { Difficulty } from '@/lib/types/reference-question';
 import { ingest } from './ingest';
-import { generate } from './generate';
-import { validate } from './validate';
+import { generate, type GenerateOptions } from './generate';
+import { validate, type ValidateOptions } from './validate';
 import { buildSqlOutput } from './output';
 import { promises as fs } from 'fs';
 import path from 'path';
@@ -70,7 +70,10 @@ export async function runGenerationPipeline(params: PipelineParams): Promise<Pip
         certTier,
         genMode,
       };
-      const batch = await generate(subParams, params.generationContext ?? 'hub');
+      const batch = await generate(subParams, params.generationContext ?? 'hub', {
+        aiModel: params.aiModel,
+        kimiWebSearchEnabled: params.kimiWebSearchEnabled,
+      });
       // tag each question with the difficulty that was requested so the UI
       // can display it later
       rawQuestions = rawQuestions.concat(batch.map(q => ({ ...q, difficulty: level })));
@@ -94,7 +97,10 @@ export async function runGenerationPipeline(params: PipelineParams): Promise<Pip
       certTier,
       genMode,
     };
-    rawQuestions = (await generate(generationParams, params.generationContext ?? 'hub')).map(q => ({
+    rawQuestions = (await generate(generationParams, params.generationContext ?? 'hub', {
+      aiModel: params.aiModel,
+      kimiWebSearchEnabled: params.kimiWebSearchEnabled,
+    })).map(q => ({
       ...q,
       difficulty: generationParams.complexityLevel,
     }));
@@ -168,7 +174,10 @@ export async function runGenerationPipeline(params: PipelineParams): Promise<Pip
       certTier,
       genMode,
     };
-    const extra = await generate(extraParams, params.generationContext ?? 'hub');
+    const extra = await generate(extraParams, params.generationContext ?? 'hub', {
+      aiModel: params.aiModel,
+      kimiWebSearchEnabled: params.kimiWebSearchEnabled,
+    });
     const deduped = filterNew(extra);
     accumulated = accumulated.concat(deduped);
     remaining = targetCount - accumulated.length;
@@ -193,6 +202,8 @@ export async function runGenerationPipeline(params: PipelineParams): Promise<Pip
       domainContext,
       rejectLowConfidence: true,
       certTier,
+      aiModel: params.aiModel,
+      kimiWebSearchEnabled: params.kimiWebSearchEnabled,
     });
     finalQuestions = validated;
     rejectedCount = rejected.length;

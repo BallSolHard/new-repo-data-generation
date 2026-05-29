@@ -100,7 +100,7 @@ def call_kimi_api(prompt: str) -> str:
                     "content": prompt
                 }
             ],
-            temperature=0.6,  # Kimi K2.6 uses fixed value 0.6 for non-thinking mode
+            temperature=1,  # Kimi K2.6 requires temperature=1 (fixed value)
             max_tokens=2000
         )
         
@@ -369,6 +369,13 @@ Respond ONLY in this JSON format (no markdown, no extra text):
                 "error": response_text[:200]
             }
         
+        # Log the initial validation result
+        print(f"      [Step 1 Result]")
+        print(f"        - Marked Answer: [{marked_correct_index}] = {marked_letter}")
+        print(f"        - Actual Correct: [{initial_result.get('actual_correct_index')}] = {initial_result.get('actual_correct_letter')}")
+        print(f"        - Is Marked Valid? {initial_result.get('correct_answer_valid')}")
+        print(f"        - Reason: {initial_result.get('reason')}")
+        
         # STEP 2: Double validation - verify the suggested answer is correct
         actual_answer_index = initial_result.get("actual_correct_index")
         actual_answer_letter = chr(65 + actual_answer_index) if actual_answer_index is not None else "?"
@@ -428,22 +435,37 @@ Respond ONLY in this JSON format (no markdown, no extra text):
                 "double_validation_passed": False
             }
         
+        # Log the double validation result
+        print(f"      [Step 2 Result]")
+        print(f"        - Suggested Answer: [{actual_answer_index}] = {actual_answer_letter}")
+        print(f"        - Is Definitively Correct? {double_validation.get('is_definitively_correct')}")
+        print(f"        - Confidence: {double_validation.get('confidence')}")
+        print(f"        - Double Validation Passed? {double_validation.get('double_validation_passed')}")
+        print(f"        - Reason: {double_validation.get('verification_reason')}")
+        
         # Combine results
         is_initial_correct = initial_result.get("correct_answer_valid", False)
         double_validation_passed = double_validation.get("double_validation_passed", double_validation.get("is_definitively_correct", False))
         confidence = double_validation.get("confidence", "low")
         
-        # Only accept the corrected answer if double validation passed AND high confidence
-        if not is_initial_correct and double_validation_passed and confidence == "high":
-            answer_is_valid = True
-        elif is_initial_correct:
-            answer_is_valid = True
-        else:
-            answer_is_valid = False
-            # If double validation failed, revert to marked answer
-            if not is_initial_correct and not double_validation_passed:
-                actual_answer_index = None
-                actual_answer_letter = None
+        # IMPORTANT: A question is only VALID if the MARKED answer is correct
+        # If the marked answer is wrong (even if we can correct it), the question is INVALID
+        # The correction info is stored for fixing the database, but the question itself is marked INVALID
+        answer_is_valid = is_initial_correct  # Only valid if marked answer is correct
+        
+        # If marked answer is wrong but can be corrected with high confidence, keep the correction info
+        # (it will be used to update the database) but mark question as INVALID
+        if not is_initial_correct and not double_validation_passed:
+            # Double validation also failed - cannot provide reliable correction
+            actual_answer_index = None
+            actual_answer_letter = None
+        
+        # Log the final answer validation decision
+        print(f"      [Answer Decision]")
+        print(f"        - Initial Correct? {is_initial_correct}")
+        print(f"        - Double Validation Passed? {double_validation_passed}")
+        print(f"        - Confidence Level? {confidence}")
+        print(f"        - FINAL: Answer is Valid? {answer_is_valid}")
         
         # STEP 3: Validate explanation
         print(f"   [Validation Step 3/3] Validating explanation ({VALIDATION_MODELS['explanation_validation'].upper()})...")
@@ -504,8 +526,8 @@ Respond ONLY in this JSON format (no markdown, no extra text):
         final_result = {
             "marked_answer_index": marked_correct_index,
             "marked_answer_letter": marked_letter,
-            "actual_correct_index": actual_answer_index if answer_is_valid else marked_correct_index,
-            "actual_correct_letter": actual_answer_letter if answer_is_valid else marked_letter,
+            "actual_correct_index": actual_answer_index,  # Use the suggested correction index, even if answer not valid yet
+            "actual_correct_letter": actual_answer_letter,  # Use the suggested correction letter
             "correct_answer_valid": answer_is_valid,
             "answer_validation_confidence": confidence,
             "double_validation_passed": double_validation_passed,
@@ -775,9 +797,11 @@ def validate_all_mock_test_questions(certification_id: int) -> Dict[str, Any]:
         print("No MCQ questions found in mock tests")
         return {"total": 0, "valid": 0, "invalid": 0, "results_file": None, "sql_file": None}
     
-    # Create results directory with date
+    # Create results directory with date (in the parent directory of this script)
     today = datetime.now().strftime("%Y-%m-%d")
-    results_dir = Path(f"../{today}")
+    # Get the script's directory and go up one level
+    script_dir = Path(__file__).parent
+    results_dir = script_dir.parent / today
     results_dir.mkdir(parents=True, exist_ok=True)
     
     # Results file paths
@@ -817,10 +841,6 @@ def validate_all_mock_test_questions(certification_id: int) -> Dict[str, Any]:
     for idx, question in enumerate(all_questions, 1):
         validation_result = validate_explanation(question)
         
-        # Debug: Print available fields on first question
-        if idx == 1:
-            print(f"\nDEBUG - First question fields: {list(question.keys())}")
-            print(f"DEBUG - Question data: {question}\n")
         
         if validation_result["is_valid"]:
             summary["valid"] += 1
@@ -831,6 +851,19 @@ def validate_all_mock_test_questions(certification_id: int) -> Dict[str, Any]:
             status = "✗ INVALID"
             print(f"{idx}. {validation_result['question_id']}: {status}")
             
+            # Initialize SQL files as soon as first invalid question is found
+            if not sql_file_initialized:
+                with open(sql_file, "w") as f:
+                    f.write("BEGIN;\n\n")
+                sql_file_initialized = True
+                print(f"   ✓ Created SQL file: {sql_file}")
+            
+            if not sql_generic_file_initialized:
+                with open(sql_generic_file, "w") as f:
+                    f.write("BEGIN;\n\n")
+                sql_generic_file_initialized = True
+                print(f"   ✓ Created generic SQL file: {sql_generic_file}")
+            
             if validation_result.get("error"):
                 print(f"   Error: {validation_result['error']}")
             if validation_result.get("reason"):
@@ -839,8 +872,21 @@ def validate_all_mock_test_questions(certification_id: int) -> Dict[str, Any]:
             # Show specific issues
             if not validation_result.get("correct_answer_valid"):
                 print(f"   ✗ Correct answer is factually incorrect")
+                marked_answer = validation_result.get("marked_answer_index")
+                actual_answer = validation_result.get("actual_correct_index")
+                marked_letter = validation_result.get("marked_answer_letter")
+                actual_letter = validation_result.get("actual_correct_letter")
+                print(f"     📊 Database Value: [{marked_answer}] = {marked_letter}")
+                print(f"     💡 Suggested Value: [{actual_answer}] = {actual_letter}")
+                if validation_result.get("reason_for_correct_answer"):
+                    print(f"     ℹ️  Reason: {validation_result['reason_for_correct_answer']}")
+                if validation_result.get("verification_reason"):
+                    print(f"     ✓ Verified: {validation_result['verification_reason']}")
+                    
             if not validation_result.get("explanation_valid"):
                 print(f"   ✗ Explanation is invalid or incomplete")
+                if validation_result.get("explanation_issues"):
+                    print(f"     Issues: {validation_result['explanation_issues']}")
             
             # Generate SQL update statement for invalid questions
             question_id = validation_result["question_id"]
@@ -855,7 +901,14 @@ def validate_all_mock_test_questions(certification_id: int) -> Dict[str, Any]:
                 
                 # Use the actual_correct_index from validation result
                 corrected_answer_index = validation_result.get("actual_correct_index")
+                marked_answer = question.get("correct_answer")
+                confidence = validation_result.get("answer_validation_confidence", "unknown")
+                double_passed = validation_result.get("double_validation_passed", False)
                 
+                print(f"   📊 Database Value (marked):  {marked_answer}")
+                print(f"   💡 Suggested Value:          {corrected_answer_index}")
+                print(f"   🔍 Double Validation:        {'✓ PASSED' if double_passed else '✗ FAILED'}")
+                print(f"   📈 Confidence Level:         {confidence.upper()}")
                 print(f"   Should be corrected to index: {corrected_answer_index}")
                 
                 if corrected_answer_index is not None:
@@ -939,29 +992,23 @@ def validate_all_mock_test_questions(certification_id: int) -> Dict[str, Any]:
                 json.dump(invalid_questions, f, indent=2)
             print(f"   ✓ Saved to JSON file")
             
-            # Initialize SQL file with BEGIN if not already done
-            if not sql_file_initialized:
-                with open(sql_file, "w") as f:
-                    f.write("BEGIN;\n\n")
-                sql_file_initialized = True
+            # Append SQL statements to file (if any exist)
+            if sql_updates:
+                with open(sql_file, "a") as f:
+                    for sql_stmt in sql_updates:
+                        f.write(sql_stmt + "\n")
+                print(f"   ✓ Saved SQL updates to file")
+            else:
+                print(f"   ℹ️ No SQL updates needed (validation error only)")
             
-            # Append SQL statements to file
-            with open(sql_file, "a") as f:
-                for sql_stmt in sql_updates:
-                    f.write(sql_stmt + "\n")
-            print(f"   ✓ Saved to SQL file")
-            
-            # Initialize generic SQL file with BEGIN if not already done
-            if not sql_generic_file_initialized:
-                with open(sql_generic_file, "w") as f:
-                    f.write("BEGIN;\n\n")
-                sql_generic_file_initialized = True
-            
-            # Append generic SQL statements to file
-            with open(sql_generic_file, "a") as f:
-                for sql_stmt in generic_sql_updates:
-                    f.write(sql_stmt + "\n")
-            print(f"   ✓ Saved to generic SQL file")
+            # Append generic SQL statements to file (if any exist)
+            if generic_sql_updates:
+                with open(sql_generic_file, "a") as f:
+                    for sql_stmt in generic_sql_updates:
+                        f.write(sql_stmt + "\n")
+                print(f"   ✓ Saved generic SQL updates to file")
+            else:
+                print(f"   ℹ️ No generic SQL updates needed (validation error only)")
     
     # Close SQL file with COMMIT
     if sql_file_initialized:
@@ -997,7 +1044,7 @@ def validate_all_mock_test_questions(certification_id: int) -> Dict[str, Any]:
 def main():
     """Main execution function."""
     # Change this to the certification ID you want to validate
-    CERTIFICATION_ID = 4  # Example: Solutions Architect
+    CERTIFICATION_ID = 16  # Example: Terraform Associate
     
     print(f"\n{'='*80}")
     print(f"Starting mock test validation for Certification ID: {CERTIFICATION_ID}")

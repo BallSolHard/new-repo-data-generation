@@ -1,0 +1,11 @@
+{
+  "total_records": 85,
+  "processed_records": 85,
+  "sql_statements_generated": 89,
+  "timestamp": "2026-05-05T03:48:24.706637",
+  "output_directory": "/Users/ranjanbatra/Ranjan_Programming_repos/studytech-content-engine/content-engine/files/update-explanation/2026-05-05",
+  "files": {
+    "cleaned_json": "/Users/ranjanbatra/Ranjan_Programming_repos/studytech-content-engine/content-engine/files/update-explanation/2026-05-05/cleaned_records.json",
+    "sql": "/Users/ranjanbatra/Ranjan_Programming_repos/studytech-content-engine/content-engine/files/update-explanation/2026-05-05/update_explanations.sql"
+  }
+}

@@ -1,14 +1,18 @@
 import type { GeneratedQuestion, ValidationResponse } from '@/lib/types/generation';
 import type { ExamDomain } from '@/lib/types/exam-guide';
 import type { CertTier } from '@/lib/types/tier';
-import { getValidationModel, parseGeminiJson } from '@/lib/gemini/client';
+import { getValidationModel as getGeminiValidationModel, parseGeminiJson } from '@/lib/gemini/client';
+import { getValidationModel as getKimiValidationModel, generateContent as kimiGenerateContent, parseKimiJson } from '@/lib/kimi/client';
 import { createValidationPrompt, type ValidationResponse as ValidationResponseType } from '@/lib/prompts/validation-new';
+import type { AIModel } from './generate';
 
-interface ValidateOptions {
+export interface ValidateOptions {
   certificationName: string;
   domainContext?: ExamDomain;
   rejectLowConfidence?: boolean; // default: true
   certTier?: CertTier;
+  aiModel?: AIModel;
+  kimiWebSearchEnabled?: boolean;
 }
 
 interface ValidationResult {
@@ -19,28 +23,27 @@ interface ValidationResult {
 /**
  * Validate step: run each generated question through the validation model.
  *
- * Uses a separate Gemini instance with conservative temperature (0.3) to verify
+ * Uses a separate Gemini or Kimi instance with conservative temperature (0.15) to verify
  * factual accuracy, answer correctness, and explanation quality.
  */
 export async function validate(
   questions: GeneratedQuestion[],
   options: ValidateOptions
 ): Promise<ValidationResult> {
-  const { certificationName, domainContext, rejectLowConfidence = true, certTier } = options;
-  const model = getValidationModel();
+  const { certificationName, domainContext, rejectLowConfidence = true, certTier, aiModel = 'gemini', kimiWebSearchEnabled = false } = options;
 
   const validated: GeneratedQuestion[] = [];
   const rejected: GeneratedQuestion[] = [];
   let validationFailedCount = 0;
 
-  console.log(`[validate] Validating ${questions.length} questions...`);
+  console.log(`[validate] Validating ${questions.length} questions using ${aiModel}...`);
 
   // Process questions in parallel batches of 5 to stay within rate limits
   const batchSize = 5;
   for (let i = 0; i < questions.length; i += batchSize) {
     const batch = questions.slice(i, i + batchSize);
     const results = await Promise.allSettled(
-      batch.map(q => validateSingleQuestion(model, q, certificationName, certTier || 'associate', domainContext))
+      batch.map(q => validateSingleQuestion(q, certificationName, certTier || 'associate', domainContext, aiModel, kimiWebSearchEnabled))
     );
 
     for (let j = 0; j < results.length; j++) {
@@ -83,11 +86,12 @@ export async function validate(
 }
 
 async function validateSingleQuestion(
-  model: ReturnType<typeof getValidationModel>,
   question: GeneratedQuestion,
   certificationName: string,
   certTier: CertTier,
-  domainContext?: ExamDomain
+  domainContext: ExamDomain | undefined,
+  aiModel: AIModel = 'gemini',
+  kimiWebSearchEnabled: boolean = false
 ): Promise<ValidationResponse> {
   // Use validation with tier-aware red-team check
   const prompt = createValidationPrompt({
@@ -97,16 +101,25 @@ async function validateSingleQuestion(
     domainContext,
   });
 
-  //console.log(`[PROMPT TEMPLATE] Full validation prompt:\n${prompt}`);
+  let responseText: string;
+  let parseFunction: typeof parseGeminiJson;
 
-  const result = await model.generateContent(prompt);
-  const responseText = result.response.text();
+  if (aiModel === 'kimi') {
+    const model = getKimiValidationModel(kimiWebSearchEnabled);
+    responseText = await kimiGenerateContent(prompt, model);
+    parseFunction = parseKimiJson;
+  } else {
+    const model = getGeminiValidationModel();
+    const result = await model.generateContent(prompt);
+    responseText = result.response.text();
+    parseFunction = parseGeminiJson;
+  }
 
   let validation: ValidationResponseType;
   try {
-    validation = parseGeminiJson<ValidationResponseType>(responseText);
+    validation = parseFunction<ValidationResponseType>(responseText);
   } catch (parseError) {
-    console.error('[validate] Failed to parse validation response:', parseError);
+    console.error(`[validate] Failed to parse ${aiModel} validation response:`, parseError);
     console.error('[validate] Raw response (first 500 chars):', responseText.slice(0, 500));
     // If parsing fails, treat as validation failure but allow question through with low confidence
     // This prevents the entire batch from failing due to JSON parsing issues

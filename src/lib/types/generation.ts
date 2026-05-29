@@ -115,6 +115,9 @@ export interface PipelineParams {
   genMode?: GenMode;
   /** Controls how strictly quality standards are enforced in the prompt. Defaults to 'hub'. */
   generationContext?: import('@/lib/prompts/generation-new').GenerationContext;
+  // AI Model selection
+  aiModel?: 'gemini' | 'kimi';
+  kimiWebSearchEnabled?: boolean;
 }
 
 export interface MockPipelineParams {

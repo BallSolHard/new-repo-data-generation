@@ -72,6 +72,10 @@ export default function Home() {
   // question types
   const [selectedQuestionTypes, setSelectedQuestionTypes] = useState<string[]>(['mcq']);
   
+  // AI Model selection
+  const [selectedAIModel, setSelectedAIModel] = useState<'gemini' | 'kimi'>('gemini');
+  const [kimiWebSearchEnabled, setKimiWebSearchEnabled] = useState(true);
+  
   // Mock test selection state
   const [existingMockTests, setExistingMockTests] = useState<QuizData[]>([]);
   const [selectedMockTestAction, setSelectedMockTestAction] = useState<"existing" | "new" | null>(null);
@@ -369,7 +373,9 @@ export default function Home() {
         topic_description: selectedDomainData?.topic_description || `${selectedDomain} domain knowledge and best practices`,
         quiz_id: quizId,
         modules: modules,
-        questionTypes: selectedQuestionTypes  // Add selected question types
+        questionTypes: selectedQuestionTypes,  // Add selected question types
+        aiModel: selectedAIModel,  // Add AI model selection
+        kimiWebSearchEnabled: kimiWebSearchEnabled,  // Add web search toggle for Kimi
       };
 
       console.log('[generateHubQuestions] Payload questionTypes:', payload.questionTypes);
@@ -1019,6 +1025,72 @@ export default function Home() {
                     ))}
                   </div>
                   <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">Select at least one question type</p>
+                </div>
+
+                {/* AI Model Selection */}
+                <div className="mt-6">
+                  <p className="font-semibold mb-3">AI Model Selection</p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {/* Gemini Option */}
+                    <label className="flex items-center p-4 border-2 rounded-lg cursor-pointer transition hover:bg-gray-50 dark:hover:bg-gray-700"
+                      style={{
+                        borderColor: selectedAIModel === 'gemini' ? '#7c3aed' : '#d1d5db',
+                        backgroundColor: selectedAIModel === 'gemini' ? 'rgba(124, 58, 237, 0.05)' : 'transparent'
+                      }}>
+                      <input
+                        type="radio"
+                        name="aiModel"
+                        value="gemini"
+                        checked={selectedAIModel === 'gemini'}
+                        onChange={e => setSelectedAIModel(e.target.value as 'gemini' | 'kimi')}
+                        className="w-4 h-4 rounded"
+                      />
+                      <div className="ml-3 flex-1">
+                        <p className="font-medium">Google Gemini 2.5</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">Fast and reliable</p>
+                      </div>
+                    </label>
+
+                    {/* Kimi Option */}
+                    <label className="flex items-center p-4 border-2 rounded-lg cursor-pointer transition hover:bg-gray-50 dark:hover:bg-gray-700"
+                      style={{
+                        borderColor: selectedAIModel === 'kimi' ? '#7c3aed' : '#d1d5db',
+                        backgroundColor: selectedAIModel === 'kimi' ? 'rgba(124, 58, 237, 0.05)' : 'transparent'
+                      }}>
+                      <input
+                        type="radio"
+                        name="aiModel"
+                        value="kimi"
+                        checked={selectedAIModel === 'kimi'}
+                        onChange={e => setSelectedAIModel(e.target.value as 'gemini' | 'kimi')}
+                        className="w-4 h-4 rounded"
+                      />
+                      <div className="ml-3 flex-1">
+                        <p className="font-medium">Moonshot Kimi 2.6</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">Advanced reasoning</p>
+                      </div>
+                    </label>
+                  </div>
+
+                  {/* Web Search Toggle for Kimi */}
+                  {selectedAIModel === 'kimi' && (
+                    <div className="mt-3 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                      <label className="flex items-center cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={kimiWebSearchEnabled}
+                          onChange={e => setKimiWebSearchEnabled(e.target.checked)}
+                          className="w-4 h-4 rounded"
+                        />
+                        <span className="ml-2 text-sm font-medium text-blue-900 dark:text-blue-100">
+                          Enable Web Search for Kimi
+                        </span>
+                      </label>
+                      <p className="text-xs text-blue-700 dark:text-blue-300 mt-1">
+                        Allow Kimi to search the web for current information while generating questions
+                      </p>
+                    </div>
+                  )}
                 </div>
               </div>
               <button 

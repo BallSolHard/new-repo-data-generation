@@ -8,6 +8,7 @@ Validates that:
 
 import json
 import os
+import re
 from typing import List, Dict, Any
 from dotenv import load_dotenv
 from supabase import create_client, Client
@@ -21,17 +22,42 @@ load_dotenv()
 SUPABASE_URL = os.getenv("NEXT_PUBLIC_SUPABASE_URL")
 SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
 GOOGLE_API_KEY = os.getenv("GEMINI_API_KEY")
+KIMI_API_KEY = os.getenv("KIMI_API_KEY")
 
 # Initialize Supabase client
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 
 # Initialize Google Gemini client
+gemini_model = None
 if GOOGLE_API_KEY:
     genai.configure(api_key=GOOGLE_API_KEY)
-    model = genai.GenerativeModel("gemini-2.5-flash")
+    gemini_model = genai.GenerativeModel("gemini-2.5-flash")
+    print("✓ Gemini API configured")
 else:
-    model = None
-    print("⚠️ Warning: GOOGLE_API_KEY not found. Gemini validation will be skipped.")
+    print("⚠️ Warning: GOOGLE_API_KEY not found")
+
+# Initialize Kimi client
+kimi_model = None
+if KIMI_API_KEY:
+    kimi_model = "kimi"  # Marker to use Kimi API
+    print("✓ Kimi API configured")
+else:
+    print("⚠️ Warning: KIMI_API_KEY not found")
+
+# Validation step models
+VALIDATION_MODELS = {
+    "initial_validation": "gemini",      # Step 1: Use Gemini for initial validation
+    "double_validation": "kimi",         # Step 2: Use Kimi for double validation
+    "explanation_validation": "gemini"   # Step 3: Use Gemini for explanation validation
+}
+
+print(f"\n📋 Validation Step Models:")
+print(f"   Step 1 (Initial):      {VALIDATION_MODELS['initial_validation'].upper()}")
+print(f"   Step 2 (Double):       {VALIDATION_MODELS['double_validation'].upper()}")
+print(f"   Step 3 (Explanation):  {VALIDATION_MODELS['explanation_validation'].upper()}")
+
+# For backward compatibility
+model = gemini_model
 
 
 def get_questions_by_certification(certification_id: int) -> List[Dict[str, Any]]:
@@ -128,26 +154,121 @@ def get_questions_by_certification(certification_id: int) -> List[Dict[str, Any]
         return []
 
 
+def call_kimi_api(prompt: str) -> str:
+    """
+    Call Kimi API using OpenAI SDK (Kimi is OpenAI-compatible).
+    Raises exceptions on failure - does NOT fall back to other models.
+    
+    Args:
+        prompt: The prompt to send to Kimi
+        
+    Returns:
+        Response text from Kimi API
+        
+    Raises:
+        Exception: If API call fails or authentication is invalid
+    """
+    try:
+        from openai import OpenAI
+        
+        # Initialize Kimi client using OpenAI SDK
+        kimi_client = OpenAI(
+            api_key=KIMI_API_KEY,
+            base_url="https://api.moonshot.ai/v1"
+        )
+        
+        # Make API call using OpenAI SDK
+        completion = kimi_client.chat.completions.create(
+            model="kimi-k2.6",  # Latest Kimi model
+            messages=[
+                {
+                    "role": "user",
+                    "content": prompt
+                }
+            ],
+            temperature=1,  # Kimi K2.6 requires temperature=1 (fixed value)
+            max_tokens=2000
+        )
+        
+        # Extract response
+        if completion.choices and len(completion.choices) > 0:
+            return completion.choices[0].message.content
+        else:
+            raise Exception(f"Unexpected Kimi response format (no choices)")
+            
+    except ImportError:
+        raise Exception("OpenAI SDK not installed. Run: pip install openai")
+    except Exception as e:
+        error_msg = str(e)
+        
+        # Handle authentication errors specifically
+        if "401" in error_msg or "authentication" in error_msg.lower() or "invalid" in error_msg.lower():
+            raise Exception(f"Kimi Authentication Failed: Invalid API key or insufficient permissions. Please verify KIMI_API_KEY in .env. Error: {error_msg}")
+        
+        # Handle rate limiting
+        if "429" in error_msg:
+            raise Exception(f"Kimi Rate Limited: Too many requests. Please try again later.")
+        
+        # Handle timeout
+        if "timeout" in error_msg.lower():
+            raise Exception(f"Kimi API Request Timeout (30s exceeded)")
+        
+        # Handle connection errors
+        if "connection" in error_msg.lower():
+            raise Exception(f"Kimi API Connection Error: {error_msg}")
+        
+        # Generic error
+        raise Exception(f"Kimi API Error: {error_msg}")
+
+
+def generate_content(prompt: str, use_model: str = "gemini") -> str:
+    """
+    Generate content using the selected AI model (Gemini or Kimi).
+    
+    Args:
+        prompt: The prompt to send
+        use_model: Which model to use ("gemini" or "kimi")
+        
+    Returns:
+        Response text from the model
+        
+    Raises:
+        Exception: If model is unavailable or API call fails
+    """
+    if use_model == "kimi":
+        if not kimi_model:
+            raise Exception("Kimi model requested but KIMI_API_KEY not configured in .env")
+        return call_kimi_api(prompt)
+    
+    elif use_model == "gemini":
+        if not gemini_model:
+            raise Exception("Gemini model requested but GOOGLE_API_KEY not configured in .env")
+        return gemini_model.generate_content(prompt).text
+    
+    else:
+        raise Exception(f"Unknown model: {use_model}. Use 'gemini' or 'kimi'")
+
+
 def validate_with_gemini(question: Dict[str, Any]) -> Dict[str, Any]:
     """
-    Use Google Gemini to validate MCQ questions with DOUBLE VALIDATION:
-    1. Initial validation: If marked answer is correct or incorrect
-    2. Double validation: If answer is incorrect, validate the suggested correction
-    3. Explanation validation
+    Use AI models to validate MCQ questions with DOUBLE VALIDATION:
+    1. Initial validation (Gemini): If marked answer is correct or incorrect
+    2. Double validation (Kimi): If answer is incorrect, validate the suggested correction
+    3. Explanation validation (Gemini)
     
     Args:
         question: Question dictionary
         
     Returns:
-        Gemini validation result with comprehensive validation flags
+        Validation result with answer validity and confidence
     """
-    if not model:
+    if not gemini_model and not kimi_model:
         return {
             "is_valid": False,
             "correct_answer_valid": False,
             "actual_correct_indices": [],
-            "reason": "Gemini not available",
-            "error": "GOOGLE_API_KEY not configured"
+            "reason": "No model available",
+            "error": "Neither Gemini nor Kimi API is configured"
         }
     
     try:
@@ -178,13 +299,13 @@ def validate_with_gemini(question: Dict[str, Any]) -> Dict[str, Any]:
                 "error": "Empty correct_answer"
             }
         
-        # Format options for Gemini
+        # Format options for AI models
         options_text = "\n".join([f"{chr(65 + i)}) {opt}" for i, opt in enumerate(options)])
         marked_letters = [chr(65 + idx) for idx in correct_answers]
         marked_letters_str = ", ".join(marked_letters)
         
-        # STEP 1: Initial validation
-        print(f"   [Validation Step 1/3] Initial answer validation...")
+        # STEP 1: Initial validation (Gemini)
+        print(f"   [Validation Step 1/3] Initial answer validation (GEMINI)...")
         initial_validation_prompt = f"""
 You are an expert exam validator. Analyze this MCQ question.
 
@@ -212,12 +333,22 @@ Respond ONLY in this JSON format (no markdown, no extra text):
 }}
 """
         
-        response = model.generate_content(initial_validation_prompt)
-        response_text = response.text.strip()
+        try:
+            response = generate_content(initial_validation_prompt, VALIDATION_MODELS['initial_validation'])
+        except Exception as e:
+            print(f"\n❌ ERROR in Step 1: {str(e)}")
+            return {
+                "is_valid": False,
+                "error": f"Validation failed: {str(e)}",
+                "correct_answer_valid": False,
+                "explanation_valid": False,
+                "actual_correct_indices": []
+            }
+        
+        response_text = response.strip()
         
         # Extract JSON from initial validation
         try:
-            import re
             json_match = re.search(r'\{.*\}', response_text, re.DOTALL)
             if json_match:
                 initial_result = json.loads(json_match.group())
@@ -232,12 +363,12 @@ Respond ONLY in this JSON format (no markdown, no extra text):
                 "error": response_text[:200]
             }
         
-        # STEP 2: Double validation - verify the suggested answer(s) are correct
+        # STEP 2: Double validation (Kimi) - verify the suggested answer(s) are correct
         actual_answer_indices = initial_result.get("actual_correct_indices", correct_answers)
         actual_answer_letters = [chr(65 + idx) for idx in actual_answer_indices]
         actual_answer_letters_str = ", ".join(actual_answer_letters)
         
-        print(f"   [Validation Step 2/3] Double-checking suggested answer(s): {actual_answer_letters_str}...")
+        print(f"   [Validation Step 2/3] Double-checking suggested answer(s): {actual_answer_letters_str} (KIMI)...")
         double_validation_prompt = f"""
 You are an expert exam validator. Double-check this/these answer(s).
 
@@ -265,8 +396,19 @@ Respond ONLY in this JSON format (no markdown, no extra text):
 }}
 """
         
-        response = model.generate_content(double_validation_prompt)
-        response_text = response.text.strip()
+        try:
+            response = generate_content(double_validation_prompt, VALIDATION_MODELS['double_validation'])
+        except Exception as e:
+            print(f"\n❌ ERROR in Step 2: {str(e)}")
+            return {
+                "is_valid": False,
+                "error": f"Validation failed: {str(e)}",
+                "correct_answer_valid": False,
+                "explanation_valid": False,
+                "actual_correct_indices": []
+            }
+        
+        response_text = response.strip()
         
         # Extract JSON from double validation
         try:
@@ -282,8 +424,8 @@ Respond ONLY in this JSON format (no markdown, no extra text):
                 "double_validation_passed": False
             }
         
-        # STEP 3: Validate explanation
-        print(f"   [Validation Step 3/3] Validating explanation...")
+        # STEP 3: Validate explanation (Gemini)
+        print(f"   [Validation Step 3/3] Validating explanation (GEMINI)...")
         explanation_validation_prompt = f"""
 You are an expert exam validator. Validate the explanation quality.
 
@@ -312,20 +454,28 @@ Respond ONLY in this JSON format (no markdown, no extra text):
 }}
 """
         
-        response = model.generate_content(explanation_validation_prompt)
-        response_text = response.text.strip()
-        
         try:
-            json_match = re.search(r'\{.*\}', response_text, re.DOTALL)
-            if json_match:
-                explanation_result = json.loads(json_match.group())
-            else:
-                explanation_result = json.loads(response_text)
-        except json.JSONDecodeError:
+            response = generate_content(explanation_validation_prompt, VALIDATION_MODELS['explanation_validation'])
+        except Exception as e:
+            print(f"\n❌ ERROR in Step 3: {str(e)}")
             explanation_result = {
                 "explanation_valid": False,
-                "explanation_issues": "Could not parse response"
+                "explanation_issues": f"Error: {str(e)}"
             }
+        else:
+            response_text = response.strip()
+            
+            try:
+                json_match = re.search(r'\{.*\}', response_text, re.DOTALL)
+                if json_match:
+                    explanation_result = json.loads(json_match.group())
+                else:
+                    explanation_result = json.loads(response_text)
+            except json.JSONDecodeError:
+                explanation_result = {
+                    "explanation_valid": False,
+                    "explanation_issues": "Could not parse response"
+                }
         
         # Determine if answer is valid based on double validation
         is_initial_correct = initial_result.get("correct_answer_valid", False)
@@ -370,14 +520,14 @@ Respond ONLY in this JSON format (no markdown, no extra text):
             "is_valid": False,
             "correct_answer_valid": False,
             "actual_correct_indices": [],
-            "reason": "Gemini validation error",
+            "reason": "Validation error",
             "error": str(e)
         }
 
 
 def generate_corrected_explanation(question: Dict[str, Any]) -> str:
     """
-    Generate a corrected explanation using Gemini.
+    Generate a corrected explanation using model selected in VALIDATION_MODELS['explanation_validation'].
     
     Args:
         question: Question dictionary
@@ -385,7 +535,7 @@ def generate_corrected_explanation(question: Dict[str, Any]) -> str:
     Returns:
         Corrected explanation string
     """
-    if not model:
+    if not gemini_model and not kimi_model:
         return ""
     
     try:
@@ -393,7 +543,7 @@ def generate_corrected_explanation(question: Dict[str, Any]) -> str:
         options = question.get("options", [])
         correct_answers = question.get("correct_answer", [])
         
-        # Format options for Gemini
+        # Format options for model
         options_text = "\n".join([f"{chr(65 + i)}) {opt}" for i, opt in enumerate(options)])
         correct_letters = [chr(65 + idx) for idx in correct_answers]
         correct_letters_str = ", ".join(correct_letters)
@@ -422,8 +572,13 @@ Example format:
 Respond with ONLY the explanation text (no JSON, no markdown, no extra formatting):
 """
         
-        response = model.generate_content(correction_prompt)
-        corrected_explanation = response.text.strip()
+        try:
+            response = generate_content(correction_prompt, VALIDATION_MODELS['explanation_validation'])
+            corrected_explanation = response.strip()
+        except Exception as e:
+            print(f"\n❌ ERROR in generate_corrected_explanation: {str(e)}")
+            return f"Error generating explanation: {str(e)}"
+        
         return corrected_explanation
         
     except Exception as e:
@@ -432,7 +587,7 @@ Respond with ONLY the explanation text (no JSON, no markdown, no extra formattin
 
 def generate_corrected_answer(question: Dict[str, Any], correct_answer_indices: List[int] = None) -> str:
     """
-    Get the correct answer indices. If provided, use those (from validation), otherwise generate via Gemini.
+    Get the correct answer indices. If provided, use those (from validation), otherwise generate via model.
     
     Args:
         question: Question dictionary
@@ -445,14 +600,14 @@ def generate_corrected_answer(question: Dict[str, Any], correct_answer_indices: 
     if correct_answer_indices is not None:
         return json.dumps(correct_answer_indices)
     
-    if not model:
+    if not gemini_model and not kimi_model:
         return json.dumps(question.get("correct_answer", [0]))
     
     try:
         question_text = question.get("text", "")
         options = question.get("options", [])
         
-        # Format options for Gemini
+        # Format options for model
         options_text = "\n".join([f"{chr(65 + i)}) {opt}" for i, opt in enumerate(options)])
         
         answer_prompt = f"""
@@ -472,11 +627,14 @@ Respond with ONLY a JSON array with the index/indices of the correct answer(s). 
 Do not include any other text.
 """
         
-        response = model.generate_content(answer_prompt)
-        response_text = response.text.strip()
+        try:
+            response = generate_content(answer_prompt, VALIDATION_MODELS['initial_validation'])
+            response_text = response.strip()
+        except Exception as e:
+            print(f"\n❌ ERROR in generate_corrected_answer: {str(e)}")
+            return json.dumps(question.get("correct_answer", [0]))
         
         # Extract JSON array
-        import re
         json_match = re.search(r'\[\d+(?:,\s*\d+)*\]', response_text)
         if json_match:
             return json_match.group()
@@ -716,7 +874,7 @@ def validate_all_questions(certification_id: int) -> Dict[str, Any]:
 def main():
     """Main execution function."""
     # Change this to the certification ID you want to validate
-    CERTIFICATION_ID = 16
+    CERTIFICATION_ID = 17
     
     print(f"Starting validation for Certification ID: {CERTIFICATION_ID}")
     print(f"Supabase URL: {SUPABASE_URL}")
