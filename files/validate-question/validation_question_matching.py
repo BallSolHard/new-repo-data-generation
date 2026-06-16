@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """
-Simple validation script for MCQ questions and their explanations.
+Validation script for MATCHING type questions.
 Validates that:
-1. Correct answer is indeed valid
-2. Explanation makes sense
+1. Left and right items are correctly paired
+2. Explanation clearly explains each match
+3. Pairs are logically sound
 """
 
 import json
@@ -44,14 +45,14 @@ if KIMI_API_KEY:
 else:
     print("⚠️ Warning: KIMI_API_KEY not found")
 
-# Validation step models
+# Validation step models for matching questions
 VALIDATION_MODELS = {
     "initial_validation": "gemini",      # Step 1: Use Gemini for initial validation
     "double_validation": "kimi",         # Step 2: Use Kimi for double validation
     "explanation_validation": "gemini"   # Step 3: Use Gemini for explanation validation
 }
 
-print(f"\n📋 Validation Step Models:")
+print(f"\n📋 Validation Step Models (Matching Questions):")
 print(f"   Step 1 (Initial):      {VALIDATION_MODELS['initial_validation'].upper()}")
 print(f"   Step 2 (Double):       {VALIDATION_MODELS['double_validation'].upper()}")
 print(f"   Step 3 (Explanation):  {VALIDATION_MODELS['explanation_validation'].upper()}")
@@ -62,13 +63,13 @@ model = gemini_model
 
 def get_questions_by_certification(certification_id: int) -> List[Dict[str, Any]]:
     """
-    Fetch all MCQ type questions for a given certification ID with pagination.
+    Fetch all MATCHING type questions for a given certification ID with pagination.
     
     Args:
         certification_id: The certification ID to filter questions
         
     Returns:
-        List of question dictionaries
+        List of matching question dictionaries
     """
     try:
         # Get all quizzes for the certification
@@ -85,7 +86,6 @@ def get_questions_by_certification(certification_id: int) -> List[Dict[str, Any]
         print(f"Found {len(quiz_ids)} quizzes for certification ID: {certification_id}")
         
         # Get all question IDs from quiz_question junction table for these quizzes
-        # Using pagination to handle large datasets
         all_question_ids = []
         page_size = 1000
         offset = 0
@@ -113,8 +113,7 @@ def get_questions_by_certification(certification_id: int) -> List[Dict[str, Any]
         
         print(f"Found {len(all_question_ids)} questions linked to quizzes")
         
-        # Get all MCQ questions with these IDs using pagination
-        # Batch the question IDs to avoid "JSON could not be generated" error
+        # Get all MATCHING questions with these IDs using pagination
         all_questions = []
         batch_size = 100  # Process question IDs in batches of 100
         
@@ -124,28 +123,27 @@ def get_questions_by_certification(certification_id: int) -> List[Dict[str, Any]
             
             print(f"Processing question batch {batch_start}-{batch_end}/{len(all_question_ids)}...")
             
-            # Get all MCQ questions with these IDs using pagination
             offset = 0
             page_size = 1000
             
             while True:
                 questions_response = supabase.table("question").select(
                     "*"
-                ).eq("type", "mcq").in_("id", id_batch).range(offset, offset + page_size - 1).execute()
+                ).eq("type", "matching").in_("id", id_batch).range(offset, offset + page_size - 1).execute()
                 
                 batch = questions_response.data
                 if not batch:
                     break
                 
                 all_questions.extend(batch)
-                print(f"  Fetched {len(all_questions)} MCQ questions so far...")
+                print(f"  Fetched {len(all_questions)} matching questions so far...")
                 
                 if len(batch) < page_size:
                     break
                 
                 offset += page_size
         
-        print(f"Found {len(all_questions)} total MCQ questions")
+        print(f"Found {len(all_questions)} total matching questions")
         
         return all_questions
         
@@ -251,85 +249,99 @@ def generate_content(prompt: str, use_model: str = "gemini") -> str:
 
 def validate_with_gemini(question: Dict[str, Any]) -> Dict[str, Any]:
     """
-    Use AI models to validate MCQ questions with DOUBLE VALIDATION:
-    1. Initial validation (Gemini): If marked answer is correct or incorrect
-    2. Double validation (Kimi): If answer is incorrect, validate the suggested correction
-    3. Explanation validation (Gemini)
+    Validate matching type questions with TRIPLE VALIDATION:
+    1. Initial validation (Gemini): Check if pairs are correctly matched
+    2. Double validation (Kimi): Verify each pair makes logical sense
+    3. Explanation validation (Gemini): Check explanation quality
     
     Args:
-        question: Question dictionary
+        question: Matching question dictionary
         
     Returns:
-        Validation result with answer validity and confidence
+        Validation result with pair validity and confidence
     """
     if not gemini_model and not kimi_model:
         return {
             "is_valid": False,
-            "correct_answer_valid": False,
-            "actual_correct_indices": [],
+            "pairs_valid": False,
             "reason": "No model available",
             "error": "Neither Gemini nor Kimi API is configured"
         }
     
     try:
         question_text = question.get("text", "")
-        options = question.get("options", [])
-        correct_answers = question.get("correct_answer", [])
+        pairs = question.get("pairs", {})
+        matches = question.get("matches", {})
         explanation = question.get("explanation", "")
+        
+        left_items = pairs.get("left", [])
+        right_items = pairs.get("right", [])
+        left_matches = matches.get("left", [])
+        right_matches = matches.get("right", [])
+        
+        # Validate structure
+        if not left_items or not right_items:
+            return {
+                "is_valid": False,
+                "pairs_valid": False,
+                "reason": "Missing left or right items",
+                "error": "Incomplete pairs structure"
+            }
+        
+        if len(left_matches) != len(right_matches):
+            return {
+                "is_valid": False,
+                "pairs_valid": False,
+                "reason": "Mismatch between left and right matches count",
+                "error": f"Left matches: {len(left_matches)}, Right matches: {len(right_matches)}"
+            }
         
         if not explanation or len(explanation.strip()) == 0:
             return {
                 "is_valid": False,
-                "correct_answer_valid": False,
-                "actual_correct_indices": [],
+                "pairs_valid": False,
                 "reason": "No explanation provided",
                 "error": "Empty explanation"
             }
         
-        # Handle both list and single values
-        if not isinstance(correct_answers, list):
-            correct_answers = [correct_answers] if correct_answers else []
+        # Format for validation
+        left_items_text = "\n".join([f"{i}. {item}" for i, item in enumerate(left_items)])
+        right_items_text = "\n".join([f"{i}. {item}" for i, item in enumerate(right_items)])
         
-        if not correct_answers:
-            return {
-                "is_valid": False,
-                "correct_answer_valid": False,
-                "actual_correct_indices": [],
-                "reason": "No correct answer specified",
-                "error": "Empty correct_answer"
-            }
-        
-        # Format options for AI models
-        options_text = "\n".join([f"{chr(65 + i)}) {opt}" for i, opt in enumerate(options)])
-        marked_letters = [chr(65 + idx) for idx in correct_answers]
-        marked_letters_str = ", ".join(marked_letters)
+        # Build current matches text
+        current_matches_text = "\n".join([
+            f"Left[{l}] → Right[{r}]" 
+            for l, r in zip(left_matches, right_matches)
+        ])
         
         # STEP 1: Initial validation (Gemini)
-        print(f"   [Validation Step 1/3] Initial answer validation (GEMINI)...")
+        print(f"   [Validation Step 1/3] Initial pair validation (GEMINI)...")
         initial_validation_prompt = f"""
-You are an expert exam validator. Analyze this MCQ question.
+You are an expert matching question validator. Analyze this matching question.
 
 QUESTION:
 {question_text}
 
-OPTIONS:
-{options_text}
+LEFT ITEMS:
+{left_items_text}
 
-MARKED CORRECT ANSWER(S) IN DATABASE: {marked_letters_str} (indices: {correct_answers})
+RIGHT ITEMS:
+{right_items_text}
+
+MARKED MATCHES (DATABASE):
+{current_matches_text}
 
 Your task:
-1. Determine the ACTUAL correct answer(s) for this question based on factual accuracy
-2. Check if the MARKED answer(s) match the ACTUAL answer(s)
-3. If incorrect, specify which answer(s) SHOULD be correct
+1. Determine the CORRECT pairs based on logical accuracy
+2. Check if MARKED matches are correct
+3. If incorrect, specify CORRECT pairs
 
 Respond ONLY in this JSON format (no markdown, no extra text):
 {{
-    "marked_answer_indices": {correct_answers},
-    "marked_answer_letters": {marked_letters},
-    "actual_correct_indices": [0, 2],
-    "actual_correct_letters": ["A", "C"],
-    "correct_answer_valid": true/false,
-    "reason": "brief reason why this is the correct answer"
+    "marked_matches": {{"left": {left_matches}, "right": {right_matches}}},
+    "actual_correct_matches": {{"left": [0, 1, 2], "right": [0, 1, 2]}},
+    "pairs_valid": true/false,
+    "reason": "brief explanation of the correct pairings"
 }}
 """
         
@@ -340,14 +352,11 @@ Respond ONLY in this JSON format (no markdown, no extra text):
             return {
                 "is_valid": False,
                 "error": f"Validation failed: {str(e)}",
-                "correct_answer_valid": False,
-                "explanation_valid": False,
-                "actual_correct_indices": []
+                "pairs_valid": False
             }
         
         response_text = response.strip()
         
-        # Extract JSON from initial validation
         try:
             json_match = re.search(r'\{.*\}', response_text, re.DOTALL)
             if json_match:
@@ -357,41 +366,49 @@ Respond ONLY in this JSON format (no markdown, no extra text):
         except json.JSONDecodeError:
             return {
                 "is_valid": False,
-                "correct_answer_valid": False,
-                "actual_correct_indices": [],
+                "pairs_valid": False,
                 "reason": "Could not parse initial validation response",
                 "error": response_text[:200]
             }
         
-        # STEP 2: Double validation (Kimi) - verify the suggested answer(s) are correct
-        actual_answer_indices = initial_result.get("actual_correct_indices", correct_answers)
-        actual_answer_letters = [chr(65 + idx) for idx in actual_answer_indices]
-        actual_answer_letters_str = ", ".join(actual_answer_letters)
+        # STEP 2: Double validation (Kimi)
+        actual_matches = initial_result.get("actual_correct_matches", {"left": left_matches, "right": right_matches})
+        actual_left = actual_matches.get("left", [])
+        actual_right = actual_matches.get("right", [])
         
-        print(f"   [Validation Step 2/3] Double-checking suggested answer(s): {actual_answer_letters_str} (KIMI)...")
+        actual_matches_text = "\n".join([
+            f"Left[{l}] → Right[{r}]" 
+            for l, r in zip(actual_left, actual_right)
+        ])
+        
+        print(f"   [Validation Step 2/3] Double-checking pairs (KIMI)...")
         double_validation_prompt = f"""
-You are an expert exam validator. Double-check this/these answer(s).
+You are an expert matching question validator. Double-check these pairings.
 
 QUESTION:
 {question_text}
 
-OPTIONS:
-{options_text}
+LEFT ITEMS:
+{left_items_text}
 
-SUGGESTED CORRECT ANSWER(S): {actual_answer_letters_str} (indices: {actual_answer_indices})
+RIGHT ITEMS:
+{right_items_text}
+
+SUGGESTED MATCHES:
+{actual_matches_text}
 
 Your task:
-1. Verify that {actual_answer_letters_str} is/are definitively the correct answer(s)
-2. Confirm it's/they're factually accurate
+1. Verify each pair is logically correct
+2. Ensure all pairings are factually accurate
 3. Rate your confidence level
 
-IMPORTANT: Be ABSOLUTELY CERTAIN this is correct. If you have ANY doubt, respond with low confidence.
+Be ABSOLUTELY CERTAIN. If you have ANY doubt, respond with low confidence.
 
 Respond ONLY in this JSON format (no markdown, no extra text):
 {{
-    "is_definitively_correct": true/false,
+    "pairs_definitively_correct": true/false,
     "confidence": "high|medium|low",
-    "verification_reason": "brief explanation of why you verified this is correct",
+    "verification_reason": "brief explanation of why you verified these pairs",
     "double_validation_passed": true/false
 }}
 """
@@ -403,14 +420,11 @@ Respond ONLY in this JSON format (no markdown, no extra text):
             return {
                 "is_valid": False,
                 "error": f"Validation failed: {str(e)}",
-                "correct_answer_valid": False,
-                "explanation_valid": False,
-                "actual_correct_indices": []
+                "pairs_valid": False
             }
         
         response_text = response.strip()
         
-        # Extract JSON from double validation
         try:
             json_match = re.search(r'\{.*\}', response_text, re.DOTALL)
             if json_match:
@@ -419,7 +433,7 @@ Respond ONLY in this JSON format (no markdown, no extra text):
                 double_validation = json.loads(response_text)
         except json.JSONDecodeError:
             double_validation = {
-                "is_definitively_correct": False,
+                "pairs_definitively_correct": False,
                 "confidence": "low",
                 "double_validation_passed": False
             }
@@ -427,29 +441,33 @@ Respond ONLY in this JSON format (no markdown, no extra text):
         # STEP 3: Validate explanation (Gemini)
         print(f"   [Validation Step 3/3] Validating explanation (GEMINI)...")
         explanation_validation_prompt = f"""
-You are an expert exam validator. Validate the explanation quality.
+You are an expert matching question validator. Validate the explanation quality.
 
 QUESTION:
 {question_text}
 
-OPTIONS:
-{options_text}
+LEFT ITEMS:
+{left_items_text}
 
-CORRECT ANSWER(S): {actual_answer_letters_str}
+RIGHT ITEMS:
+{right_items_text}
+
+CORRECT MATCHES:
+{actual_matches_text}
 
 PROVIDED EXPLANATION:
 {explanation}
 
 Your task:
-1. Check if explanation clearly explains WHY the correct option(s) is/are right
-2. Check if explanation clearly explains WHY EACH incorrect option is wrong
-3. Assess explanation quality and completeness
+1. Check if explanation clearly explains each pair
+2. Check if explanation provides logical reasoning
+3. Assess explanation completeness
 
 Respond ONLY in this JSON format (no markdown, no extra text):
 {{
     "explanation_valid": true/false,
-    "explains_correct_option": true/false,
-    "explains_incorrect_options": true/false,
+    "explains_all_pairs": true/false,
+    "provides_reasoning": true/false,
     "explanation_issues": "list issues if any"
 }}
 """
@@ -477,40 +495,36 @@ Respond ONLY in this JSON format (no markdown, no extra text):
                     "explanation_issues": "Could not parse response"
                 }
         
-        # Determine if answer is valid based on double validation
-        is_initial_correct = initial_result.get("correct_answer_valid", False)
-        double_validation_passed = double_validation.get("double_validation_passed", double_validation.get("is_definitively_correct", False))
+        # Determine overall validity
+        is_initial_correct = initial_result.get("pairs_valid", False)
+        double_validation_passed = double_validation.get("double_validation_passed", False)
         confidence = double_validation.get("confidence", "low")
         
-        # Only accept the corrected answer if double validation passed AND high confidence
         if not is_initial_correct and double_validation_passed and confidence == "high":
-            answer_is_valid = True
-            final_answer_indices = actual_answer_indices
+            pairs_valid = True
+            final_matches = actual_matches
         elif is_initial_correct:
-            answer_is_valid = True
-            final_answer_indices = actual_answer_indices
+            pairs_valid = True
+            final_matches = actual_matches
         else:
-            answer_is_valid = False
-            # If double validation failed, revert to marked answer
-            if not is_initial_correct and not double_validation_passed:
-                final_answer_indices = correct_answers
+            pairs_valid = False
+            final_matches = {"left": left_matches, "right": right_matches}
         
         # Final result
         final_result = {
-            "marked_answer_indices": correct_answers,
-            "marked_answer_letters": marked_letters,
-            "actual_correct_indices": final_answer_indices,
-            "actual_correct_letters": [chr(65 + idx) for idx in final_answer_indices],
-            "correct_answer_valid": answer_is_valid,
-            "answer_validation_confidence": confidence,
+            "question_id": question.get("id"),
+            "marked_matches": {"left": left_matches, "right": right_matches},
+            "actual_correct_matches": final_matches,
+            "pairs_valid": pairs_valid,
+            "pair_validation_confidence": confidence,
             "double_validation_passed": double_validation_passed,
-            "reason_for_correct_answer": initial_result.get("reason", ""),
+            "reason_for_pairs": initial_result.get("reason", ""),
             "verification_reason": double_validation.get("verification_reason", ""),
             "explanation_valid": explanation_result.get("explanation_valid", False),
-            "explains_correct_option": explanation_result.get("explains_correct_option", False),
-            "explains_incorrect_options": explanation_result.get("explains_incorrect_options", False),
+            "explains_all_pairs": explanation_result.get("explains_all_pairs", False),
+            "provides_reasoning": explanation_result.get("provides_reasoning", False),
             "explanation_issues": explanation_result.get("explanation_issues", ""),
-            "is_valid": answer_is_valid and explanation_result.get("explanation_valid", False)
+            "is_valid": pairs_valid and explanation_result.get("explanation_valid", False)
         }
         
         return final_result
@@ -518,8 +532,7 @@ Respond ONLY in this JSON format (no markdown, no extra text):
     except Exception as e:
         return {
             "is_valid": False,
-            "correct_answer_valid": False,
-            "actual_correct_indices": [],
+            "pairs_valid": False,
             "reason": "Validation error",
             "error": str(e)
         }
@@ -527,7 +540,7 @@ Respond ONLY in this JSON format (no markdown, no extra text):
 
 def generate_corrected_explanation(question: Dict[str, Any]) -> str:
     """
-    Generate a corrected explanation using model selected in VALIDATION_MODELS['explanation_validation'].
+    Generate a corrected explanation for matching questions.
     
     Args:
         question: Question dictionary
@@ -540,46 +553,54 @@ def generate_corrected_explanation(question: Dict[str, Any]) -> str:
     
     try:
         question_text = question.get("text", "")
-        options = question.get("options", [])
-        correct_answers = question.get("correct_answer", [])
+        pairs = question.get("pairs", {})
+        matches = question.get("matches", {})
         
-        # Format options for model
-        options_text = "\n".join([f"{chr(65 + i)}) {opt}" for i, opt in enumerate(options)])
-        correct_letters = [chr(65 + idx) for idx in correct_answers]
-        correct_letters_str = ", ".join(correct_letters)
+        left_items = pairs.get("left", [])
+        right_items = pairs.get("right", [])
+        left_matches = matches.get("left", [])
+        right_matches = matches.get("right", [])
+        
+        left_items_text = "\n".join([f"{i}. {item}" for i, item in enumerate(left_items)])
+        right_items_text = "\n".join([f"{i}. {item}" for i, item in enumerate(right_items)])
+        
+        matches_text = "\n".join([
+            f"Left[{l}] → Right[{r}]" 
+            for l, r in zip(left_matches, right_matches)
+        ])
         
         correction_prompt = f"""
-You are an expert exam question writer. Generate a comprehensive explanation for this MCQ question.
+You are an expert matching question writer. Generate a comprehensive explanation for this matching question.
 
 QUESTION:
 {question_text}
 
-OPTIONS:
-{options_text}
+LEFT ITEMS:
+{left_items_text}
 
-CORRECT ANSWER(S): {correct_letters_str}
+RIGHT ITEMS:
+{right_items_text}
 
-Generate an explanation that MUST follow this EXACT structure:
-1. Start with "Option [LETTER] (correct) is [OPTION_TEXT]. " followed by clear explanation of WHY it's correct
-2. For EACH incorrect option, explain "Option [LETTER] (incorrect) is [OPTION_TEXT], which is..." or "Option [LETTER] is incorrect because..."
-3. Each option should be clearly identified by its letter and marked as (correct) or (incorrect)
-4. Provide factual reasoning for rejecting each incorrect option
-5. Be educational and specific, not vague
+CORRECT MATCHES:
+{matches_text}
+
+Generate an explanation that:
+1. Explains each pairing clearly
+2. Provides logical reasoning for why each left item matches its right item
+3. Be educational and specific
 
 Example format:
-"Option C (correct) is the `-backend-config` flag, which allows passing backend configuration values during initialization. Option A (incorrect) is wrong because terraform uses TF_VAR_ for variables, not backend config. Option B (incorrect) is wrong because .tfvars files are for input variables. Option D (incorrect) is wrong because local variables are internal configuration."
+"Item 1 (Unexpected traffic to an EC2 instance) pairs with Source 1 (VPC Flow Logs) because VPC Flow Logs capture source/destination IPs and ports of traffic. Item 2 (Connectivity failure to a private S3 bucket) pairs with Source 2 (VPC Endpoint Policy logs) because these logs show access denials. Item 3 (Blocked traffic within a VPC subnet) pairs with Source 3 (Network ACL logs) because NACLs control subnet-level traffic."
 
-Respond with ONLY the explanation text (no JSON, no markdown, no extra formatting):
+Respond with ONLY the explanation text (no JSON, no markdown):
 """
         
         try:
             response = generate_content(correction_prompt, VALIDATION_MODELS['explanation_validation'])
-            corrected_explanation = response.strip()
+            return response.strip()
         except Exception as e:
-            print(f"\n❌ ERROR in generate_corrected_explanation: {str(e)}")
+            print(f"\n❌ ERROR: {str(e)}")
             return f"Error generating explanation: {str(e)}"
-        
-        return corrected_explanation
         
     except Exception as e:
         return f"Error generating explanation: {str(e)}"
@@ -646,7 +667,7 @@ Do not include any other text.
 
 def validate_explanation(question: Dict[str, Any]) -> Dict[str, Any]:
     """
-    Validate using Gemini if correct answer is valid and explanation makes sense.
+    Validate using Gemini if correct pairs are valid and explanation makes sense.
     
     Args:
         question: Question dictionary
@@ -660,20 +681,22 @@ def validate_explanation(question: Dict[str, Any]) -> Dict[str, Any]:
     }
     
     try:
-        options = question.get("options", [])
-        correct_answers = question.get("correct_answer", [])
+        pairs = question.get("pairs", {})
+        matches = question.get("matches", {})
         
-        # Check if correct answer index is valid
-        if not correct_answers:
+        # Check if structure is valid
+        if not pairs or not matches:
             result["is_valid"] = False
-            result["error"] = "No correct answer specified"
+            result["error"] = "Missing pairs or matches structure"
             return result
         
-        for correct_idx in correct_answers:
-            if correct_idx >= len(options):
-                result["is_valid"] = False
-                result["error"] = f"Correct answer index {correct_idx} out of range"
-                return result
+        left_items = pairs.get("left", [])
+        right_items = pairs.get("right", [])
+        
+        if not left_items or not right_items:
+            result["is_valid"] = False
+            result["error"] = "Missing left or right items"
+            return result
         
         # Use Gemini for validation
         gemini_result = validate_with_gemini(question)
@@ -688,8 +711,7 @@ def validate_explanation(question: Dict[str, Any]) -> Dict[str, Any]:
 
 def validate_all_questions(certification_id: int) -> Dict[str, Any]:
     """
-    Validate all MCQ questions for a certification.
-    Save invalid questions to results file and SQL file.
+    Validate all matching type questions for a certification.
     
     Args:
         certification_id: The certification ID to validate
@@ -700,7 +722,7 @@ def validate_all_questions(certification_id: int) -> Dict[str, Any]:
     questions = get_questions_by_certification(certification_id)
     
     if not questions:
-        print("No questions found to validate")
+        print("No matching questions found to validate")
         return {"total": 0, "valid": 0, "invalid": 0, "results_file": None, "sql_file": None}
     
     # Create results directory with date
@@ -708,37 +730,20 @@ def validate_all_questions(certification_id: int) -> Dict[str, Any]:
     results_dir = Path(f"files/{today}")
     results_dir.mkdir(parents=True, exist_ok=True)
     
-    # Results file paths
-    results_file = results_dir / f"{certification_id}_results.json"
-    sql_file = results_dir / f"{certification_id}_updates.sql"
+    results_file = results_dir / f"{certification_id}_matching_results.json"
+    sql_file = results_dir / f"{certification_id}_matching_updates.sql"
     
-    # Load existing results if file exists
+    # Load existing results
     invalid_questions = []
     if results_file.exists():
         try:
             with open(results_file, "r") as f:
                 content = f.read().strip()
-                if content:  # Only load if file is not empty
+                if content:
                     invalid_questions = json.loads(content)
         except (json.JSONDecodeError, IOError) as e:
-            print(f"⚠️  Warning: Could not load existing results file ({str(e)}). Starting fresh.")
+            print(f"⚠️ Warning: Could not load existing results ({str(e)})")
             invalid_questions = []
-    
-    # Load existing SQL statements if file exists
-    existing_sql_statements = []
-    if sql_file.exists():
-        try:
-            with open(sql_file, "r") as f:
-                content = f.read().strip()
-                # Extract UPDATE statements from between BEGIN and COMMIT
-                if content and "BEGIN;" in content and "COMMIT;" in content:
-                    lines = content.split("\n")
-                    for line in lines:
-                        line = line.strip()
-                        if line.startswith("UPDATE ") and line.endswith(";"):
-                            existing_sql_statements.append(line)
-        except IOError:
-            existing_sql_statements = []
     
     summary = {
         "total": len(questions),
@@ -748,11 +753,10 @@ def validate_all_questions(certification_id: int) -> Dict[str, Any]:
         "sql_file": str(sql_file),
     }
     
-    print(f"\nValidating {len(questions)} questions...")
+    print(f"\nValidating {len(questions)} matching questions...")
     print("=" * 80)
     
-    all_sql_updates = []  # Collect all SQL statements
-    sql_file_initialized = False  # Track if we've written BEGIN
+    all_sql_updates = []
     
     for idx, question in enumerate(questions, 1):
         validation_result = validate_explanation(question)
@@ -768,93 +772,65 @@ def validate_all_questions(certification_id: int) -> Dict[str, Any]:
             
             if validation_result.get("error"):
                 print(f"   Error: {validation_result['error']}")
-            if validation_result.get("reason"):
-                print(f"   Reason: {validation_result['reason']}")
+            if validation_result.get("reason_for_pairs"):
+                print(f"   Reason: {validation_result['reason_for_pairs']}")
             
-            # Show specific explanation issues
-            if not validation_result.get("correct_answer_valid"):
-                print(f"   ✗ Correct answer is factually incorrect")
-            if not validation_result.get("explains_correct_option"):
-                print(f"   ✗ Explanation does not clearly explain why correct option is right")
-            if not validation_result.get("explains_incorrect_options"):
-                print(f"   ✗ Explanation does not clearly explain why incorrect options are wrong")
+            if not validation_result.get("pairs_valid"):
+                print(f"   ✗ Pair matching is incorrect")
+            if not validation_result.get("explanation_valid"):
+                print(f"   ✗ Explanation is inadequate")
             
-            # Generate SQL update statement for invalid questions
             question_id = validation_result["question_id"]
             sql_updates = []
             
-            # If correct answer is invalid, use the double-validated answer
-            if not validation_result.get("correct_answer_valid"):
-                print(f"   Correcting answer (double-validated)...")
-                actual_answer_indices = validation_result.get("actual_correct_indices", question.get("correct_answer", []))
-                confidence = validation_result.get("answer_validation_confidence", "unknown")
-                corrected_answer = json.dumps(actual_answer_indices)
-                
-                print(f"   Corrected to: {corrected_answer} (confidence: {confidence})")
-                
-                sql_stmt = f"UPDATE public.question SET correct_answer = '{corrected_answer}' WHERE id = '{question_id}'; -- CORRECTED ANSWER (confidence: {confidence})"
-                sql_updates.append(sql_stmt)
-                all_sql_updates.append(sql_stmt)
-            
-            # If explanation is invalid, generate corrected explanation
+            # Generate corrected explanation if needed
             if not validation_result.get("explanation_valid"):
                 print(f"   Generating corrected explanation...")
                 corrected_explanation = generate_corrected_explanation(question)
-                corrected_explanation_escaped = corrected_explanation.replace("'", "''")  # Escape single quotes
+                corrected_explanation_escaped = corrected_explanation.replace("'", "''")
                 sql_stmt = f"UPDATE public.question SET explanation = E'{corrected_explanation_escaped}' WHERE id = '{question_id}'; -- CORRECTED EXPLANATION"
                 sql_updates.append(sql_stmt)
                 all_sql_updates.append(sql_stmt)
             
-            # Add to invalid questions list
+            # Add to invalid list
             invalid_record = {
                 "question_id": question_id,
                 "error": validation_result.get("error"),
-                "reason": validation_result.get("reason"),
-                "correct_answer_valid": validation_result.get("correct_answer_valid"),
-                "answer_validation_confidence": validation_result.get("answer_validation_confidence"),
-                "double_validation_passed": validation_result.get("double_validation_passed"),
+                "pairs_valid": validation_result.get("pairs_valid"),
                 "explanation_valid": validation_result.get("explanation_valid"),
-                "explains_correct_option": validation_result.get("explains_correct_option"),
-                "explains_incorrect_options": validation_result.get("explains_incorrect_options"),
-                "marked_answer": validation_result.get("marked_answer_indices"),
-                "corrected_answer": validation_result.get("actual_correct_indices"),
+                "confidence": validation_result.get("pair_validation_confidence"),
+                "marked_matches": validation_result.get("marked_matches"),
+                "corrected_matches": validation_result.get("actual_correct_matches"),
                 "question_data": {
                     "text": question.get("text", "")[:200],
-                    "options": question.get("options", []),
-                    "correct_answer": question.get("correct_answer", []),
+                    "pairs": question.get("pairs", {}),
+                    "matches": question.get("matches", {}),
                     "explanation": question.get("explanation", "")[:200],
-                    "module": question.get("module"),
-                    "topic": question.get("topic"),
                 },
                 "sql_updates": sql_updates
             }
             
             invalid_questions.append(invalid_record)
             
-            # Save JSON file incrementally after each invalid question
+            # Save JSON incrementally
             with open(results_file, "w") as f:
                 json.dump(invalid_questions, f, indent=2)
             print(f"   ✓ Saved to JSON file")
             
-            # Initialize SQL file with BEGIN if not already done
-            if not sql_file_initialized:
-                with open(sql_file, "w") as f:
-                    f.write("BEGIN;\n\n")
-                sql_file_initialized = True
-            
-            # Append SQL statements to file
-            with open(sql_file, "a") as f:
-                for sql_stmt in sql_updates:
-                    f.write(sql_stmt + "\n")
-            print(f"   ✓ Saved to SQL file")
+            # Save SQL incrementally
+            if sql_updates:
+                with open(sql_file, "a") as f:
+                    if idx == 1:
+                        f.write("BEGIN;\n\n")
+                    for sql_stmt in sql_updates:
+                        f.write(sql_stmt + "\n")
+                print(f"   ✓ Saved to SQL file")
     
-    # Close SQL file with COMMIT (only if we have invalid questions)
-    if sql_file_initialized:
-        with open(sql_file, "a") as f:
+    # Close SQL transaction
+    with open(sql_file, "a") as f:
+        if summary["invalid"] > 0:
             f.write("\nCOMMIT;\n")
-    else:
-        # Create empty transaction block if no invalid questions
-        with open(sql_file, "w") as f:
+        else:
             f.write("BEGIN;\n-- No updates required - all questions are valid\nCOMMIT;\n")
     
     print("=" * 80)

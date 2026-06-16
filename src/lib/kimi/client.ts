@@ -11,7 +11,7 @@ const KIMI_MODEL = 'kimi-k2.6';
 const GENERATION_CONFIG = {
   temperature: 1,
   top_p: 0.95,
-  max_tokens: 16384,
+  max_tokens: 216384,
 };
 
 // ─── Validation Model Config ───
