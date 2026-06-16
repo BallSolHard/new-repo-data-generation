@@ -1,0 +1,542 @@
+[
+  {
+    "question_id": "44644889-3a30-49a8-9f45-008337a56396",
+    "mock_test_id": "aws_saa_mock2_abc123",
+    "error": "Validation failed: Kimi model requested but KIMI_API_KEY not configured in .env",
+    "reason": null,
+    "original_answer": [
+      0
+    ],
+    "corrected_answer": null,
+    "correct_answer_valid": false,
+    "actual_correct_index": null,
+    "explanation_valid": false,
+    "explanation_issues": null,
+    "question_data": {
+      "question_text": "A scientific computing application requires high-performance parallel computing with low-latency interconnect between compute nodes. The workload processes large datasets and requires shared high-spee",
+      "options": [
+        "EC2 instances in cluster placement group with FSx for Lustre shared storage",
+        "ECS with Fargate and EFS for shared file system access",
+        "Lambda functions with S3 for data storage and parallel processing",
+        "Batch processing with EBS volumes and instance store for temporary data"
+      ],
+      "correct_answer": [
+        0
+      ],
+      "explanation": "Option A (correct) EC2 instances in a cluster placement group provide the necessary low-latency, high-bandwidth interconnect between compute nodes, while FSx for Lustre offers a high-performance, shar"
+    },
+    "sql_updates": [
+      "UPDATE public.mock_test_questions SET explanation = E'Option A (correct) is EC2 instances in cluster placement group with FSx for Lustre shared storage. This combination directly addresses all the specified requirements for HPC. EC2 instances provide the raw compute power needed for parallel processing. A cluster placement group ensures that these EC2 instances are launched physically close together within an Availability Zone, providing the low-latency, high-bandwidth network interconnect crucial for tight-coupling between compute nodes in HPC applications. FSx for Lustre is a high-performance, parallel file system optimized for HPC workloads, offering shared, high-speed storage that can handle the massive I/O demands of large datasets and provide the required low-latency access for multiple compute nodes simultaneously.\n\nOption B (incorrect) is ECS with Fargate and EFS for shared file system access, which is not optimized for HPC performance. Fargate is a serverless compute engine for containers that abstracts away the underlying infrastructure, preventing the use of cluster placement groups to achieve low-latency interconnects between compute nodes. While EFS provides a shared file system, its performance characteristics (latency and throughput) are generally lower than FSx for Lustre and it is not designed for the extreme I/O demands of tightly coupled HPC applications processing very large datasets.\n\nOption C (incorrect) is Lambda functions with S3 for data storage and parallel processing. Lambda functions are stateless, event-driven, and have execution duration limits, making them unsuitable for typical long-running, stateful, and highly interdependent HPC workloads that require direct node-to-node communication. S3 is object storage, not a POSIX-compliant file system, and does not provide the low-latency, high-throughput file access patterns required by many HPC applications, nor does it function as a shared file system in the traditional sense for compute nodes.\n\nOption D (incorrect) is Batch processing with EBS volumes and instance store for temporary data. While AWS Batch can orchestrate parallel processing, the storage solution is inadequate. EBS volumes are block storage attached to a single EC2 instance and are not inherently shared across multiple compute nodes as a file system. Instance store provides temporary, ephemeral storage that is also local to a single instance and data is lost upon instance termination, which does not meet the requirement for shared high-speed storage for large datasets that need to persist and be accessible by multiple nodes.' WHERE id = '44644889-3a30-49a8-9f45-008337a56396'; -- CORRECTED EXPLANATION"
+    ]
+  },
+  {
+    "question_id": "13df5d3c-e9e2-45f7-a33c-ed688bbfe31c",
+    "mock_test_id": "aws_saa_mock2_abc123",
+    "error": "Validation failed: Kimi model requested but KIMI_API_KEY not configured in .env",
+    "reason": null,
+    "original_answer": [
+      0
+    ],
+    "corrected_answer": null,
+    "correct_answer_valid": false,
+    "actual_correct_index": null,
+    "explanation_valid": false,
+    "explanation_issues": null,
+    "question_data": {
+      "question_text": "A global content distribution network needs to optimize costs for content with varying popularity across different regions. Some content is globally popular while others are region-specific. What stor",
+      "options": [
+        "CloudFront with regional edge caches and intelligent origin selection",
+        "S3 with cross-region replication and lifecycle policies",
+        "Global storage with CDN caching and request-based routing",
+        "Regional storage with intelligent traffic routing and caching"
+      ],
+      "correct_answer": [
+        0
+      ],
+      "explanation": "Option A (correct) Amazon CloudFront with regional edge caches and intelligent origin selection effectively minimizes costs by caching popular content close to users globally, reducing origin load, an"
+    },
+    "sql_updates": [
+      "UPDATE public.mock_test_questions SET explanation = E'Option A (correct) is CloudFront with regional edge caches and intelligent origin selection. This strategy directly addresses the problem''s requirements for minimizing costs with varying content popularity and regionality. CloudFront (or any robust CDN) uses regional edge caches to store frequently accessed content close to users, significantly reducing latency and the load on origin servers, thus lowering data transfer costs. \"Intelligent origin selection\" allows the CDN to pull content from the most appropriate origin based on factors like content type, user location, and popularity. For globally popular content, a centralized, highly optimized origin can be used. For region-specific content, the CDN can be configured to pull from a regional origin (e.g., an S3 bucket in that specific region), avoiding unnecessary global replication of that content and minimizing transfer costs for content only relevant to a particular area. This dynamic routing ensures cost efficiency by optimizing both storage and delivery paths.\n\nOption B (incorrect) is S3 with cross-region replication and lifecycle policies. While S3 is an excellent storage solution and lifecycle policies help manage storage costs by moving data to cheaper tiers, cross-region replication fundamentally duplicates data across regions, which can be costly for all content, especially region-specific content that doesn''t need global availability at the origin level. More importantly, S3 alone is a storage service, not a delivery network; it lacks the global edge caching and optimization capabilities of a CDN to minimize delivery costs to end-users globally and handle high traffic volumes efficiently. Without a CDN, direct S3 access for global distribution would incur high data transfer costs (egress) and higher latency for users far from the bucket.\n\nOption C (incorrect) is Global storage with CDN caching and request-based routing. \"Global storage\" is vague but often implies either a single central storage location (which would incur high egress costs and latency for distant users, even with a CDN) or replicating *all* content globally, which would be extremely expensive for region-specific content. While CDN caching is crucial, the concept of \"global storage\" contradicts the need to optimize for region-specific content by potentially replicating it unnecessarily or incurring long-haul costs from a single origin. The problem specifically highlights \"varying popularity across different regions,\" implying that not all content should be treated as globally stored or globally popular.\n\nOption D (incorrect) is Regional storage with intelligent traffic routing and caching. While regional storage is excellent for region-specific content, applying it to *all* content means that globally popular content would either need to be replicated across multiple regions (increasing storage costs) or served from a single regional origin globally (increasing latency and egress costs for users far from that region). \"Intelligent traffic routing and caching\" are good components, but this option lacks the explicit strategy for efficiently handling *both* global and regional content types from optimized origins through a global edge network, which a robust CDN (like CloudFront) provides with specific multi-origin capabilities. It doesn''t explicitly mention the global reach and diverse origin strategy that is key to cost-effective global distribution for mixed content.' WHERE id = '13df5d3c-e9e2-45f7-a33c-ed688bbfe31c'; -- CORRECTED EXPLANATION"
+    ]
+  },
+  {
+    "question_id": "5af0a1e4-fa45-43db-b9d7-801a54539b97",
+    "mock_test_id": "aws_saa_mock2_abc123",
+    "error": "Validation failed: Kimi model requested but KIMI_API_KEY not configured in .env",
+    "reason": null,
+    "original_answer": [
+      2
+    ],
+    "corrected_answer": null,
+    "correct_answer_valid": false,
+    "actual_correct_index": null,
+    "explanation_valid": false,
+    "explanation_issues": null,
+    "question_data": {
+      "question_text": "A government agency requires complete data sovereignty with all encryption keys managed domestically. The solution must provide hardware-based key generation and comply with FIPS 140-2 Level 3 standar",
+      "options": [
+        "AWS KMS with customer-managed keys in dedicated AWS regions",
+        "AWS CloudHSM Classic with on-premises key management integration",
+        "AWS CloudHSM clusters with customer-exclusive hardware security modules",
+        "AWS Secrets Manager with customer-provided encryption keys"
+      ],
+      "correct_answer": [
+        2
+      ],
+      "explanation": "Option 0 (incorrect) AWS KMS with customer-managed keys does not provide complete data sovereignty because AWS maintains operational control over the underlying HSMs, and KMS HSMs are FIPS 140-2 Level"
+    },
+    "sql_updates": [
+      "UPDATE public.mock_test_questions SET explanation = E'Option C (correct) is AWS CloudHSM clusters with customer-exclusive hardware security modules. CloudHSM provides dedicated, single-tenant hardware security modules (HSMs) within AWS, which the customer has exclusive administrative control over. This allows for hardware-based key generation and ensures that all encryption keys are managed solely by the customer within these HSMs, meaning AWS does not have access to the unencrypted keys. CloudHSM is designed and certified to meet FIPS 140-2 Level 3 compliance for its HSMs, directly satisfying the requirement for hardware-based key generation and specific compliance standards. The exclusive nature of the hardware and direct customer control over key management within these HSMs are critical for achieving complete data sovereignty and domestic key management requirements, as the customer dictates all cryptographic operations and key lifecycle.\n\nOption A (incorrect) is AWS KMS with customer-managed keys in dedicated AWS regions. AWS Key Management Service (KMS) uses a multi-tenant architecture, meaning the underlying hardware security modules (HSMs) are shared across multiple customers. While customer-managed keys (CMKs) offer administrative control over key usage policies, the physical HSMs are controlled by AWS. The service typically provides FIPS 140-2 Level 2 compliance for its underlying HSMs, not Level 3 with exclusive hardware access and direct customer control, which is explicitly required for this scenario. This shared environment does not meet the \"complete data sovereignty\" or \"hardware-based key generation\" with exclusive control requirements.\n\nOption B (incorrect) is AWS CloudHSM Classic with on-premises key management integration. AWS CloudHSM Classic is a deprecated service and is no longer recommended or available for new deployments. As it is an end-of-life service, it is not a viable or sustainable solution to meet current sovereign requirements, even if it might have offered some dedicated hardware capabilities in the past.\n\nOption D (incorrect) is AWS Secrets Manager with customer-provided encryption keys. AWS Secrets Manager is a service designed to manage secrets like database credentials, API keys, and other sensitive information, not a primary hardware-based key management system for general data encryption. While Secrets Manager can use AWS KMS for encrypting the secrets it stores, it does not provide dedicated, customer-exclusive hardware security modules (HSMs) for key generation and management. It therefore does not inherently offer FIPS 140-2 Level 3 compliance for a broad range of data encryption keys under exclusive customer control, which is necessary to meet the stated sovereign requirements. \"Customer-provided encryption keys\" in this context often refers to bringing your own key material (BYOK) into KMS, which still relies on the shared KMS infrastructure and does not provide the exclusive hardware or Level 3 compliance needed.' WHERE id = '5af0a1e4-fa45-43db-b9d7-801a54539b97'; -- CORRECTED EXPLANATION"
+    ]
+  },
+  {
+    "question_id": "6c1e233a-0d03-4cb5-8159-0b87a7e00956",
+    "mock_test_id": "aws_saa_mock2_abc123",
+    "error": "Validation failed: Kimi model requested but KIMI_API_KEY not configured in .env",
+    "reason": null,
+    "original_answer": [
+      0
+    ],
+    "corrected_answer": null,
+    "correct_answer_valid": false,
+    "actual_correct_index": null,
+    "explanation_valid": false,
+    "explanation_issues": null,
+    "question_data": {
+      "question_text": "An e-commerce platform needs to protect against credential stuffing attacks while maintaining user experience. The system should detect suspicious login patterns, implement adaptive authentication, an",
+      "options": [
+        "Amazon Cognito with advanced security features and risk-based authentication",
+        "AWS WAF with rate-based rules and IP reputation lists for login endpoints",
+        "Amazon GuardDuty with custom threat intelligence and automated response",
+        "API Gateway with throttling limits and custom authorizers for authentication"
+      ],
+      "correct_answer": [
+        0
+      ],
+      "explanation": "Option A (correct) Amazon Cognito with advanced security features and risk-based authentication directly provides capabilities to detect suspicious login patterns, implement adaptive authentication ba"
+    },
+    "sql_updates": [
+      "UPDATE public.mock_test_questions SET explanation = E'Option A (correct) is Amazon Cognito with advanced security features and risk-based authentication. This solution is specifically designed to manage user identities and access, and its advanced security features directly address the problem requirements. Amazon Cognito''s security features include detecting and mitigating credential stuffing, brute-force attacks, and compromised credentials. It uses machine learning to analyze various attributes of login attempts, such as IP address, geolocation, device characteristics, and historical user behavior, to identify suspicious login patterns. Based on this risk assessment, it implements adaptive authentication by challenging high-risk sign-in attempts (e.g., requesting an MFA code or CAPTCHA) while allowing legitimate, low-risk users to have a seamless sign-in experience. This proactive and adaptive approach provides comprehensive protection against credential stuffing without negatively impacting legitimate users.\n\nOption B (incorrect) is AWS WAF with rate-based rules and IP reputation lists for login endpoints, which is a network-level protection service. While AWS WAF can help mitigate some brute-force and credential stuffing attempts by blocking known malicious IP addresses or limiting request rates from suspicious sources, it primarily operates at the HTTP/S layer. It does not offer the granular, user-behavioral analysis, risk-based assessment, or adaptive authentication capabilities required to detect sophisticated suspicious login patterns or to dynamically challenge users based on individual login risk. WAF is a good perimeter defense but does not provide the comprehensive, intelligent, and adaptive user authentication protection specified in the question.\n\nOption C (incorrect) is Amazon GuardDuty with custom threat intelligence and automated response. Amazon GuardDuty is a threat detection service that continuously monitors AWS accounts and workloads for malicious activity and unauthorized behavior. While critical for overall AWS security, it operates at a broader AWS account and network level, detecting threats like compromised instances, unusual API calls, or cryptocurrency mining. GuardDuty is not designed to directly analyze individual user login patterns for an application''s authentication flow, implement adaptive authentication, or manage user identity. Its focus is on detecting and responding to threats within the AWS environment, not on end-user authentication protection for an e-commerce platform.\n\nOption D (incorrect) is API Gateway with throttling limits and custom authorizers for authentication. API Gateway can enforce throttling limits to prevent denial-of-service (DoS) and basic brute-force attacks by restricting the number of requests to the login endpoint. Custom authorizers can be used to integrate with an identity provider or implement custom authentication logic. However, API Gateway''s throttling is a blunt instrument and does not perform the sophisticated behavioral analysis needed to detect subtle suspicious login patterns associated with credential stuffing. While a custom authorizer *could* be developed to implement some adaptive logic, it would require significant custom development to replicate the advanced security features and risk-based authentication capabilities that a specialized identity service like Amazon Cognito provides out-of-the-box. It does not inherently offer seamless adaptive authentication based on real-time risk assessment.' WHERE id = '6c1e233a-0d03-4cb5-8159-0b87a7e00956'; -- CORRECTED EXPLANATION"
+    ]
+  },
+  {
+    "question_id": "72b3c84b-5738-43ec-a54d-81aba37dc714",
+    "mock_test_id": "aws_saa_mock2_abc123",
+    "error": "Validation failed: Kimi model requested but KIMI_API_KEY not configured in .env",
+    "reason": null,
+    "original_answer": [
+      1
+    ],
+    "corrected_answer": null,
+    "correct_answer_valid": false,
+    "actual_correct_index": null,
+    "explanation_valid": false,
+    "explanation_issues": null,
+    "question_data": {
+      "question_text": "A message processing system must handle millions of messages daily with guaranteed delivery, message ordering, and dead letter handling for failed processing. The system requires high availability and",
+      "options": [
+        "SQS Standard queues with Lambda integration and DLQ for error handling",
+        "SQS FIFO queues with ordered processing and automatic retry mechanisms",
+        "Amazon MQ with Apache ActiveMQ for enterprise messaging patterns",
+        "Kinesis Data Streams with consumer groups for parallel message processing"
+      ],
+      "correct_answer": [
+        1
+      ],
+      "explanation": "Option A (incorrect) SQS Standard queues do not guarantee message ordering, which is a critical requirement for the system, although they do support DLQs and scale well with Lambda. Option B (correct)"
+    },
+    "sql_updates": [
+      "UPDATE public.mock_test_questions SET explanation = E'Option B (correct) is SQS FIFO queues with ordered processing and automatic retry mechanisms. SQS FIFO (First-In, First-Out) queues are designed to ensure strict message ordering, guaranteeing that messages are processed exactly in the order they were sent, which directly fulfills the \"message ordering\" requirement. They also provide exactly-once processing semantics, satisfying the \"guaranteed delivery\" need. SQS offers native Dead Letter Queue (DLQ) support, making it straightforward to handle messages that fail processing. As a fully managed service, SQS itself is highly available. When integrated with services like AWS Lambda, the system can achieve automatic scaling based on queue depth, as Lambda automatically adjusts its concurrency to process the queue backlog. The \"automatic retry mechanisms\" are commonly implemented by consumers polling SQS, further contributing to reliable processing.\n\nOption A (incorrect) is SQS Standard queues with Lambda integration and DLQ for error handling. While SQS Standard queues offer high throughput, at-least-once delivery, native DLQ support, high availability, and can integrate with Lambda for automatic scaling, they do NOT guarantee message ordering. Messages in a Standard queue can be delivered and processed out of order, which violates the explicit \"message ordering\" requirement of the question.\n\nOption C (incorrect) is Amazon MQ with Apache ActiveMQ for enterprise messaging patterns. Amazon MQ provides managed message brokers like ActiveMQ, which can offer enterprise messaging patterns, guaranteed delivery, message ordering (though often requiring specific client configurations or single consumers per queue for strict ordering), and DLQ support. However, Amazon MQ brokers are typically deployed on fixed-size instances, and scaling based on queue depth is not automatic in the same way as SQS. While vertical scaling or horizontal scaling with multiple brokers is possible, it requires manual intervention or complex custom automation rather than native, automatic scaling based on queue depth, thus failing this critical requirement.\n\nOption D (incorrect) is Kinesis Data Streams with consumer groups for parallel message processing. Kinesis Data Streams is designed for real-time streaming data ingestion and processing, offering high throughput and ordering *within a shard* for messages with the same partition key. While Kinesis can handle large volumes and offers high availability, it lacks direct \"dead letter handling\" in the same native way SQS provides DLQs, typically requiring custom logic in consumers to redirect failed records. Furthermore, while consumers can scale, the primary scaling mechanism for Kinesis is through managing shards, which is different from automatic scaling based on individual message queue depth as expected in a traditional message queue. It''s more suited for stream processing rather than the traditional message queuing semantics described in the problem, especially concerning guaranteed delivery (acknowledgement of processing completion for individual messages) and strict global ordering.' WHERE id = '72b3c84b-5738-43ec-a54d-81aba37dc714'; -- CORRECTED EXPLANATION"
+    ]
+  },
+  {
+    "question_id": "87ced102-3622-47ec-a397-92b1172f9ace",
+    "mock_test_id": "aws_saa_mock2_abc123",
+    "error": "Validation failed: Kimi model requested but KIMI_API_KEY not configured in .env",
+    "reason": null,
+    "original_answer": [
+      0
+    ],
+    "corrected_answer": null,
+    "correct_answer_valid": false,
+    "actual_correct_index": null,
+    "explanation_valid": false,
+    "explanation_issues": null,
+    "question_data": {
+      "question_text": "A financial institution needs data classification and protection across multiple data stores including S3, RDS, and DynamoDB. The solution must automatically identify sensitive data, apply appropriate",
+      "options": [
+        "AWS Macie for S3 data discovery with AWS Config for compliance monitoring",
+        "AWS GuardDuty for threat detection with Amazon Inspector for vulnerability assessment",
+        "AWS Security Hub for centralized security findings with AWS Config Rules",
+        "Amazon Macie with custom data identifiers and automated remediation workflows"
+      ],
+      "correct_answer": [
+        0
+      ],
+      "explanation": "Option A (correct) AWS Macie specifically identifies sensitive data within S3, and AWS Config monitors and reports on the security configurations and compliance of resources like S3, RDS, and DynamoDB"
+    },
+    "sql_updates": [
+      "UPDATE public.mock_test_questions SET explanation = E'Option A (correct) is AWS Macie for S3 data discovery with AWS Config for compliance monitoring. This approach provides the most comprehensive solution among the choices for identifying sensitive data, applying protections, and providing compliance reporting across multiple data stores. Amazon Macie excels at automatically identifying sensitive data (like PII, financial data) within S3 buckets using machine learning and pattern matching. While Macie''s primary strength for sensitive data discovery is in S3, AWS Config complements this by monitoring the configuration of a wide range of AWS resources, including S3, RDS, and DynamoDB. Config can assess whether appropriate protections (e.g., encryption at rest, proper access controls, network configurations) are in place and compliant with defined rules across these data stores, and it provides continuous compliance reporting. Together, Macie identifies the sensitive data where it is strongest (S3), and Config ensures that all relevant data stores (S3, RDS, DynamoDB) are configured securely and remain compliant, addressing the \"apply appropriate protections\" and \"provide compliance reporting\" aspects comprehensively across the specified services.\n\nOption B (incorrect) is AWS GuardDuty for threat detection with Amazon Inspector for vulnerability assessment, which focuses on different security domains. GuardDuty is primarily for continuous threat detection of malicious activity and unauthorized behavior within AWS accounts, while Amazon Inspector assesses EC2 instances and container images for software vulnerabilities and unintended network exposure. Neither service is designed to automatically identify sensitive data within data stores (S3, RDS, DynamoDB) or directly apply data classification protections.\n\nOption C (incorrect) is AWS Security Hub for centralized security findings with AWS Config Rules. AWS Security Hub aggregates security findings from various AWS services (including Macie, GuardDuty, Inspector, etc.) and partner solutions into a single pane of glass, providing a centralized view of an organization''s security posture. AWS Config Rules monitor resource compliance against desired configurations. While both are crucial for overall security management and compliance reporting, this option lacks the specific component for *automatically identifying sensitive data* across the data stores, which is a core requirement of the question. Security Hub presents findings; it does not generate data classification findings on its own.\n\nOption D (incorrect) is Amazon Macie with custom data identifiers and automated remediation workflows. While Amazon Macie is excellent for automatically identifying sensitive data (including with custom data identifiers) in S3 buckets and can be integrated with automated remediation workflows (e.g., via AWS Lambda) to respond to findings, this option primarily focuses on the identification and remediation aspects specifically for S3. It does not explicitly address the \"across multiple data stores including S3, RDS, and DynamoDB\" requirement as comprehensively as Option A, especially concerning the broad compliance monitoring and reporting for RDS and DynamoDB configurations which AWS Config provides. Macie''s sensitive data discovery capabilities do not extend to scanning the contents of RDS databases or DynamoDB tables directly for sensitive data. Option A''s inclusion of AWS Config provides a broader scope for monitoring protections and reporting compliance across all specified data stores.' WHERE id = '87ced102-3622-47ec-a397-92b1172f9ace'; -- CORRECTED EXPLANATION"
+    ]
+  },
+  {
+    "question_id": "aa7e1466-3fbc-44b8-bd6f-f680312df9c6",
+    "mock_test_id": "aws_saa_mock2_abc123",
+    "error": "Validation failed: Kimi model requested but KIMI_API_KEY not configured in .env",
+    "reason": null,
+    "original_answer": [
+      1
+    ],
+    "corrected_answer": null,
+    "correct_answer_valid": false,
+    "actual_correct_index": null,
+    "explanation_valid": false,
+    "explanation_issues": null,
+    "question_data": {
+      "question_text": "A financial services company needs to implement a zero-trust security model for their multi-tier application. The application must validate every network request, implement least-privilege access, and",
+      "options": [
+        "Configure AWS Network Firewall with custom rules and integrate with on-premises AD using LDAP",
+        "Implement AWS IAM Identity Center with corporate AD federation, use VPC endpoints, and enable comprehensive CloudTrail logging",
+        "Set up AWS WAF with rate-based rules and use Amazon Cognito for user authentication",
+        "Deploy AWS Shield Advanced with DDoS protection and implement security groups with restrictive rules"
+      ],
+      "correct_answer": [
+        1
+      ],
+      "explanation": "**CORRECT ANSWER: Option B (Index 1)**\n\nIAM Identity Center provides centralized access management with AD federation, VPC endpoints ensure private connectivity, and CloudTrail delivers comprehensive "
+    },
+    "sql_updates": [
+      "UPDATE public.mock_test_questions SET explanation = E'Option B (correct) is Implement AWS IAM Identity Center with corporate AD federation, use VPC endpoints, and enable comprehensive CloudTrail logging. This architecture directly addresses all aspects of the zero-trust security model outlined. AWS IAM Identity Center (formerly AWS SSO) integrates seamlessly with corporate Active Directory for user authentication and provides single sign-on access to AWS accounts and cloud applications. This fulfills the requirement for users to authenticate through corporate Active Directory and forms the basis for implementing least-privilege access by mapping AD groups to specific AWS roles with fine-grained permissions. VPC endpoints ensure that traffic between the application''s tiers and AWS services (like S3, DynamoDB, or PrivateLink services) remains within the Amazon network, validating network requests by preventing public internet exposure and allowing for more granular network access controls (via security groups) around these endpoints, thus enhancing network security and reducing the attack surface. Comprehensive CloudTrail logging captures all API calls and actions performed by users and roles within your AWS environment, providing the necessary audit trails for compliance, security analysis, and forensic investigations, which is critical for a zero-trust model.\n\nOption A (incorrect) is Configure AWS Network Firewall with custom rules and integrate with on-premises AD using LDAP, which is insufficient for a comprehensive zero-trust model. While AWS Network Firewall is excellent for deep packet inspection and enforcing network policies, contributing to validating network requests, directly integrating multi-tier cloud applications with on-premises AD using raw LDAP for authentication is generally not scalable, secure, or practical for modern cloud-native applications. It lacks a robust mechanism for implementing least-privilege access across AWS services for application users and does not inherently provide comprehensive audit trails for AWS API actions in the same way CloudTrail does.\n\nOption C (incorrect) is Set up AWS WAF with rate-based rules and use Amazon Cognito for user authentication. AWS WAF is designed to protect web applications from common web exploits and DDoS attacks at the HTTP/S layer, addressing only a subset of network request validation (specifically inbound web traffic). While Amazon Cognito is a robust solution for user authentication, the question specifically requires authentication through *corporate Active Directory*. While Cognito can federate with identity providers, AWS IAM Identity Center offers more direct and comprehensive federation with corporate AD for AWS account access and application integration, and Cognito itself doesn''t provide the least-privilege access to AWS resources or comprehensive AWS API audit trails that IAM Identity Center and CloudTrail do.\n\nOption D (incorrect) is Deploy AWS Shield Advanced with DDoS protection and implement security groups with restrictive rules. AWS Shield Advanced is primarily a DDoS protection service and doesn''t address the other core zero-trust requirements such as validating every network request at an application level, integrating with corporate AD for authentication, implementing least-privilege access for users across AWS services, or providing comprehensive audit trails beyond basic network flow logs (which security groups don''t directly provide; CloudWatch Flow Logs do). Security groups are fundamental for network-level least privilege and filtering traffic between instances, but they are only one component and do not cover identity management or comprehensive API auditing.' WHERE id = 'aa7e1466-3fbc-44b8-bd6f-f680312df9c6'; -- CORRECTED EXPLANATION"
+    ]
+  },
+  {
+    "question_id": "e84358b8-d3fd-4345-804e-377ae3592dbb",
+    "mock_test_id": "aws_saa_mock2_abc123",
+    "error": "Validation failed: Kimi model requested but KIMI_API_KEY not configured in .env",
+    "reason": null,
+    "original_answer": [
+      2
+    ],
+    "corrected_answer": null,
+    "correct_answer_valid": false,
+    "actual_correct_index": null,
+    "explanation_valid": false,
+    "explanation_issues": null,
+    "question_data": {
+      "question_text": "A healthcare application requires role-based access control with dynamic permissions based on patient consent and care team assignments. Access decisions must be made in real-time with comprehensive a",
+      "options": [
+        "AWS IAM with condition-based policies and dynamic policy generation",
+        "Amazon Cognito with custom authorizers and Lambda-based access decisions",
+        "AWS IAM Identity Center with attribute-based access control (ABAC)",
+        "API Gateway with Lambda authorizers and DynamoDB for permission storage"
+      ],
+      "correct_answer": [
+        2
+      ],
+      "explanation": "**CORRECT ANSWER: Option C (Index 2)**\n\nAWS IAM Identity Center with ABAC enables dynamic permission decisions based on user and resource attributes, supporting real-time access control with comprehen"
+    },
+    "sql_updates": [
+      "UPDATE public.mock_test_questions SET explanation = E'Option C (correct) is AWS IAM Identity Center with attribute-based access control (ABAC). This architecture natively supports dynamic permissions based on various attributes. IAM Identity Center allows defining permissions based on attributes of the user (e.g., care team role, department from an identity source), and attributes of the resource (e.g., patient ID, consent status as a tag or attribute associated with the patient data). When an access request is made, the policies are evaluated in real-time against these attributes, making the access decision dynamic and fine-grained. This approach directly addresses the requirements for \"dynamic permissions based on patient consent and care team assignments\" and integrates with AWS services for comprehensive audit logging via CloudTrail.\n\nOption A (incorrect) is AWS IAM with condition-based policies and dynamic policy generation. While AWS IAM supports condition-based policies, which are a form of ABAC for AWS resources, relying on \"dynamic policy generation\" at the application level for every access decision introduces significant complexity, potential for race conditions, and management overhead. IAM''s primary focus is managing access to AWS resources, not necessarily providing a robust, scalable architecture for dynamic, application-level data access based on granular attributes like patient consent without extensive custom development and integration. It''s more suited for AWS resource governance rather than a comprehensive, real-time application-level dynamic access control architecture.\n\nOption B (incorrect) is Amazon Cognito with custom authorizers and Lambda-based access decisions. Amazon Cognito is primarily an identity management service for user authentication. While custom authorizers (typically AWS Lambda functions invoked by API Gateway) can implement *any* custom authorization logic, including ABAC, Cognito itself does not provide the authorization *architecture*. The entire dynamic access control logic, policy definition, attribute management, and real-time evaluation would need to be custom-built within the Lambda function and associated services. This describes a custom implementation *using* Cognito for authentication, rather than a built-in authorization architecture that supports dynamic access control as a core feature.\n\nOption D (incorrect) is API Gateway with Lambda authorizers and DynamoDB for permission storage. This describes a set of components that *could be used* to build a custom authorization system. However, it does not represent a complete \"authorization architecture\" that inherently supports dynamic access control. Implementing ABAC from scratch using these components would require significant development effort for policy definition, evaluation engine, attribute sourcing, real-time decision making, and audit logging integration. It places the full burden of design, scalability, and maintenance on the developer, rather than leveraging a more structured and integrated architecture like IAM Identity Center''s ABAC capabilities.' WHERE id = 'e84358b8-d3fd-4345-804e-377ae3592dbb'; -- CORRECTED EXPLANATION"
+    ]
+  },
+  {
+    "question_id": "27c2bfc9-b8f2-49cd-b044-209713e69f1d",
+    "mock_test_id": "aws_saa_mock2_abc123",
+    "error": "Validation failed: Kimi model requested but KIMI_API_KEY not configured in .env",
+    "reason": null,
+    "original_answer": [
+      0
+    ],
+    "corrected_answer": null,
+    "correct_answer_valid": false,
+    "actual_correct_index": null,
+    "explanation_valid": false,
+    "explanation_issues": null,
+    "question_data": {
+      "question_text": "A web application needs protection against bot attacks, credential stuffing, and application-layer DDoS while maintaining legitimate user experience. The solution should adapt to emerging attack patte",
+      "options": [
+        "AWS WAF with managed rule groups, rate limiting, and bot control capabilities",
+        "CloudFront with custom security headers and geographic restrictions",
+        "AWS Shield with DDoS protection and automatic traffic analysis",
+        "Application Load Balancer with security groups and access logging"
+      ],
+      "correct_answer": [
+        0
+      ],
+      "explanation": "**CORRECT ANSWER: Option A (Index 0)**\n\nAWS WAF with managed rule groups provides protection against common attacks with automatic updates, while bot control and rate limiting protect against sophisti"
+    },
+    "sql_updates": [
+      "UPDATE public.mock_test_questions SET explanation = E'Option A (correct) is AWS WAF with managed rule groups, rate limiting, and bot control capabilities. This option provides comprehensive protection by directly addressing all the specified requirements. AWS WAF (Web Application Firewall) operates at Layer 7 (application layer) and can inspect web requests for malicious patterns. Managed rule groups from AWS or AWS Marketplace are continuously updated by security experts, automatically adapting to emerging attack patterns. Rate limiting effectively mitigates application-layer DDoS attacks and credential stuffing attempts by blocking excessive requests from a single source. AWS WAF''s Bot Control capabilities specifically identify and mitigate sophisticated bot attacks, including those involved in credential stuffing, while allowing legitimate user and known bot traffic to pass through, thereby maintaining a legitimate user experience. This layered approach combines advanced threat detection with adaptive response mechanisms.\n\nOption B (incorrect) is CloudFront with custom security headers and geographic restrictions, which is primarily a Content Delivery Network (CDN) service. While CloudFront can improve performance and offers some basic security features like custom security headers (which primarily protect client-side vulnerabilities) and geographic restrictions (which offer a blunt instrument against location-based attacks), it lacks the granular application-layer inspection, dedicated bot detection, and adaptive rule sets necessary to combat sophisticated bot attacks, credential stuffing, or the specific patterns of application-layer DDoS as effectively as a WAF. Geographic restrictions can block entire regions but cannot differentiate between malicious and legitimate traffic from allowed regions.\n\nOption C (incorrect) is AWS Shield with DDoS protection and automatic traffic analysis. AWS Shield (Standard and Advanced) is a robust DDoS protection service, specifically designed to protect against large-scale network and transport layer (Layer 3 and 4) DDoS attacks. AWS Shield Advanced extends this protection to Layer 7 and offers more sophisticated detection and mitigation, often working in conjunction with AWS WAF for application-layer attacks. However, Shield alone primarily focuses on DDoS volumetric and protocol attacks. It does not provide the same level of granular control, specialized rule sets (like managed rules for OWASP Top 10), or specific bot control features tailored for preventing bot attacks and credential stuffing at the application logic layer that AWS WAF offers. While Shield is a crucial layer, WAF is essential for the specified application-layer threats like credential stuffing and sophisticated bot attacks.\n\nOption D (incorrect) is Application Load Balancer with security groups and access logging. An Application Load Balancer (ALB) distributes incoming application traffic at Layer 7 and is crucial for high availability and scalability. Security Groups act as stateful firewalls at the instance or network interface level, primarily controlling traffic based on IP address and port (Layer 4), not the content of HTTP requests. They cannot inspect application-layer payloads for bot patterns, credential stuffing attempts, or specific application-layer DDoS attack vectors. Access logging is valuable for auditing and post-incident analysis but provides no active, real-time protection against ongoing attacks. This option lacks the capabilities for deep packet inspection, rate limiting, and intelligent bot detection required to address the specified threats.' WHERE id = '27c2bfc9-b8f2-49cd-b044-209713e69f1d'; -- CORRECTED EXPLANATION"
+    ]
+  },
+  {
+    "question_id": "c1330af3-879a-4007-a129-4877236a89b5",
+    "mock_test_id": "aws_saa_mock2_abc123",
+    "error": "Validation failed: Kimi model requested but KIMI_API_KEY not configured in .env",
+    "reason": null,
+    "original_answer": [
+      0
+    ],
+    "corrected_answer": null,
+    "correct_answer_valid": false,
+    "actual_correct_index": null,
+    "explanation_valid": false,
+    "explanation_issues": null,
+    "question_data": {
+      "question_text": "A SaaS platform requires strict tenant isolation with dedicated encryption keys, network segmentation, and separate audit trails per customer. The solution must scale efficiently while maintaining com",
+      "options": [
+        "Account-level isolation with separate AWS accounts per major tenant",
+        "Application-level isolation with shared infrastructure and tenant-specific security controls",
+        "VPC-level isolation with dedicated networks per tenant",
+        "Database-level isolation with tenant-specific schemas and access controls"
+      ],
+      "correct_answer": [
+        0
+      ],
+      "explanation": "**CORRECT ANSWER: Option A (Index 0)**\n\nAccount-level isolation provides the strongest security boundaries with natural separation of resources, dedicated encryption keys, separate billing, and indivi"
+    },
+    "sql_updates": [
+      "UPDATE public.mock_test_questions SET explanation = E'Option A (correct) is Account-level isolation with separate AWS accounts per major tenant. This architecture provides the strongest and most comprehensive isolation necessary to meet the requirements of \"strict tenant isolation\" and \"complete data isolation.\" Each AWS account acts as a hard boundary, ensuring truly dedicated encryption keys (managed within each tenant''s account via KMS), robust network segmentation (each account has its own VPCs and network configurations), and completely separate audit trails (CloudTrail logs specific to each account). This eliminates the \"noisy neighbor\" problem at the infrastructure level, simplifies compliance, and minimizes the blast radius of any security incident to a single tenant. While it introduces more operational overhead than shared models, it is the only option that fully guarantees the specified level of security and isolation.\n\nOption B (incorrect) is Application-level isolation with shared infrastructure and tenant-specific security controls. This approach relies on the application layer to enforce isolation, which is inherently less secure than infrastructure-level separation. While tenant-specific security controls like role-based access control (RBAC) are crucial, they cannot provide dedicated network segmentation, completely separate encryption keys, or independent infrastructure-level audit trails. Sharing the underlying infrastructure means potential for misconfigurations, privilege escalation, or resource exhaustion in one tenant to impact others, failing to meet the \"strict\" and \"complete data isolation\" requirements at the platform level.\n\nOption C (incorrect) is VPC-level isolation with dedicated networks per tenant. While VPC-level isolation provides excellent network segmentation, it still operates within a single AWS account. This means that elements like IAM roles, billing, and global services such as CloudTrail (for audit trails) and KMS (for encryption keys) are shared at the account level. While you can create separate KMS keys per tenant within the account, the root access to those keys and the audit logs for their usage would still be consolidated under the main account, not truly \"dedicated\" or \"separate\" in the same way an entirely separate account would be. It improves network security but does not provide the ultimate level of isolation required across all dimensions.\n\nOption D (incorrect) is Database-level isolation with tenant-specific schemas and access controls. This is the weakest form of isolation among the options when \"strict tenant isolation\" is required across the entire SaaS platform. While tenant-specific schemas and access controls provide logical separation within a single database instance, the underlying database infrastructure, compute resources, storage, and network are shared. This introduces risks such as resource contention, shared vulnerabilities, or misconfigurations that could lead to data leakage between tenants. It does not provide dedicated encryption keys at the physical storage level per tenant, nor separate network segmentation outside the database, nor independent audit trails at the infrastructure level.' WHERE id = 'c1330af3-879a-4007-a129-4877236a89b5'; -- CORRECTED EXPLANATION"
+    ]
+  },
+  {
+    "question_id": "b3e79efd-52aa-49d9-9a01-0cb24d5663a6",
+    "mock_test_id": "aws_saa_mock2_abc123",
+    "error": "Validation failed: Kimi model requested but KIMI_API_KEY not configured in .env",
+    "reason": null,
+    "original_answer": [
+      2
+    ],
+    "corrected_answer": null,
+    "correct_answer_valid": false,
+    "actual_correct_index": null,
+    "explanation_valid": false,
+    "explanation_issues": null,
+    "question_data": {
+      "question_text": "A company requires network segmentation to isolate different application tiers while allowing controlled communication between specific services. The solution must support micro-segmentation and provi",
+      "options": [
+        "Use multiple VPCs with VPC peering and configure route tables for controlled communication",
+        "Implement security groups with specific port and protocol rules for each application tier",
+        "Deploy AWS Network Firewall with stateful rule groups and enable VPC Flow Logs for detailed monitoring",
+        "Configure NACLs at subnet level with specific ingress and egress rules for each tier"
+      ],
+      "correct_answer": [
+        2
+      ],
+      "explanation": "**CORRECT ANSWER: Option C (Index 2)**\n\nAWS Network Firewall provides advanced stateful inspection and micro-segmentation capabilities, while VPC Flow Logs deliver detailed network visibility required"
+    },
+    "sql_updates": [
+      "UPDATE public.mock_test_questions SET explanation = E'Option C (correct) is Deploy AWS Network Firewall with stateful rule groups and enable VPC Flow Logs for detailed monitoring. This option directly addresses all aspects of the requirement. AWS Network Firewall provides advanced, stateful inspection capabilities with granular rule groups (including 5-tuple, domain lists, and Suricata-compatible rules) which are essential for achieving robust network segmentation and micro-segmentation between application tiers and services. Its stateful nature allows for more intelligent traffic control than stateless NACLs. When deployed strategically (e.g., in a centralized inspection VPC or between subnets hosting different tiers), it can enforce detailed communication policies. Furthermore, the explicit mention of enabling VPC Flow Logs ensures \"detailed network flow visibility for security analysis,\" which captures metadata about all IP traffic going to and from network interfaces in a VPC. AWS Network Firewall also provides its own logs, offering even more specific details on firewall events (allowed/denied traffic, alerts), crucial for security analysis and auditing. This combination provides both the enforcement mechanism for micro-segmentation and the necessary visibility.\n\nOption A (incorrect) is Use multiple VPCs with VPC peering and configure route tables for controlled communication. While multiple VPCs provide excellent macro-level segmentation and VPC peering allows controlled communication between them, this approach is too coarse-grained to achieve *micro-segmentation*. Micro-segmentation aims to isolate individual workloads or applications *within* a network segment (like a VPC or subnet), not just separate large network environments. This option also does not explicitly mention any mechanism for detailed network flow visibility, which would typically require VPC Flow Logs, a separate service.\n\nOption B (incorrect) is Implement security groups with specific port and protocol rules for each application tier. Security groups are fundamental for implementing network segmentation and micro-segmentation at the instance or Elastic Network Interface (ENI) level within a VPC, and they are excellent for controlling communication between specific services based on port and protocol rules. However, security groups alone do not provide \"detailed network flow visibility for security analysis.\" While VPC Flow Logs are often enabled in conjunction with security groups, this option only describes the security group implementation itself, omitting the crucial visibility component explicitly requested by the question. AWS Network Firewall offers more advanced stateful inspection and centralized policy enforcement capabilities beyond what security groups can provide for complex micro-segmentation scenarios.\n\nOption D (incorrect) is Configure NACLs at subnet level with specific ingress and egress rules for each tier. Network Access Control Lists (NACLs) provide stateless packet filtering at the subnet level. While they can enforce basic network segmentation and control communication, they are less flexible and harder to manage for complex application interactions due to their stateless nature (meaning they do not track connection state, requiring separate rules for ingress and egress of the same traffic stream). They are also not as suitable for achieving fine-grained micro-segmentation compared to security groups or stateful firewalls. Similar to option B, NACLs themselves do not provide \"detailed network flow visibility for security analysis\"; this would require enabling VPC Flow Logs separately.' WHERE id = 'b3e79efd-52aa-49d9-9a01-0cb24d5663a6'; -- CORRECTED EXPLANATION"
+    ]
+  },
+  {
+    "question_id": "a0b1dff9-6b1a-4f82-ab91-cb85d10b7bc6",
+    "mock_test_id": "aws_saa_mock2_abc123",
+    "error": "Validation failed: Kimi model requested but KIMI_API_KEY not configured in .env",
+    "reason": null,
+    "original_answer": [
+      0
+    ],
+    "corrected_answer": null,
+    "correct_answer_valid": false,
+    "actual_correct_index": null,
+    "explanation_valid": false,
+    "explanation_issues": null,
+    "question_data": {
+      "question_text": "A compliance-driven organization requires immutable audit logs with tamper-proof storage and long-term retention. The logs must be immediately accessible for investigations but cost-optimized for long",
+      "options": [
+        "CloudTrail with S3 Object Lock and lifecycle transitions to Glacier Deep Archive",
+        "CloudWatch Logs with log retention and encryption at rest",
+        "VPC Flow Logs with S3 storage and access control policies",
+        "Custom logging with encrypted storage and backup procedures"
+      ],
+      "correct_answer": [
+        0
+      ],
+      "explanation": "**CORRECT ANSWER: Option A (Index 0)**\n\nCloudTrail provides comprehensive audit logging, S3 Object Lock ensures immutable storage for compliance, and lifecycle policies optimize costs by transitioning"
+    },
+    "sql_updates": [
+      "UPDATE public.mock_test_questions SET explanation = E'Option A (correct) is CloudTrail with S3 Object Lock and lifecycle transitions to Glacier Deep Archive. This architecture directly addresses all requirements. CloudTrail provides comprehensive, immutable audit logs of AWS API activity. S3 Object Lock enforces WORM (Write Once Read Many) immutability and tamper-proofing for the logs stored in S3. S3 itself provides immediate accessibility for current logs. Lifecycle transitions to Glacier Deep Archive offer highly cost-optimized long-term retention for older logs, while still allowing eventual retrieval for investigations.\n\nOption B (incorrect) is CloudWatch Logs with log retention and encryption at rest. While CloudWatch Logs can store logs and offers retention, it does not inherently provide the same level of immutability and tamper-proofing (like WORM) for audit logs as CloudTrail combined with S3 Object Lock. Encryption at rest secures data but doesn''t prevent modification or deletion in the same way S3 Object Lock does. Furthermore, CloudWatch Logs'' long-term storage is generally more expensive than Glacier Deep Archive for very long retention periods.\n\nOption C (incorrect) is VPC Flow Logs with S3 storage and access control policies. VPC Flow Logs are specific to network traffic and do not provide the comprehensive audit trails of AWS API calls or other system events required for general compliance. While S3 provides storage, without S3 Object Lock, it does not guarantee immutability or tamper-proofing, and access control policies manage permissions but not the intrinsic immutability of the data itself.\n\nOption D (incorrect) is Custom logging with encrypted storage and backup procedures. While custom solutions can be built, this option places the entire burden of ensuring immutability, tamper-proofing, immediate accessibility, cost-optimization, and long-term retention on the organization to design and implement. It''s a generic approach that doesn''t leverage purpose-built cloud services to inherently meet the specific compliance requirements in a robust and cost-effective manner compared to option A. Encrypted storage and backup procedures alone do not guarantee WORM immutability or the cost-efficiency of specialized archive tiers.' WHERE id = 'a0b1dff9-6b1a-4f82-ab91-cb85d10b7bc6'; -- CORRECTED EXPLANATION"
+    ]
+  },
+  {
+    "question_id": "6afed103-02f1-4a70-9bcc-04bebc80590d",
+    "mock_test_id": "aws_saa_mock2_abc123",
+    "error": "Validation failed: Kimi model requested but KIMI_API_KEY not configured in .env",
+    "reason": null,
+    "original_answer": [
+      3
+    ],
+    "corrected_answer": null,
+    "correct_answer_valid": false,
+    "actual_correct_index": null,
+    "explanation_valid": false,
+    "explanation_issues": null,
+    "question_data": {
+      "question_text": "A multi-tenant application requires tenant-specific data encryption with individual key management and compliance tracking. Each tenant should control their own encryption keys while maintaining appli",
+      "options": [
+        "Application-level encryption with tenant-specific KMS keys and envelope encryption",
+        "Database-level encryption with shared keys and access logging",
+        "Client-side encryption with tenant-managed keys and secure key exchange",
+        "AWS KMS with customer-managed keys and tenant-specific IAM policies"
+      ],
+      "correct_answer": [
+        3
+      ],
+      "explanation": "**CORRECT ANSWER: Option D (Index 3)**\n\nAWS KMS with customer-managed keys per tenant provides secure key isolation, while tenant-specific IAM policies ensure proper access controls and compliance tra"
+    },
+    "sql_updates": [
+      "UPDATE public.mock_test_questions SET explanation = E'Option D (correct) is AWS KMS with customer-managed keys and tenant-specific IAM policies. This strategy directly addresses all requirements. AWS Key Management Service (KMS) is a managed service for creating and controlling encryption keys, offering high availability and performance. Using Customer-Managed Keys (CMKs) means each tenant can have their own unique encryption key, which can be created and managed under their explicit control (or controlled by the application on their behalf with specific authorization). Tenant-specific IAM policies are critical for isolation; they ensure that the multi-tenant application can only access the CMK belonging to the current tenant, preventing unauthorized access to other tenants'' data. This setup provides robust individual key management, allows tenants to control their keys (e.g., via cross-account key policies or controlled by the application based on tenant identity), enables compliance tracking (via AWS CloudTrail logs of key usage), and maintains application performance due to KMS''s optimized design.\n\nOption A (incorrect) is Application-level encryption with tenant-specific KMS keys and envelope encryption. While this is a very good approach and shares similarities with the correct answer, Option D provides a more complete and robust solution for the specific requirements of tenant control and isolation. Option A describes the *mechanism* (application encryption using KMS and envelope encryption) but is less explicit on *how* tenant control and isolation are guaranteed compared to Option D''s explicit mention of \"Customer-Managed Keys\" (CMKs) and, critically, \"tenant-specific IAM policies.\" CMKs provide a higher degree of granular control and ownership within KMS, and tenant-specific IAM policies are the explicit mechanism that ensures only the correct tenant''s key is accessed and controlled, thereby ensuring tenant isolation and meeting the \"tenant should control their own encryption keys\" requirement.\n\nOption B (incorrect) is Database-level encryption with shared keys and access logging. The use of \"shared keys\" is a direct contradiction to the requirement for \"tenant-specific data encryption with individual key management.\" If keys are shared across tenants, there is no cryptographic isolation between their data. A compromise of the shared key would expose data for all tenants, violating the core principle of tenant isolation.\n\nOption C (incorrect) is Client-side encryption with tenant-managed keys and secure key exchange. While client-side encryption offers the strongest form of cryptographic isolation (the application server never sees plaintext), it introduces significant operational complexity and can severely impact application performance and functionality. Implementing client-side encryption typically requires complex key management, secure key storage, and encryption/decryption logic directly within each client application, which can be challenging to manage across diverse client platforms or for web applications. Furthermore, it might limit server-side functionalities that require processing of decrypted data (e.g., complex queries, search, data analysis), making it less suitable for a general \"multi-tenant application\" requirement where the application itself needs to interact with the data while maintaining performance.' WHERE id = '6afed103-02f1-4a70-9bcc-04bebc80590d'; -- CORRECTED EXPLANATION"
+    ]
+  },
+  {
+    "question_id": "9431e311-4344-4c8f-beb1-a8b8693e9741",
+    "mock_test_id": "aws_saa_mock2_abc123",
+    "error": "Validation failed: Kimi model requested but KIMI_API_KEY not configured in .env",
+    "reason": null,
+    "original_answer": [
+      0
+    ],
+    "corrected_answer": null,
+    "correct_answer_valid": false,
+    "actual_correct_index": null,
+    "explanation_valid": false,
+    "explanation_issues": null,
+    "question_data": {
+      "question_text": "A regulated industry application requires end-to-end encryption with customer-controlled keys, hardware security modules, and compliance with strict data sovereignty laws. The solution must support ke",
+      "options": [
+        "CloudHSM with dedicated hardware, custom key management, and comprehensive logging",
+        "KMS with customer-managed keys and automated compliance reporting",
+        "Client-side encryption with customer key management and audit logging",
+        "Database-level encryption with AWS-managed keys and access controls"
+      ],
+      "correct_answer": [
+        0
+      ],
+      "explanation": "**CORRECT ANSWER: Option A (Index 0)**\n\nAWS CloudHSM provides dedicated hardware security modules with customer-exclusive access, supports custom key management and rotation, and delivers comprehensiv"
+    },
+    "sql_updates": [
+      "UPDATE public.mock_test_questions SET explanation = E'Option A (correct) is CloudHSM with dedicated hardware, custom key management, and comprehensive logging. This architecture directly addresses all the stringent requirements. CloudHSM provides dedicated, FIPS 140-2 Level 3 validated hardware security modules (HSMs) where the customer has exclusive control over their encryption keys, satisfying the \"customer-controlled keys\" and \"hardware security modules\" requirements. The dedicated nature of CloudHSM, deployable in specific regions, strongly supports \"strict data sovereignty laws\" by ensuring key material remains within the defined geographical boundaries under customer control. A custom key management system built around CloudHSM allows for flexible \"key rotation\" policies tailored to regulatory needs and facilitates true end-to-end encryption when integrated with client-side applications. Finally, CloudHSM provides \"comprehensive logging\" of all cryptographic operations, which can be integrated with cloud logging services to generate \"detailed audit trails.\"\n\nOption B (incorrect) is KMS with customer-managed keys and automated compliance reporting, which is insufficient for the strictest requirements. While AWS KMS uses HSMs and supports customer-managed keys (CMKs), the underlying HSMs are multi-tenant and managed by AWS, not dedicated to the customer. This can be a point of contention for \"strict data sovereignty laws\" and the interpretation of \"customer-controlled keys\" where the customer does not have root access or full operational control over the HSMs themselves. Although KMS provides automated compliance reporting and audit trails, the level of key control and hardware dedication falls short of the implied strictness.\n\nOption C (incorrect) is Client-side encryption with customer key management and audit logging. While client-side encryption ensures \"end-to-end encryption,\" \"customer key management,\" and \"audit logging,\" this option fails to explicitly address the critical requirement for \"hardware security modules.\" Implementing client-side encryption with customer-controlled keys *could* use HSMs, but the option itself does not specify this crucial component, making it an incomplete solution for the given requirements.\n\nOption D (incorrect) is Database-level encryption with AWS-managed keys and access controls. This option directly contradicts several core requirements. \"AWS-managed keys\" means the customer does not have full control over the encryption keys, violating the \"customer-controlled keys\" mandate. Database-level encryption typically encrypts data at rest within the database, but often does not provide \"end-to-end encryption\" from the application client through to the data''s final storage, as data may be unencrypted in application memory. Furthermore, it does not provide the customer with direct access to or control over dedicated \"hardware security modules.\"' WHERE id = '9431e311-4344-4c8f-beb1-a8b8693e9741'; -- CORRECTED EXPLANATION"
+    ]
+  },
+  {
+    "question_id": "b5400158-66dc-446b-8aeb-782e0aaa9617",
+    "mock_test_id": "aws_saa_mock2_abc123",
+    "error": "Validation failed: Kimi model requested but KIMI_API_KEY not configured in .env",
+    "reason": null,
+    "original_answer": [
+      1
+    ],
+    "corrected_answer": null,
+    "correct_answer_valid": false,
+    "actual_correct_index": null,
+    "explanation_valid": false,
+    "explanation_issues": null,
+    "question_data": {
+      "question_text": "A media streaming service experiences unpredictable traffic with sudden spikes during live events that can increase load by 2000% within seconds. The application must maintain sub-second response time",
+      "options": [
+        "ECS with Fargate and Application Auto Scaling using target tracking policies",
+        "Lambda functions with provisioned concurrency and automatic scaling based on invocation rates",
+        "EC2 Auto Scaling with predictive scaling and mixed instance types including Spot instances",
+        "API Gateway with caching enabled and Lambda integration for serverless processing"
+      ],
+      "correct_answer": [
+        1
+      ],
+      "explanation": "**CORRECT ANSWER: Option B (Index 1)**\n\nLambda with provisioned concurrency can handle extreme scaling within seconds, provides sub-second response times, and optimizes costs by scaling to zero during"
+    },
+    "sql_updates": [
+      "UPDATE public.mock_test_questions SET explanation = E'Option B (correct) is Lambda functions with provisioned concurrency and automatic scaling based on invocation rates. This architecture is ideal for handling extreme, unpredictable variability with sudden spikes because Lambda is a serverless, event-driven compute service that can scale virtually infinitely and near-instantaneously to handle vast increases in invocation rates. During normal operations, Lambda functions incur no cost when not executing, making them highly cost-effective and capable of scaling down to zero. Provisioned concurrency is critical for guaranteeing sub-second response times during sudden 2000% spikes by keeping execution environments pre-initialized, eliminating cold start delays, which is essential for maintaining a responsive user experience during live events.\n\nOption A (incorrect) is ECS with Fargate and Application Auto Scaling using target tracking policies. While ECS with Fargate offers a serverless container experience and Application Auto Scaling can respond to metrics, the provisioning and startup time for new Fargate tasks, even if faster than EC2 instances, may still introduce a slight delay that could challenge the \"within seconds\" requirement for a 2000% load increase compared to Lambda''s instant invocation. Furthermore, Fargate''s cost model is based on task duration, making it less granular and potentially less cost-optimal than Lambda''s pay-per-invocation model during periods of very low or zero traffic.\n\nOption C (incorrect) is EC2 Auto Scaling with predictive scaling and mixed instance types including Spot instances. This option is unsuitable because predictive scaling relies on historical data to forecast future traffic, making it ineffective for \"unpredictable traffic with sudden spikes.\" More critically, even with advanced Auto Scaling configurations, launching and fully initializing new EC2 instances takes several seconds to minutes, which makes it impossible to respond to a \"2000% increase within seconds\" while maintaining sub-second response times. While Spot instances help optimize costs, the fundamental instance provisioning delay is a major limitation for this extreme variability scenario.\n\nOption D (incorrect) is API Gateway with caching enabled and Lambda integration for serverless processing. While API Gateway with Lambda is a common serverless pattern, the emphasis on caching is not the primary solution for the extreme variability of the application''s processing load during live events. Caching is effective for repeatable, static, or semi-static requests, but dynamic traffic during live events may have a low cache hit rate, limiting its impact on overall load reduction. The core challenge of scaling the compute workload itself for a 2000% spike within seconds would still fall to the Lambda functions, and without specific mention of provisioned concurrency for Lambda, cold starts could still impact sub-second response times during sudden, unpredicted load.' WHERE id = 'b5400158-66dc-446b-8aeb-782e0aaa9617'; -- CORRECTED EXPLANATION"
+    ]
+  },
+  {
+    "question_id": "4e5c733c-f881-4c1b-8d37-0afd5de50c26",
+    "mock_test_id": "aws_saa_mock2_abc123",
+    "error": "Validation failed: Kimi model requested but KIMI_API_KEY not configured in .env",
+    "reason": null,
+    "original_answer": [
+      0
+    ],
+    "corrected_answer": null,
+    "correct_answer_valid": false,
+    "actual_correct_index": null,
+    "explanation_valid": false,
+    "explanation_issues": null,
+    "question_data": {
+      "question_text": "A social media platform needs to process user-generated content through multiple validation steps including content moderation, virus scanning, and format conversion. Failed processing should trigger ",
+      "options": [
+        "AWS Step Functions with error handling, retry policies, and parallel processing branches",
+        "Amazon SQS with multiple queues and Lambda functions for each processing step",
+        "AWS Batch with job queues and custom retry logic for failed processing steps",
+        "EventBridge with custom event routing and Lambda functions for content processing"
+      ],
+      "correct_answer": [
+        0
+      ],
+      "explanation": "**CORRECT ANSWER: Option A (Index 0)**\n\nAWS Step Functions provide visual workflow orchestration with built-in error handling, retry policies with exponential backoff, and support for parallel process"
+    },
+    "sql_updates": [
+      "UPDATE public.mock_test_questions SET explanation = E'Option A (correct) is AWS Step Functions with error handling, retry policies, and parallel processing branches. AWS Step Functions is a serverless workflow service that allows you to define complex, multi-step processes as state machines. It is explicitly designed for orchestrating distributed applications and microservices, making it ideal for managing sequential or parallel processing steps like content moderation, virus scanning, and format conversion. Step Functions provides native capabilities for defining error handling mechanisms, including automatic retries with configurable exponential backoff, which directly addresses the requirement for failed processing. Its visual workflow editor and built-in state management simplify the creation, monitoring, and debugging of robust pipelines.\n\nOption B (incorrect) is Amazon SQS with multiple queues and Lambda functions for each processing step, which is a common pattern for building decoupled, event-driven pipelines. While SQS and Lambda can handle parts of this workflow, SQS is primarily a message queuing service and Lambda is a compute service. Implementing complex workflow orchestration, state management between steps, conditional logic, and robust retry mechanisms with exponential backoff at the *workflow level* would require significant custom code within the Lambda functions or an external orchestrator. SQS handles retries for message delivery, but not for orchestrating the overall multi-step processing sequence intelligently when a *step* fails.\n\nOption C (incorrect) is AWS Batch with job queues and custom retry logic for failed processing steps. AWS Batch is designed for running batch computing workloads, typically containerized applications that perform a single, compute-intensive task. While it can execute processing steps (e.g., a virus scan job, a conversion job), AWS Batch itself is not an orchestrator for multi-step workflows. Managing the sequential flow between different processing steps, passing intermediate results, and implementing comprehensive workflow-level error handling and exponential backoff across a pipeline of distinct Batch jobs would necessitate an external orchestration layer, such as AWS Step Functions, or extensive custom scripting.\n\nOption D (incorrect) is EventBridge with custom event routing and Lambda functions for content processing. EventBridge is an event bus service that facilitates the routing of events between various AWS services and applications. It is excellent for building decoupled, event-driven architectures where one action triggers another. However, EventBridge does not inherently provide state management or complex workflow orchestration capabilities for multi-step processes. While it can trigger Lambda functions in sequence by emitting custom events, implementing robust workflow-level retries with exponential backoff for a *failed processing step* within a larger, stateful pipeline, and managing the overall progress of the content through multiple validation steps, would require substantial custom logic within the Lambda functions or another orchestration service. It handles event delivery retries, not the intelligent retrying of a workflow step.' WHERE id = '4e5c733c-f881-4c1b-8d37-0afd5de50c26'; -- CORRECTED EXPLANATION"
+    ]
+  },
+  {
+    "question_id": "44644889-3a30-49a8-9f45-008337a56396",
+    "mock_test_id": "aws_saa_mock2_abc123",
+    "error": "Validation failed: Kimi Authentication Failed (401): Invalid API key. Please check KIMI_API_KEY in .env. Response: {'error': {'message': 'Invalid Authentication', 'type': 'invalid_authentication_error'}}",
+    "reason": null,
+    "original_answer": [
+      0
+    ],
+    "corrected_answer": null,
+    "correct_answer_valid": false,
+    "actual_correct_index": null,
+    "explanation_valid": false,
+    "explanation_issues": null,
+    "question_data": {
+      "question_text": "A scientific computing application requires high-performance parallel computing with low-latency interconnect between compute nodes. The workload processes large datasets and requires shared high-spee",
+      "options": [
+        "EC2 instances in cluster placement group with FSx for Lustre shared storage",
+        "ECS with Fargate and EFS for shared file system access",
+        "Lambda functions with S3 for data storage and parallel processing",
+        "Batch processing with EBS volumes and instance store for temporary data"
+      ],
+      "correct_answer": [
+        0
+      ],
+      "explanation": "Option A (correct) EC2 instances in a cluster placement group provide the necessary low-latency, high-bandwidth interconnect between compute nodes, while FSx for Lustre offers a high-performance, shar"
+    },
+    "sql_updates": [
+      "UPDATE public.mock_test_questions SET explanation = E'Option A (correct) is EC2 instances in cluster placement group with FSx for Lustre shared storage. This combination directly addresses all requirements for high-performance computing (HPC). EC2 instances provide the necessary compute power. A cluster placement group ensures that these instances are launched physically close to each other within an Availability Zone, enabling ultra-low-latency, high-bandwidth network communication (up to 25 Gbps or 100 Gbps, depending on instance type), which is critical for tightly coupled parallel computing workloads. FSx for Lustre is a high-performance file system optimized for HPC, machine learning, and other compute-intensive workloads. It provides shared, POSIX-compliant file access with extremely high throughput (hundreds of GB/s) and millions of IOPS, making it ideal for processing large datasets and meeting the demand for shared high-speed storage.\n\nOption B (incorrect) is ECS with Fargate and EFS for shared file system access. While ECS with Fargate simplifies container orchestration and management, it does not offer the fine-grained control over network topology (like cluster placement groups) required for ultra-low-latency inter-node communication essential for tightly coupled HPC applications. Fargate instances are also not typically optimized for the highest network performance between specific peer nodes. Furthermore, Amazon EFS is a general-purpose, elastic file system that provides shared access, but its performance characteristics (throughput and IOPS) are generally not sufficient for the extreme demands of HPC workloads processing large datasets, especially when compared to a specialized parallel file system like FSx for Lustre.\n\nOption C (incorrect) is Lambda functions with S3 for data storage and parallel processing. Lambda functions are stateless, event-driven compute services best suited for short-running, independent tasks. They do not support the persistent, low-latency, high-bandwidth inter-node communication required for tightly coupled parallel HPC. Amazon S3 is object storage, which is highly scalable and durable for large datasets, but it is not a POSIX-compliant file system and does not offer the shared file system semantics or the low-latency, high-throughput access patterns necessary for compute nodes to simultaneously process large datasets in an HPC environment.\n\nOption D (incorrect) is Batch processing with EBS volumes and instance store for temporary data. AWS Batch can orchestrate HPC workloads, but the underlying storage and compute combination is crucial. While EBS volumes offer persistent block storage with good performance, they are typically attached to a single EC2 instance and do not provide shared file system access across multiple compute nodes in a high-performance, concurrent manner. Instance store provides very high I/O performance but is ephemeral and strictly local to a single instance, making it unsuitable for shared, persistent storage of large datasets across a cluster of nodes. Neither EBS nor instance store, in this configuration, addresses the requirement for shared high-speed storage accessible by multiple compute nodes, nor does this option explicitly ensure low-latency interconnect between nodes.' WHERE id = '44644889-3a30-49a8-9f45-008337a56396'; -- CORRECTED EXPLANATION"
+    ]
+  },
+  {
+    "question_id": "44644889-3a30-49a8-9f45-008337a56396",
+    "mock_test_id": "aws_saa_mock2_abc123",
+    "error": "Validation failed: Kimi Authentication Failed (401): Invalid API key. Please check KIMI_API_KEY in .env. Response: {'error': {'message': 'Invalid Authentication', 'type': 'invalid_authentication_error'}}",
+    "reason": null,
+    "original_answer": [
+      0
+    ],
+    "corrected_answer": null,
+    "correct_answer_valid": false,
+    "actual_correct_index": null,
+    "explanation_valid": false,
+    "explanation_issues": null,
+    "question_data": {
+      "question_text": "A scientific computing application requires high-performance parallel computing with low-latency interconnect between compute nodes. The workload processes large datasets and requires shared high-spee",
+      "options": [
+        "EC2 instances in cluster placement group with FSx for Lustre shared storage",
+        "ECS with Fargate and EFS for shared file system access",
+        "Lambda functions with S3 for data storage and parallel processing",
+        "Batch processing with EBS volumes and instance store for temporary data"
+      ],
+      "correct_answer": [
+        0
+      ],
+      "explanation": "Option A (correct) EC2 instances in a cluster placement group provide the necessary low-latency, high-bandwidth interconnect between compute nodes, while FSx for Lustre offers a high-performance, shar"
+    },
+    "sql_updates": [
+      "UPDATE public.mock_test_questions SET explanation = E'Option A (correct) is EC2 instances in cluster placement group with FSx for Lustre shared storage. This combination optimizes HPC performance by providing dedicated compute resources with low-latency inter-node communication and a high-performance parallel file system. EC2 instances can be provisioned with powerful compute-optimized or GPU instances to meet high processing demands. A cluster placement group ensures instances are launched within a single Availability Zone on hardware that supports low-latency network connectivity and high network throughput, which is crucial for tightly coupled parallel computing. FSx for Lustre is a high-performance parallel file system specifically designed for HPC workloads, offering very high throughput and low-latency access to shared datasets, making it ideal for processing large datasets across multiple compute nodes simultaneously.\n\nOption B (incorrect) is ECS with Fargate and EFS for shared file system access, which is not optimal for extreme HPC. Fargate is a serverless compute engine for containers, abstracting away the underlying infrastructure. While convenient, it typically doesn''t offer the same level of granular control over networking or the guaranteed low-latency interconnect that dedicated EC2 instances in a cluster placement group provide, which is critical for tightly coupled HPC applications. EFS is a shared file system but generally provides higher latency and lower aggregate throughput compared to FSx for Lustre, especially for the demanding I/O patterns of large-scale scientific computing applications.\n\nOption C (incorrect) is Lambda functions with S3 for data storage and parallel processing. Lambda functions are serverless, event-driven compute services suitable for highly parallelizable, stateless tasks with short execution times. They are not designed for workloads requiring low-latency inter-node communication, long-running processes, or the ability to directly mount a high-speed shared file system, all of which are common in HPC. S3 is object storage, excellent for data durability and scalability, but it is not a file system and does not provide the low-latency, high-throughput file access semantics necessary for active processing of large datasets by compute nodes in an HPC cluster.\n\nOption D (incorrect) is Batch processing with EBS volumes and instance store for temporary data. While AWS Batch can manage HPC workloads, the storage combination is fundamentally unsuitable for shared high-speed storage across an HPC cluster. EBS volumes are block storage attached to a single EC2 instance (with limited multi-attach functionality, but not a parallel file system). They cannot be simultaneously accessed by multiple compute nodes as a shared file system with the required performance. Instance store provides very high I/O performance but is ephemeral (data is lost upon instance termination or stop) and is local to a single instance, meaning it cannot provide shared storage across the compute nodes of a cluster.' WHERE id = '44644889-3a30-49a8-9f45-008337a56396'; -- CORRECTED EXPLANATION"
+    ]
+  }
+]
